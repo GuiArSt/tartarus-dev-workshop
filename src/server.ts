@@ -49,7 +49,7 @@ export class UnifiedMCPServer {
     // Initialize Journal module if configured
     if (this.config.journal) {
       initDatabase(this.config.journal.dbPath);
-      registerJournalTools(this.server);
+      registerJournalTools(this.server, this.config.journal);
     }
 
     logger.success('Unified MCP Server initialized');

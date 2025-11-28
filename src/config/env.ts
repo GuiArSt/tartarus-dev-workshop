@@ -1,8 +1,15 @@
 import { z } from 'zod';
 import path from 'node:path';
+import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { ConfigurationError } from '../shared/errors.js';
 import { UnifiedConfig } from '../shared/types.js';
 import { logger } from '../shared/logger.js';
+
+// Calculate project root (one level up from dist/)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.join(__dirname, '..');
 
 /**
  * Environment variable schema
@@ -17,6 +24,7 @@ const envSchema = z.object({
   LINEAR_USER_ID: z.string().optional(),
 
   // AI Providers (at least one required for journal)
+  // Priority: Anthropic (preferred) → OpenAI → Google (first one found)
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),
@@ -24,6 +32,7 @@ const envSchema = z.object({
   // Optional settings
   JOURNAL_DB_PATH: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).optional(),
+  SOUL_XML_PATH: z.string().optional(), // Path to Soul.xml (default: Soul.xml in project root)
 });
 
 /**
@@ -54,15 +63,23 @@ export function loadConfig(): UnifiedConfig {
   }
 
   // Configure Journal if AI provider available
+  // Priority: Anthropic (preferred) → OpenAI → Google (first one found)
+  // Models are hardcoded: claude-4.5-sonnet, gpt-5.1, gemini-3
   if (env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY || env.GOOGLE_API_KEY) {
-    const aiProvider = env.ANTHROPIC_API_KEY
-      ? 'anthropic'
-      : env.OPENAI_API_KEY
-      ? 'openai'
-      : 'google';
+    let aiProvider: 'anthropic' | 'openai' | 'google';
+    let aiApiKey: string;
 
-    const aiApiKey =
-      env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY || env.GOOGLE_API_KEY!;
+    // Prefer Anthropic if available, otherwise use first found
+    if (env.ANTHROPIC_API_KEY) {
+      aiProvider = 'anthropic';
+      aiApiKey = env.ANTHROPIC_API_KEY;
+    } else if (env.OPENAI_API_KEY) {
+      aiProvider = 'openai';
+      aiApiKey = env.OPENAI_API_KEY;
+    } else {
+      aiProvider = 'google';
+      aiApiKey = env.GOOGLE_API_KEY!;
+    }
 
     // Default database path: project root (journal.db)
     // Resolves relative to project root where dist/index.js is located

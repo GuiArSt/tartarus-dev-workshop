@@ -15,6 +15,10 @@ dist/
 # Backups (user data, not code)
 journal_backup.sql
 
+# Local Soul.xml (full version, not committed)
+Soul.xml.local
+Soul.xml.full
+
 # Logs
 *.log
 

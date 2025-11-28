@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { toMcpError } from '../../shared/errors.js';
 import { logger } from '../../shared/logger.js';
+import type { JournalConfig } from '../../shared/types.js';
 import { generateJournalEntry } from './ai/generate-entry.js';
 import {
   commitHasEntry,
@@ -38,13 +39,30 @@ const __dirname = path.dirname(__filename);
 
 /**
  * Auto-backup to SQL file after any database change
- * Backs up to project root (journal_backup.sql) - self-contained for public release
+ * Detects if running locally (in Laboratory) or standalone (public)
+ * Local: backs up to Laboratory root
+ * Public: backs up to project root
  */
 function autoBackup() {
   try {
-    // Backup to project root (self-contained - public version)
-    // dist/modules/journal/ -> dist/modules/ -> dist/ -> project root
-    const backupPath = path.join(__dirname, '../../..', 'journal_backup.sql');
+    // Detect if we're in Laboratory (local mode) or standalone (public mode)
+    // Check if we're inside a "Laboratory" directory structure
+    const projectRoot = path.join(__dirname, '../../..');
+    const parentDir = path.dirname(projectRoot);
+    const isLocalMode = path.basename(parentDir) === 'Laboratory' && 
+                        path.basename(projectRoot) === 'Developer Journal Workspace';
+    
+    let backupPath: string;
+    if (isLocalMode) {
+      // Local mode: backup to Laboratory root (shared across projects)
+      // dist/modules/journal/ -> dist/modules/ -> dist/ -> project root -> Laboratory root
+      backupPath = path.join(parentDir, 'journal_backup.sql');
+    } else {
+      // Public mode: backup to project root (self-contained)
+      // dist/modules/journal/ -> dist/modules/ -> dist/ -> project root
+      backupPath = path.join(projectRoot, 'journal_backup.sql');
+    }
+    
     exportToSQL(backupPath);
   } catch (error) {
     logger.error('Failed to auto-backup journal:', error);
@@ -134,8 +152,12 @@ function truncateOutput(text: string): string {
 /**
  * Register Journal tools with the MCP server
  */
-export function registerJournalTools(server: McpServer) {
+export function registerJournalTools(server: McpServer, journalConfig?: JournalConfig) {
   logger.info('Registering Journal tools...');
+  
+  if (!journalConfig) {
+    throw new Error('JournalConfig is required for journal tools');
+  }
 
   // Tool 1: Create Journal Entry
   server.registerTool(
@@ -175,7 +197,7 @@ export function registerJournalTools(server: McpServer) {
           author,
           date,
           raw_agent_report,
-        });
+        }, journalConfig);
 
         // Insert into database
         const entryId = insertJournalEntry({

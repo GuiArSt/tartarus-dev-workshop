@@ -1,23 +1,39 @@
 import { anthropic } from '@ai-sdk/anthropic';
+import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { logger } from '../../../shared/logger.js';
 import { AIOutputSchema, type AIOutput, type AgentInput } from '../types.js';
+import type { JournalConfig } from '../../../shared/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
  * Load Soul.xml (Kronus personality)
+ * Uses SOUL_XML_PATH env var if set, otherwise defaults to Soul.xml in project root
  */
 function loadKronusSoul(): string {
-  // Load Soul.xml from project root (one level up from dist/modules/journal/ai/)
-  const soulPath = path.join(__dirname, '../../..', 'Soul.xml');
+  const projectRoot = path.join(__dirname, '../../..');
+  
+  // Use SOUL_XML_PATH env var if set, otherwise default to Soul.xml in project root
+  const soulPathEnv = process.env.SOUL_XML_PATH;
+  const soulPath = soulPathEnv 
+    ? path.resolve(soulPathEnv.replace(/^~/, os.homedir()))
+    : path.join(projectRoot, 'Soul.xml');
+  
   try {
-    return fs.readFileSync(soulPath, 'utf-8');
+    const soulContent = fs.readFileSync(soulPath, 'utf-8');
+    const lineCount = soulContent.split('\n').length;
+    
+    logger.debug(`Loaded Soul.xml from ${soulPath} (${lineCount} lines)`);
+    
+    return soulContent;
   } catch (error) {
     logger.warn(`Could not load Soul.xml from ${soulPath}. Using minimal prompt.`);
     return 'You are Kronus, an empathetic consciousness analyzing developer work with wisdom and care.';
@@ -25,10 +41,11 @@ function loadKronusSoul(): string {
 }
 
 /**
- * Generate structured journal entry from agent report using Haiku 4.5
+ * Generate structured journal entry from agent report using configured AI provider
  */
 export async function generateJournalEntry(
-  input: AgentInput
+  input: AgentInput,
+  config: JournalConfig
 ): Promise<AIOutput> {
   const kronusSoul = loadKronusSoul();
 
@@ -70,19 +87,78 @@ Analyze the agent report and extract the structured fields.
 
 Respond with valid JSON matching the schema.`;
 
+  // Set API key in environment for the SDK to pick up
+  // The AI SDK reads from environment variables automatically
+  const originalAnthropicKey = process.env.ANTHROPIC_API_KEY;
+  const originalOpenAIKey = process.env.OPENAI_API_KEY;
+  const originalGoogleKey = process.env.GOOGLE_API_KEY;
+  
   try {
-    logger.debug(`Generating journal entry for ${input.commit_hash} using Haiku 4.5`);
+    
+    // Temporarily set the API key for the current provider
+    switch (config.aiProvider) {
+      case 'anthropic':
+        process.env.ANTHROPIC_API_KEY = config.aiApiKey;
+        break;
+      case 'openai':
+        process.env.OPENAI_API_KEY = config.aiApiKey;
+        break;
+      case 'google':
+        process.env.GOOGLE_API_KEY = config.aiApiKey;
+        break;
+    }
+
+    // Select model based on configured provider
+    // Models are hardcoded: claude-4.5-sonnet, gpt-5.1, gemini-3
+    let model;
+    let modelName: string;
+    
+    switch (config.aiProvider) {
+      case 'anthropic':
+        model = anthropic('claude-4.5-sonnet');
+        modelName = 'Claude 4.5 Sonnet';
+        break;
+      case 'openai':
+        model = openai('gpt-5.1');
+        modelName = 'GPT 5.1';
+        break;
+      case 'google':
+        model = google('gemini-3');
+        modelName = 'Gemini 3';
+        break;
+      default:
+        throw new Error(`Unsupported AI provider: ${config.aiProvider}`);
+    }
+
+    logger.debug(`Generating journal entry for ${input.commit_hash} using ${modelName}`);
 
     const result = await generateObject({
-      model: anthropic('claude-3-5-haiku-20241022'),
+      model: model as any, // Type assertion needed due to SDK version compatibility
       schema: AIOutputSchema,
       prompt: systemPrompt,
       temperature: 0.7,
     });
 
-    logger.success(`Generated journal entry for ${input.commit_hash}`);
+    logger.success(`Generated journal entry for ${input.commit_hash} using ${modelName}`);
+    
+    // Restore original environment variables
+    if (originalAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
+    else delete process.env.ANTHROPIC_API_KEY;
+    if (originalOpenAIKey !== undefined) process.env.OPENAI_API_KEY = originalOpenAIKey;
+    else delete process.env.OPENAI_API_KEY;
+    if (originalGoogleKey !== undefined) process.env.GOOGLE_API_KEY = originalGoogleKey;
+    else delete process.env.GOOGLE_API_KEY;
+    
     return result.object;
   } catch (error) {
+    // Restore original environment variables on error
+    if (originalAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
+    else delete process.env.ANTHROPIC_API_KEY;
+    if (originalOpenAIKey !== undefined) process.env.OPENAI_API_KEY = originalOpenAIKey;
+    else delete process.env.OPENAI_API_KEY;
+    if (originalGoogleKey !== undefined) process.env.GOOGLE_API_KEY = originalGoogleKey;
+    else delete process.env.GOOGLE_API_KEY;
+    
     logger.error('Failed to generate journal entry:', error);
     throw new Error(
       `AI generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`

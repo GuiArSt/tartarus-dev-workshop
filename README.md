@@ -2,6 +2,8 @@
 
 **An MCP server that transforms your git commits into structured, AI-powered developer journals.**
 
+> **Note**: Configure backup location via `JOURNAL_DB_PATH` and Soul.xml path via `SOUL_XML_PATH` environment variables.
+
 Capture the *why* behind your code, document decisions, track technologies, and preserve the wisdom that emerges from your work—all automatically analyzed and stored for future reference.
 
 ## 🎯 What We're Building
@@ -32,7 +34,7 @@ Traditional commit messages rarely capture this context. This journal system use
 2. **The agent calls** `journal_create_entry` with:
    - Git metadata (commit hash, repository, branch, author, date)
    - A raw report of what was done (the agent's own summary)
-3. **Kronus analyzes** the commit using Claude Haiku 4.5 with a specialized persona
+3. **Kronus analyzes** the commit using the configured AI provider (Claude 4.5 Sonnet preferred, GPT 5.1, or Gemini 3) with a specialized persona
 4. **Structured data is extracted**:
    - **Why**: The motivation and problem being solved
    - **What Changed**: Concrete modifications made
@@ -217,8 +219,15 @@ Replace `/absolute/path/to/` with your actual installation path.
 The Journal module requires at least one AI provider:
 
 - **Anthropic (Recommended)**: Get API key from [console.anthropic.com](https://console.anthropic.com)
+  - Uses **Claude 4.5 Sonnet** (hardcoded)
 - **OpenAI**: Get API key from [platform.openai.com](https://platform.openai.com)
+  - Uses **GPT 5.1** (hardcoded)
 - **Google**: Get API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+  - Uses **Gemini 3** (hardcoded)
+
+**Provider Priority**: Anthropic (preferred) → OpenAI → Google (first API key found)
+
+**Note**: Models are hardcoded and cannot be overridden. The system automatically selects the first available provider in priority order.
 
 ## 📚 Usage Examples
 
@@ -300,7 +309,12 @@ Each entry includes `attachment_count` showing how many files are attached.
 - **Database**: SQLite stored at `journal.db` in project root by default (configurable via `JOURNAL_DB_PATH` env var)
 - **Auto-backup**: Automatically backs up to `journal_backup.sql` in project root after any database change
 - **Export**: All entries, project summaries, and attachment metadata are included in backups
-- **Backup location**: `journal_backup.sql` in the project root directory (self-contained)
+
+## 🧠 Soul.xml Configuration
+
+The Kronus persona is defined in `Soul.xml`. By default, uses `Soul.xml` in project root.
+
+**To use a custom Soul.xml file**: Set `SOUL_XML_PATH` in your `.env` file (e.g., `SOUL_XML_PATH=./Soul.xml.local`)
 
 The database is self-contained in your project root, making it easy to:
 - Version control the backup SQL file
@@ -377,4 +391,4 @@ This is a public release of a developer journaling system. Feel free to fork, cu
 
 ---
 
-**Built with**: TypeScript, Node.js, SQLite, Claude Haiku 4.5, Model Context Protocol
+**Built with**: TypeScript, Node.js, SQLite, Claude 4.5 Sonnet / GPT 5.1 / Gemini 3, Model Context Protocol
