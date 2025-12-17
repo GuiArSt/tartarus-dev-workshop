@@ -1,18 +1,25 @@
 # Developer Journal Workspace
 
-**An MCP server that transforms your git commits into structured, AI-powered developer journals.**
+**A dual-interface platform (MCP server + web app) that transforms your git commits into structured, AI-powered developer journals.**
 
-> **Note**: Configure backup location via `JOURNAL_DB_PATH` and Soul.xml path via `SOUL_XML_PATH` environment variables.
+> **Note**: Configure database location via `JOURNAL_DB_PATH` and Soul.xml path via `SOUL_XML_PATH` environment variables.
 
 Capture the *why* behind your code, document decisions, track technologies, and preserve the wisdom that emerges from your work—all automatically analyzed and stored for future reference.
 
-## 🎯 What We're Building
+## 🎯 What This Is
 
-This is a **Model Context Protocol (MCP) server** that enables any AI agent to create structured developer journals from git commits. Instead of losing context in commit messages or scattered notes, you get:
+A **two-part system** for developer journaling:
 
-- **Structured documentation** of every commit
-- **AI-powered analysis** that extracts meaning, decisions, and insights
-- **Knowledge preservation** that survives beyond your memory
+1. **MCP Server (v2.0.0)** - 10 read-focused tools that enable AI agents (Claude, Cursor, etc.) to create and query journal entries
+2. **Tartarus Web App** - A dark, mythological-themed dashboard for browsing, editing, and enriching your journal
+
+### What You Get
+
+- **Structured documentation** of every commit via MCP
+- **AI-powered analysis** by Kronus (Claude Haiku 4.5) that extracts meaning, decisions, and insights
+- **Rich web interface** for browsing repositories, reading entries, and managing content
+- **Kronus Chat** - Interactive AI conversations about your entries
+- **Atropos Spellchecker** - AI-powered text correction with git-style diff view and learning memory
 - **Rich attachments** for diagrams, images, and documentation
 - **Project summaries** that capture high-level architecture and decisions
 
@@ -108,29 +115,44 @@ Each attachment includes:
 
 ## 🚀 Features
 
-### 📝 Developer Journal (16 Tools)
+### 📝 MCP Server - Journal Tools (10 Tools)
 
-- **Entry Management**: Create, retrieve, list, and edit journal entries
-- **AI Analysis**: Kronus-powered structured extraction from commit reports
-- **Project Summaries**: High-level project documentation
-- **Attachments**: Rich media support with descriptions
-- **Repository Management**: List repositories, branches, rename repositories
-- **Pagination**: All list operations support pagination for large datasets
-- **MCP Truncation Compliant**: All tools respect common MCP limits (~256 lines / 10 KiB)
+The MCP server provides **read-focused** tools for AI agents:
 
-### 💬 Slack Integration (4 Tools)
+- **`journal_create_entry`** - Create entries with AI analysis (Kronus)
+- **`journal_get_entry`** - Retrieve a single entry by commit hash
+- **`journal_list_by_repository`** - List entries for a repository (paginated)
+- **`journal_list_by_branch`** - List entries for a specific branch (paginated)
+- **`journal_list_repositories`** - List all repositories with entries
+- **`journal_list_branches`** - List branches for a repository
+- **`journal_get_project_summary`** - Get high-level project summary
+- **`journal_list_project_summaries`** - List all project summaries (paginated)
+- **`journal_list_attachments`** - List attachments for an entry
+- **`journal_get_attachment`** - Get attachment metadata/data
 
-- List channels with pagination
-- Post messages to channels
-- Reply to message threads
-- Read channel history
+> **Note**: Write/edit operations (editing entries, managing attachments, project summaries) are handled by the Tartarus web app for a richer editing experience.
 
-### 📋 Linear Integration (5 Tools)
+### 🌑 Tartarus Web App
 
-- Get your user info and teams
-- List issues with powerful filtering
-- Create issues with full field support
-- Update issues (status, description, priority, assignee)
+A dark, mythological-themed dashboard with teal/gold accents:
+
+- **Repository Browser** - Browse all your projects and their entries
+- **Journal Reader** - Read entries with full formatting, edit inline with tag management
+- **Kronus Chat** - Have AI conversations about your journal entries
+- **Atropos Spellchecker** - AI text correction with:
+  - Git-style diff view showing exactly what changed
+  - Learning memory that adapts to your writing style
+  - Intent clarification for ambiguous corrections
+- **Project Summaries** - Create and edit high-level project documentation
+- **Attachment Management** - Upload and manage images, diagrams, PDFs
+- **Linear Integration** - Link journal entries to Linear projects/issues
+
+### 📋 Linear Integration
+
+Available through the web app:
+- Link journal repositories to Linear projects/issues
+- View Linear integration status in project summaries
+- Use `linear_project_id` and `linear_issue_id` fields
 
 ## 📦 Installation
 
@@ -148,54 +170,131 @@ npm run build
 
 ### 3. Configure Environment
 
-Copy `.env.example` to `.env` and configure at least one module:
+You can configure environment variables in two ways:
 
+**Option A: Using .env file (recommended for local development)**
 ```bash
 cp .env.example .env
 # Edit .env with your credentials
 ```
 
+**Option B: Pass env vars in MCP config** (see step 4 below)
+
 **Required for Journal module:** At least one AI provider (Anthropic, OpenAI, or Google)
+
+**Note**: If using `.env` file, you can skip the `env` section in MCP config. If passing env vars in MCP config, the `.env` file is optional.
 
 ### 4. Add to Your MCP Client Configuration
 
-The configuration format depends on your MCP client. Here are examples for common clients:
+**📝 Important**: Replace `/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace` with your actual installation path in all configs below.
 
-**Cursor** (`~/.cursor/mcp.json`):
+The server automatically loads `.env` from the project root, so you don't need to specify environment variables in the config files below.
+
+---
+
+#### **Cursor** (`~/.cursor/mcp.json`)
+
 ```json
 {
   "mcpServers": {
     "developer-journal": {
       "command": "node",
-      "args": ["/absolute/path/to/Developer Journal Workspace/dist/index.js"],
-      "env": {
-        "ANTHROPIC_API_KEY": "sk-ant-...",
-        "LINEAR_API_KEY": "lin_api_...",
-        "SLACK_BOT_TOKEN": "xoxb-..."
-      }
+      "args": ["/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
     }
   }
 }
 ```
 
-**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+---
+
+#### **Claude Desktop** 
+
+**macOS** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
     "developer-journal": {
       "command": "node",
-      "args": ["/absolute/path/to/Developer Journal Workspace/dist/index.js"],
-      "env": {
-        "ANTHROPIC_API_KEY": "sk-ant-...",
-        "LINEAR_API_KEY": "lin_api_...",
-        "SLACK_BOT_TOKEN": "xoxb-..."
-      }
+      "args": ["/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/` with your actual installation path.
+**Windows** (`%APPDATA%\Claude\claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "developer-journal": {
+      "command": "node",
+      "args": ["C:\\Users\\YourUsername\\Documents\\Software\\Laboratory\\Developer Journal Workspace\\dist\\index.js"]
+    }
+  }
+}
+```
+
+**Linux** (`~/.config/Claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "developer-journal": {
+      "command": "node",
+      "args": ["/home/yourusername/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
+    }
+  }
+}
+```
+
+---
+
+#### **VS Code with MCP Extension**
+
+If using an MCP extension for VS Code, add to your VS Code settings (`settings.json`):
+
+```json
+{
+  "mcp.servers": {
+    "developer-journal": {
+      "command": "node",
+      "args": ["/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
+    }
+  }
+}
+```
+
+---
+
+#### **Google AI Studio / Gemini** (if MCP support is available)
+
+```json
+{
+  "mcpServers": {
+    "developer-journal": {
+      "command": "node",
+      "args": ["/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
+    }
+  }
+}
+```
+
+---
+
+#### **Other MCP Clients**
+
+For any other MCP client, use this standard format:
+
+```json
+{
+  "mcpServers": {
+    "developer-journal": {
+      "command": "node",
+      "args": ["/absolute/path/to/Developer Journal Workspace/dist/index.js"]
+    }
+  }
+}
+```
+
+**Note**: If your MCP client doesn't support loading `.env` files automatically, you can add an `env` section to the config with your environment variables (see `.env.example` for available variables).
 
 ## 🔧 Module Setup
 
@@ -309,6 +408,27 @@ Each entry includes `attachment_count` showing how many files are attached.
 - **Database**: SQLite stored at `journal.db` in project root by default (configurable via `JOURNAL_DB_PATH` env var)
 - **Auto-backup**: Automatically backs up to `journal_backup.sql` in project root after any database change
 - **Export**: All entries, project summaries, and attachment metadata are included in backups
+- **Migration**: The database uses `CREATE TABLE IF NOT EXISTS`, so your existing database will work without any changes. Schema migrations (like adding new columns) happen automatically.
+
+### Using an Existing Database
+
+If you have an existing database from a previous installation (e.g., from `mcp-unified-workspace`), you can point to it:
+
+**Option 1: Set `JOURNAL_DB_PATH` in `.env`**
+```bash
+# Point to your old database location
+JOURNAL_DB_PATH=~/.mcp-unified/journal.db
+# Or use an absolute path
+JOURNAL_DB_PATH=/path/to/your/existing/journal.db
+```
+
+**Option 2: Copy your database to the new location**
+```bash
+# Copy your old database to the new project root
+cp ~/.mcp-unified/journal.db "/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/journal.db"
+```
+
+The app will automatically migrate your database schema if needed (e.g., adding new columns like `description` to attachments).
 
 ## 🧠 Soul.xml Configuration
 
@@ -337,10 +457,8 @@ npm start
 
 ## 📊 Tool Count
 
-- **Slack**: 4 tools
-- **Linear**: 5 tools
-- **Journal**: 16 tools
-- **Total**: 25 tools
+- **MCP Server Journal Tools**: 10 tools (read-focused)
+- **Web App Features**: Repository browser, Journal reader, Kronus chat, Atropos spellchecker, Project summaries, Attachments
 
 ## 🔒 MCP Truncation Compliance
 
@@ -389,6 +507,20 @@ MIT
 
 This is a public release of a developer journaling system. Feel free to fork, customize, and adapt it to your needs!
 
+## 🖥️ Running the Web App
+
+The Tartarus web app is built with Next.js:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Then open [http://localhost:3000](http://localhost:3000).
+
+The web app shares the same SQLite database as the MCP server, so all your journal entries are immediately available.
+
 ---
 
-**Built with**: TypeScript, Node.js, SQLite, Claude 4.5 Sonnet / GPT 5.1 / Gemini 3, Model Context Protocol
+**Built with**: TypeScript, Node.js, Next.js, SQLite, Claude Haiku 4.5, AI SDK, Model Context Protocol

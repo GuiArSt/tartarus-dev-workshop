@@ -11,7 +11,8 @@ export interface LinearTeam {
 export interface LinearProject {
   id: string;
   name: string;
-  description?: string;
+  description?: string; // Plain text description from Linear
+  content?: string; // Rich text content (markdown/Prosemirror) with images and formatting
 }
 
 export interface LinearIssue {
@@ -57,4 +58,11 @@ export interface UpdateIssueInput {
   priority?: number;
   stateId?: string;
   assigneeId?: string;
+}
+
+export interface UpdateProjectInput {
+  projectId: string;
+  name?: string;
+  description?: string;
+  content?: string; // Rich text content (markdown/Prosemirror) with images and formatting
 }

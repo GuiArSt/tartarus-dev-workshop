@@ -7,6 +7,7 @@ import type {
   LinearIssue,
   CreateIssueInput,
   UpdateIssueInput,
+  UpdateProjectInput,
 } from './types.js';
 
 /**
@@ -35,6 +36,14 @@ export class LinearClient {
       // Get all projects the user has access to
       const allProjects = await this.sdk.projects();
 
+      // Content is available directly from projects() query
+      const projectsWithData = allProjects.nodes.map((project) => ({
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        content: (project as any).content || undefined,
+      }));
+
       return {
         id: viewer.id,
         name: viewer.name,
@@ -44,11 +53,7 @@ export class LinearClient {
           name: team.name,
           key: team.key,
         })),
-        projects: allProjects.nodes.map((project) => ({
-          id: project.id,
-          name: project.name,
-          description: project.description,
-        })),
+        projects: projectsWithData,
       };
     } catch (error) {
       throw new LinearAPIError(
@@ -82,10 +87,12 @@ export class LinearClient {
       // Fetch all projects (Linear SDK doesn't support team filtering on projects easily)
       const projectsQuery = await this.sdk.projects();
 
+      // Content is available directly from projects() query
       return projectsQuery.nodes.map((project) => ({
         id: project.id,
         name: project.name,
         description: project.description,
+        content: (project as any).content || undefined,
       }));
     } catch (error) {
       throw new LinearAPIError(
@@ -236,6 +243,66 @@ export class LinearClient {
     } catch (error) {
       throw new LinearAPIError(
         `Failed to update issue: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error
+      );
+    }
+  }
+
+  async updateProject(input: UpdateProjectInput): Promise<LinearProject> {
+    try {
+      logger.debug(`Updating Linear project: ${input.projectId}`);
+
+      // Use GraphQL mutation directly as the SDK's project.update() has issues
+      const updateInput: any = {};
+      if (input.name) updateInput.name = input.name;
+      if (input.description !== undefined) updateInput.description = input.description;
+      if (input.content !== undefined) updateInput.content = input.content;
+
+      const result = await this.sdk.client.request<{
+        projectUpdate: {
+          success: boolean;
+          project: {
+            id: string;
+            name: string;
+            description: string | null;
+            content: string | null;
+          };
+        };
+      }>(
+        `
+        mutation projectUpdate($id: String!, $input: ProjectUpdateInput!) {
+          projectUpdate(id: $id, input: $input) {
+            success
+            project {
+              id
+              name
+              description
+              content
+            }
+          }
+        }
+      `,
+        {
+          id: input.projectId,
+          input: updateInput,
+        }
+      );
+
+      if (!result.projectUpdate?.success || !result.projectUpdate.project) {
+        throw new LinearAPIError('Failed to update project: No project returned');
+      }
+
+      const updatedProject = result.projectUpdate.project;
+
+      return {
+        id: updatedProject.id,
+        name: updatedProject.name,
+        description: updatedProject.description || undefined,
+        content: updatedProject.content || undefined,
+      };
+    } catch (error) {
+      throw new LinearAPIError(
+        `Failed to update project: ${error instanceof Error ? error.message : 'Unknown error'}`,
         error
       );
     }

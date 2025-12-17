@@ -5,15 +5,19 @@ import { logger } from './shared/logger.js';
 import type { UnifiedConfig } from './shared/types.js';
 
 // Module imports
-import { SlackClient } from './modules/slack/client.js';
-import { registerSlackTools } from './modules/slack/tools.js';
-import { LinearClient } from './modules/linear/client.js';
-import { registerLinearTools } from './modules/linear/tools.js';
 import { initDatabase } from './modules/journal/db/database.js';
 import { registerJournalTools } from './modules/journal/tools.js';
 
 /**
- * Unified MCP Server combining Slack, Linear, and Developer Journal
+ * Developer Journal MCP Server
+ *
+ * A lightweight MCP server focused on journal entries:
+ * - Create entries with AI-generated summaries (Kronus)
+ * - Read entries, repositories, branches, project summaries
+ * - View attachments
+ *
+ * Write/edit operations for entries, project summaries, and attachments
+ * are handled by the web app (Tartarus).
  */
 export class UnifiedMCPServer {
   private server: McpServer;
@@ -21,43 +25,30 @@ export class UnifiedMCPServer {
 
   constructor() {
     this.server = new McpServer({
-      name: 'unified-workspace-mcp',
-      version: '1.0.0',
+      name: 'developer-journal-mcp',
+      version: '2.0.0',
     });
 
     this.config = loadConfig();
   }
 
   async initialize() {
-    logger.info('Initializing Unified MCP Server...');
-
-    // Initialize Slack module if configured
-    if (this.config.slack) {
-      const slackClient = new SlackClient(
-        this.config.slack.botToken,
-        this.config.slack.teamId
-      );
-      registerSlackTools(this.server, slackClient);
-    }
-
-    // Initialize Linear module if configured
-    if (this.config.linear) {
-      const linearClient = new LinearClient(this.config.linear.apiKey);
-      registerLinearTools(this.server, linearClient, this.config.linear.userId);
-    }
+    logger.info('Initializing Developer Journal MCP Server...');
 
     // Initialize Journal module if configured
     if (this.config.journal) {
       initDatabase(this.config.journal.dbPath);
       registerJournalTools(this.server, this.config.journal);
+    } else {
+      logger.warn('No journal configuration found. Set JOURNAL_DB_PATH or ANTHROPIC_API_KEY.');
     }
 
-    logger.success('Unified MCP Server initialized');
+    logger.success('Developer Journal MCP Server initialized (10 tools)');
   }
 
   async connect() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    logger.success('Unified MCP Server connected via stdio');
+    logger.success('Developer Journal MCP Server connected via stdio');
   }
 }

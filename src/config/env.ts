@@ -1,24 +1,51 @@
 import { z } from 'zod';
 import path from 'node:path';
 import os from 'node:os';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfigurationError } from '../shared/errors.js';
 import { UnifiedConfig } from '../shared/types.js';
 import { logger } from '../shared/logger.js';
 
-// Calculate project root (one level up from dist/)
+// Calculate MCP server installation directory
+// Use import.meta.url to find where the code is located, not where it's executed from
+// This ensures database/backups are always in the MCP server's directory, not the agent's working directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.join(__dirname, '..');
+
+// Walk up from dist/config/env.js or dist/index.js to find project root (where package.json is)
+let PROJECT_ROOT = __dirname;
+for (let i = 0; i < 5; i++) {
+  if (path.basename(PROJECT_ROOT) === 'Developer Journal Workspace' && 
+      (fs.existsSync(path.join(PROJECT_ROOT, 'package.json')) || 
+       fs.existsSync(path.join(PROJECT_ROOT, 'Soul.xml')))) {
+    break;
+  }
+  const parent = path.dirname(PROJECT_ROOT);
+  if (parent === PROJECT_ROOT) break; // Reached filesystem root
+  PROJECT_ROOT = parent;
+}
+
+// Fallback: if we can't find Developer Journal Workspace, look for package.json
+if (!fs.existsSync(path.join(PROJECT_ROOT, 'package.json')) && 
+    !fs.existsSync(path.join(PROJECT_ROOT, 'Soul.xml'))) {
+  let currentDir = __dirname;
+  for (let i = 0; i < 10; i++) {
+    if (fs.existsSync(path.join(currentDir, 'package.json')) || 
+        fs.existsSync(path.join(currentDir, 'Soul.xml'))) {
+      PROJECT_ROOT = currentDir;
+      break;
+    }
+    const parent = path.dirname(currentDir);
+    if (parent === currentDir) break;
+    currentDir = parent;
+  }
+}
 
 /**
  * Environment variable schema
  */
 const envSchema = z.object({
-  // Slack (optional)
-  SLACK_BOT_TOKEN: z.string().optional(),
-  SLACK_TEAM_ID: z.string().optional(),
-
   // Linear (optional)
   LINEAR_API_KEY: z.string().optional(),
   LINEAR_USER_ID: z.string().optional(),
@@ -30,7 +57,6 @@ const envSchema = z.object({
   GOOGLE_API_KEY: z.string().optional(),
 
   // Optional settings
-  JOURNAL_DB_PATH: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).optional(),
   SOUL_XML_PATH: z.string().optional(), // Path to Soul.xml (default: Soul.xml in project root)
 });
@@ -44,15 +70,6 @@ export function loadConfig(): UnifiedConfig {
     logLevel: env.LOG_LEVEL || 'info',
   };
 
-  // Configure Slack if credentials present
-  if (env.SLACK_BOT_TOKEN && env.SLACK_TEAM_ID) {
-    config.slack = {
-      botToken: env.SLACK_BOT_TOKEN,
-      teamId: env.SLACK_TEAM_ID,
-    };
-    logger.info('Slack module enabled');
-  }
-
   // Configure Linear if credentials present
   if (env.LINEAR_API_KEY) {
     config.linear = {
@@ -64,7 +81,7 @@ export function loadConfig(): UnifiedConfig {
 
   // Configure Journal if AI provider available
   // Priority: Anthropic (preferred) → OpenAI → Google (first one found)
-  // Models are hardcoded: claude-4.5-sonnet, gpt-5.1, gemini-3
+  // Models are hardcoded: claude-opus-4-5, gpt-5.1, gemini-3.0
   if (env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY || env.GOOGLE_API_KEY) {
     let aiProvider: 'anthropic' | 'openai' | 'google';
     let aiApiKey: string;
@@ -81,12 +98,9 @@ export function loadConfig(): UnifiedConfig {
       aiApiKey = env.GOOGLE_API_KEY!;
     }
 
-    // Default database path: project root (journal.db)
-    // Resolves relative to project root where dist/index.js is located
-    // Can be overridden with JOURNAL_DB_PATH env var
-    const defaultDbPath = env.JOURNAL_DB_PATH 
-      ? path.resolve(env.JOURNAL_DB_PATH.replace(/^~/, os.homedir()))
-      : path.join(PROJECT_ROOT, 'journal.db');
+    // Database path: always project root (journal.db)
+    // No environment variable override - always uses project root for simplicity
+    const defaultDbPath = path.join(PROJECT_ROOT, 'journal.db');
     
     config.journal = {
       dbPath: defaultDbPath,
@@ -97,9 +111,9 @@ export function loadConfig(): UnifiedConfig {
   }
 
   // Validate at least one module is configured
-  if (!config.slack && !config.linear && !config.journal) {
+  if (!config.linear && !config.journal) {
     throw new ConfigurationError(
-      'No modules configured. Please set environment variables for at least one module (Slack, Linear, or Journal).'
+      'No modules configured. Please set environment variables for at least one module (Linear or Journal).'
     );
   }
 

@@ -1,0 +1,277 @@
+/**
+ * Database schema definitions and migrations for Repository feature
+ */
+
+import { getDatabase } from "./db";
+
+export interface Document {
+  id: number;
+  slug: string;
+  type: "writing" | "prompt" | "note";
+  title: string;
+  content: string;
+  language: string;
+  metadata: string; // JSON string
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  category: string;
+  magnitude: number; // 1-4
+  description: string;
+  icon?: string;
+  color?: string;
+  url?: string;
+  tags: string; // JSON array as string
+  firstUsed?: string;
+  lastUsed?: string;
+}
+
+export interface WorkExperience {
+  id: string;
+  title: string;
+  company: string;
+  department?: string;
+  location: string;
+  dateStart: string;
+  dateEnd: string | null;
+  tagline: string;
+  note?: string;
+  achievements: string; // JSON array as string
+}
+
+export interface Education {
+  id: string;
+  degree: string;
+  field: string;
+  institution: string;
+  location: string;
+  dateStart: string;
+  dateEnd: string;
+  tagline: string;
+  note?: string;
+  focusAreas: string; // JSON array as string
+  achievements: string; // JSON array as string
+}
+
+export interface MediaAsset {
+  id: number;
+  filename: string;
+  mime_type: string;
+  data: string; // base64 encoded
+  file_size: number;
+  description?: string;
+  prompt?: string; // original generation prompt
+  model?: string; // model used for generation
+  tags: string; // JSON array as string
+  // Linking
+  destination: "journal" | "repository" | "media";
+  commit_hash?: string; // if linked to journal entry
+  document_id?: number; // if linked to repository document
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Initialize Repository tables if they don't exist
+ */
+export function initRepositorySchema() {
+  const db = getDatabase();
+
+  // Documents table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT UNIQUE NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('writing', 'prompt', 'note')),
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      language TEXT DEFAULT 'en',
+      metadata TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(type);
+    CREATE INDEX IF NOT EXISTS idx_documents_language ON documents(language);
+    CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at);
+  `);
+
+  // Skills table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS skills (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      magnitude INTEGER NOT NULL CHECK(magnitude >= 1 AND magnitude <= 4),
+      description TEXT NOT NULL,
+      icon TEXT,
+      color TEXT,
+      url TEXT,
+      tags TEXT DEFAULT '[]',
+      firstUsed TEXT,
+      lastUsed TEXT
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category);
+    CREATE INDEX IF NOT EXISTS idx_skills_magnitude ON skills(magnitude);
+  `);
+
+  // Work Experience table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS work_experience (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      company TEXT NOT NULL,
+      department TEXT,
+      location TEXT NOT NULL,
+      dateStart TEXT NOT NULL,
+      dateEnd TEXT,
+      tagline TEXT NOT NULL,
+      note TEXT,
+      achievements TEXT DEFAULT '[]'
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_work_experience_dateStart ON work_experience(dateStart);
+    CREATE INDEX IF NOT EXISTS idx_work_experience_company ON work_experience(company);
+  `);
+
+  // Education table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS education (
+      id TEXT PRIMARY KEY,
+      degree TEXT NOT NULL,
+      field TEXT NOT NULL,
+      institution TEXT NOT NULL,
+      location TEXT NOT NULL,
+      dateStart TEXT NOT NULL,
+      dateEnd TEXT NOT NULL,
+      tagline TEXT NOT NULL,
+      note TEXT,
+      focusAreas TEXT DEFAULT '[]',
+      achievements TEXT DEFAULT '[]'
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_education_dateStart ON education(dateStart);
+    CREATE INDEX IF NOT EXISTS idx_education_institution ON education(institution);
+  `);
+
+  // Media Assets table (for generated images, uploaded files)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS media_assets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      filename TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      data TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      description TEXT,
+      prompt TEXT,
+      model TEXT,
+      tags TEXT DEFAULT '[]',
+      destination TEXT NOT NULL CHECK(destination IN ('journal', 'repository', 'media')),
+      commit_hash TEXT,
+      document_id INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_media_assets_destination ON media_assets(destination);
+    CREATE INDEX IF NOT EXISTS idx_media_assets_commit_hash ON media_assets(commit_hash);
+    CREATE INDEX IF NOT EXISTS idx_media_assets_created_at ON media_assets(created_at);
+  `);
+
+  // Conversations table (for Kronus chat history)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      messages TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);
+  `);
+
+  // Writing Memory table (for Scribe spellchecker learning) - LEGACY
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS writing_memory (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT DEFAULT 'default',
+
+      -- Typo patterns (JSON array of {mistake, correction, frequency})
+      typo_patterns TEXT DEFAULT '[]',
+
+      -- Style preferences (JSON object)
+      style_preferences TEXT DEFAULT '{}',
+
+      -- Protected terms that should not be "corrected" (JSON array)
+      protected_terms TEXT DEFAULT '["MCP", "Supabase", "Kronus", "Tartarus", "Scribe", "Haiku", "API", "JSON", "SQL", "CLI", "SDK"]',
+
+      -- Usage stats
+      total_checks INTEGER DEFAULT 0,
+      total_corrections INTEGER DEFAULT 0,
+
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_writing_memory_user_id ON writing_memory(user_id);
+  `);
+
+  // Atropos Memory table (for the evolved spellchecker with poem + memory)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS atropos_memory (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT DEFAULT 'default',
+
+      -- Custom dictionary (JSON array of protected words/terms)
+      custom_dictionary TEXT DEFAULT '["MCP", "Supabase", "Kronus", "Tartarus", "Atropos", "Haiku", "API", "JSON", "SQL", "CLI", "SDK", "TypeScript", "JavaScript", "React", "Next.js", "Node.js"]',
+
+      -- Memories/learnings (JSON array of {content, tags[], createdAt})
+      memories TEXT DEFAULT '[]',
+
+      -- Usage stats
+      total_checks INTEGER DEFAULT 0,
+      total_corrections INTEGER DEFAULT 0,
+
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_atropos_memory_user_id ON atropos_memory(user_id);
+  `);
+}
+
+export interface WritingMemory {
+  id: number;
+  user_id: string;
+  typo_patterns: string; // JSON array
+  style_preferences: string; // JSON object
+  protected_terms: string; // JSON array
+  total_checks: number;
+  total_corrections: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TypoPattern {
+  mistake: string;
+  correction: string;
+  frequency: number;
+}
+
+export interface AtroposMemoryRow {
+  id: number;
+  user_id: string;
+  custom_dictionary: string; // JSON array
+  memories: string; // JSON array of {content, tags[], createdAt}
+  total_checks: number;
+  total_corrections: number;
+  created_at: string;
+  updated_at: string;
+}

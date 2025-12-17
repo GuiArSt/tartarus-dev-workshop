@@ -6,27 +6,17 @@ import { generateJournalEntry } from './ai/generate-entry.js';
 import {
   commitHasEntry,
   exportToSQL,
-  getEntriesByBranch,
-  getEntriesByRepository,
   getEntriesByBranchPaginated,
   getEntriesByRepositoryPaginated,
   getEntryByCommit,
   insertJournalEntry,
   listBranches,
   listRepositories,
-  updateJournalEntry,
-  updateRepositoryName,
-  upsertProjectSummary,
   getProjectSummary,
-  listAllProjectSummaries,
   listAllProjectSummariesPaginated,
-  insertAttachment,
-  getAttachmentsByCommit,
   getAttachmentMetadataByCommit,
   getAttachmentById,
-  deleteAttachment,
   getAttachmentStats,
-  updateAttachmentDescription,
   getAttachmentCountsForCommits,
 } from './db/database.js';
 import { AgentInputSchema, ProjectSummaryInputSchema, AttachmentInputSchema } from './types.js';
@@ -34,38 +24,73 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+/**
+ * Get MCP server installation directory (where the code is located)
+ * This is different from process.cwd() which returns where the agent is running from
+ */
+function getProjectRoot(): string {
+  // Use import.meta.url to find where this module is located
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  
+  // Walk up from dist/modules/journal/tools.js to find project root
+  let currentDir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    // Look for Developer Journal Workspace directory with package.json or Soul.xml
+    if (path.basename(currentDir) === 'Developer Journal Workspace' && 
+        (fs.existsSync(path.join(currentDir, 'package.json')) || 
+         fs.existsSync(path.join(currentDir, 'Soul.xml')))) {
+      return currentDir;
+    }
+    const parent = path.dirname(currentDir);
+    if (parent === currentDir) break; // Reached filesystem root
+    currentDir = parent;
+  }
+  
+  // Fallback: if we can't find it, use __dirname and walk up to find package.json
+  currentDir = __dirname;
+  for (let i = 0; i < 10; i++) {
+    if (fs.existsSync(path.join(currentDir, 'package.json')) || 
+        fs.existsSync(path.join(currentDir, 'Soul.xml'))) {
+      return currentDir;
+    }
+    const parent = path.dirname(currentDir);
+    if (parent === currentDir) break;
+    currentDir = parent;
+  }
+  
+  // Last resort: return __dirname (shouldn't happen)
+  return currentDir;
+}
 
 /**
  * Auto-backup to SQL file after any database change
- * Detects if running locally (in Laboratory) or standalone (public)
- * Local: backs up to Laboratory root
- * Public: backs up to project root
+ * Always backs up to project root (journal_backup.sql)
  */
 function autoBackup() {
   try {
-    // Detect if we're in Laboratory (local mode) or standalone (public mode)
-    // Check if we're inside a "Laboratory" directory structure
-    const projectRoot = path.join(__dirname, '../../..');
-    const parentDir = path.dirname(projectRoot);
-    const isLocalMode = path.basename(parentDir) === 'Laboratory' && 
-                        path.basename(projectRoot) === 'Developer Journal Workspace';
+    // Ensure database is initialized before backing up
+    // Database is always at project root now
+    initDatabase();
     
-    let backupPath: string;
-    if (isLocalMode) {
-      // Local mode: backup to Laboratory root (shared across projects)
-      // dist/modules/journal/ -> dist/modules/ -> dist/ -> project root -> Laboratory root
-      backupPath = path.join(parentDir, 'journal_backup.sql');
-    } else {
-      // Public mode: backup to project root (self-contained)
-      // dist/modules/journal/ -> dist/modules/ -> dist/ -> project root
-      backupPath = path.join(projectRoot, 'journal_backup.sql');
-    }
+    const projectRoot = getProjectRoot();
+    // Always backup to project root
+    const backupPath = path.join(projectRoot, 'journal_backup.sql');
     
+    logger.info(`Auto-backup: projectRoot=${projectRoot}, backupPath=${backupPath}`);
     exportToSQL(backupPath);
+    logger.success(`Auto-backup completed successfully to ${backupPath}`);
   } catch (error) {
+    // Don't fail silently - log the error clearly
     logger.error('Failed to auto-backup journal:', error);
+    if (error instanceof Error) {
+      logger.error(`Backup error: ${error.message}`);
+      if (error.stack) {
+        logger.error(`Stack trace: ${error.stack}`);
+      }
+    } else {
+      logger.error(`Unknown backup error: ${JSON.stringify(error)}`);
+    }
   }
 }
 
@@ -109,6 +134,7 @@ function formatEntrySummary(entry: any, includeRawReport: boolean = false): any 
 /**
  * Truncate text output to safe limits
  * Accounts for truncation warning message size to ensure final output stays within limits
+ * Puts a clear warning at the TOP of the output for better visibility
  */
 function truncateOutput(text: string): string {
   const lines = text.split('\n');
@@ -119,10 +145,20 @@ function truncateOutput(text: string): string {
     return text;
   }
   
-  // Reserve space for truncation warning (approximate: ~150 bytes)
-  const WARNING_RESERVE = 200;
-  const safeLineLimit = MAX_SAFE_LINES - 2; // Reserve 2 lines for warning
-  const safeByteLimit = MAX_SAFE_BYTES - WARNING_RESERVE;
+  const totalLines = lines.length;
+  const totalBytes = bytes;
+  
+  // Create warning message (will be at top and bottom)
+  const warningTop = `⚠️ OUTPUT TRUNCATED ⚠️\nShowing partial results due to MCP size limits (~256 lines / 10 KiB).\nTotal: ${totalLines} lines, ${(totalBytes / 1024).toFixed(2)} KiB\n\nUse pagination (limit/offset) or specific filters to see more.\n────────────────────────────────────────\n\n`;
+  const warningBottom = `\n\n────────────────────────────────────────\n⚠️ END OF TRUNCATED OUTPUT ⚠️\nShowing ${totalLines} total lines, ${(totalBytes / 1024).toFixed(2)} KiB total. Use pagination to see more.`;
+  
+  // Reserve space for warnings (top + bottom)
+  const warningTopBytes = Buffer.byteLength(warningTop, 'utf8');
+  const warningBottomBytes = Buffer.byteLength(warningBottom, 'utf8');
+  const totalWarningBytes = warningTopBytes + warningBottomBytes;
+  
+  const safeLineLimit = MAX_SAFE_LINES - 10; // Reserve lines for warnings
+  const safeByteLimit = MAX_SAFE_BYTES - totalWarningBytes;
   
   // Truncate by lines first (more predictable)
   let truncated = lines.slice(0, safeLineLimit).join('\n');
@@ -139,14 +175,11 @@ function truncateOutput(text: string): string {
     }
   }
   
-  const totalLines = lines.length;
-  const totalBytes = bytes;
   const shownLines = truncated.split('\n').length;
   const shownBytes = Buffer.byteLength(truncated, 'utf8');
   
-  truncated += `\n\n[TRUNCATED: Showing ${shownLines}/${totalLines} lines, ${shownBytes}/${totalBytes} bytes. Use pagination parameters to see more.]`;
-  
-  return truncated;
+  // Put warning at top and bottom
+  return warningTop + truncated + warningBottom;
 }
 
 /**
@@ -321,13 +354,34 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
           };
         });
         
-        const output = {
+        // Check if output will be truncated before stringifying
+        const testOutput = {
           repository,
           total_entries: total,
           showing: `${offset || 0} to ${(offset || 0) + summaries.length}`,
           has_more: (offset || 0) + summaries.length < total,
           entries: summaries,
         };
+        const testText = `Found ${total} total entries for ${repository}:\n\n${JSON.stringify(testOutput, null, 2)}`;
+        const willTruncate = testText.split('\n').length > MAX_SAFE_LINES || Buffer.byteLength(testText, 'utf8') > MAX_SAFE_BYTES;
+        
+        // Build output object with warning FIRST if truncated (JavaScript preserves insertion order)
+        const output: any = {};
+        
+        // Add clear truncation warning at top of JSON FIRST if needed
+        if (willTruncate) {
+          output.warning = `⚠️ OUTPUT TRUNCATED ⚠️ Response exceeds MCP size limits (~256 lines / 10 KiB). Showing ${summaries.length} of ${total} entries. Use pagination (limit/offset) to see more entries.`;
+          output.truncated = true;
+          output.entries_returned = summaries.length;
+          output.entries_total = total;
+        }
+        
+        // Then add the rest of the fields
+        output.repository = repository;
+        output.total_entries = total;
+        output.showing = `${offset || 0} to ${(offset || 0) + summaries.length}`;
+        output.has_more = (offset || 0) + summaries.length < total;
+        output.entries = summaries;
         
         const text = `Found ${total} total entries for ${repository}:\n\n${JSON.stringify(output, null, 2)}`;
         
@@ -378,7 +432,8 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
           };
         });
         
-        const output = {
+        // Check if output will be truncated before stringifying
+        const testOutput = {
           repository,
           branch,
           total_entries: total,
@@ -386,6 +441,27 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
           has_more: (offset || 0) + summaries.length < total,
           entries: summaries,
         };
+        const testText = `Found ${total} total entries for ${repository}/${branch}:\n\n${JSON.stringify(testOutput, null, 2)}`;
+        const willTruncate = testText.split('\n').length > MAX_SAFE_LINES || Buffer.byteLength(testText, 'utf8') > MAX_SAFE_BYTES;
+        
+        // Build output object with warning FIRST if truncated (JavaScript preserves insertion order)
+        const output: any = {};
+        
+        // Add clear truncation warning at top of JSON FIRST if needed
+        if (willTruncate) {
+          output.warning = `⚠️ OUTPUT TRUNCATED ⚠️ Response exceeds MCP size limits (~256 lines / 10 KiB). Showing ${summaries.length} of ${total} entries. Use pagination (limit/offset) to see more entries.`;
+          output.truncated = true;
+          output.entries_returned = summaries.length;
+          output.entries_total = total;
+        }
+        
+        // Then add the rest of the fields
+        output.repository = repository;
+        output.branch = branch;
+        output.total_entries = total;
+        output.showing = `${offset || 0} to ${(offset || 0) + summaries.length}`;
+        output.has_more = (offset || 0) + summaries.length < total;
+        output.entries = summaries;
         
         const text = `Found ${total} total entries for ${repository}/${branch}:\n\n${JSON.stringify(output, null, 2)}`;
         
@@ -459,113 +535,12 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
     }
   );
 
-  // Tool 7: Edit Entry
-  server.registerTool(
-    'journal_edit_entry',
-    {
-      title: 'Edit Journal Entry',
-      description: 'Update fields in an existing journal entry by commit hash.',
-      inputSchema: {
-        commit_hash: AgentInputSchema.shape.commit_hash,
-        why: z.string().optional().describe('Updated why field'),
-        what_changed: z.string().optional().describe('Updated what_changed field'),
-        decisions: z.string().optional().describe('Updated decisions field'),
-        technologies: z.string().optional().describe('Updated technologies field'),
-        kronus_wisdom: z.string().nullable().optional().describe('Updated kronus_wisdom field'),
-      },
-    },
-    async ({ commit_hash, why, what_changed, decisions, technologies, kronus_wisdom }) => {
-      try {
-        const updates: any = {};
-        if (why !== undefined) updates.why = why;
-        if (what_changed !== undefined) updates.what_changed = what_changed;
-        if (decisions !== undefined) updates.decisions = decisions;
-        if (technologies !== undefined) updates.technologies = technologies;
-        if (kronus_wisdom !== undefined) updates.kronus_wisdom = kronus_wisdom;
-
-        updateJournalEntry(commit_hash, updates);
-
-        // Auto-backup to SQL
-        autoBackup();
-
-        const entry = getEntryByCommit(commit_hash);
-        if (!entry) {
-          throw new Error(`Entry not found for commit ${commit_hash}`);
-        }
-
-        const summary = formatEntrySummary(entry, false); // Exclude raw report by default
-        const text = `✅ Updated journal entry for commit ${commit_hash}\n\n${JSON.stringify(summary, null, 2)}`;
-        
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: truncateOutput(text),
-            },
-          ],
-        };
-      } catch (error) {
-        throw toMcpError(error);
-      }
-    }
-  );
-
-  // Tool 8: Upsert Project Summary
-  server.registerTool(
-    'journal_upsert_project_summary',
-    {
-      title: 'Create or Update Project Summary',
-      description:
-        'Create or update the high-level summary for a repository. This is the "entry 0" that describes the entire project.',
-      inputSchema: {
-        repository: ProjectSummaryInputSchema.shape.repository,
-        git_url: ProjectSummaryInputSchema.shape.git_url,
-        summary: ProjectSummaryInputSchema.shape.summary,
-        purpose: ProjectSummaryInputSchema.shape.purpose,
-        architecture: ProjectSummaryInputSchema.shape.architecture,
-        key_decisions: ProjectSummaryInputSchema.shape.key_decisions,
-        technologies: ProjectSummaryInputSchema.shape.technologies,
-        status: ProjectSummaryInputSchema.shape.status,
-      },
-    },
-    async ({ repository, git_url, summary, purpose, architecture, key_decisions, technologies, status }) => {
-      try {
-        upsertProjectSummary({
-          repository,
-          git_url,
-          summary,
-          purpose,
-          architecture,
-          key_decisions,
-          technologies,
-          status,
-        });
-
-        // Auto-backup to SQL
-        autoBackup();
-
-        const projectSummary = getProjectSummary(repository);
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `✅ Project summary created/updated for ${repository}\n\n${JSON.stringify(projectSummary, null, 2)}`,
-            },
-          ],
-        };
-      } catch (error) {
-        throw toMcpError(error);
-      }
-    }
-  );
-
-  // Tool 9: Get Project Summary
+  // Tool 7: Get Project Summary
   server.registerTool(
     'journal_get_project_summary',
     {
       title: 'Get Project Summary',
-      description: 'Retrieve the high-level summary for a repository.',
+      description: 'Retrieve the high-level summary for a repository. Includes journal entry statistics (entry_count, last_entry_date) and optional Linear integration fields (linear_project_id, linear_issue_id) if linked to Linear projects/issues.',
       inputSchema: {
         repository: ProjectSummaryInputSchema.shape.repository,
       },
@@ -585,11 +560,42 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
           };
         }
 
+        // Build response with explanation
+        let responseText = `📋 Project Summary for ${repository}:\n\n`;
+        
+        // Add Linear integration explanation if present
+        if (projectSummary.linear_project_id || projectSummary.linear_issue_id) {
+          responseText += `🔗 Linear Integration:\n`;
+          if (projectSummary.linear_project_id) {
+            responseText += `  • Linear Project ID: ${projectSummary.linear_project_id}\n`;
+            responseText += `    → This repository is linked to a Linear project. Use linear_list_projects or linear_get_viewer to fetch project details.\n`;
+          }
+          if (projectSummary.linear_issue_id) {
+            responseText += `  • Linear Issue ID: ${projectSummary.linear_issue_id}\n`;
+            responseText += `    → This repository is linked to a Linear issue. Use linear_list_issues to fetch issue details.\n`;
+          }
+          responseText += `\n`;
+        }
+        
+        // Add journal entry stats explanation
+        if (projectSummary.entry_count !== undefined) {
+          responseText += `📊 Journal Entry Statistics:\n`;
+          responseText += `  • Total entries: ${projectSummary.entry_count}\n`;
+          if (projectSummary.last_entry_date) {
+            responseText += `  • Last entry date: ${projectSummary.last_entry_date}\n`;
+          } else {
+            responseText += `  • Last entry date: None\n`;
+          }
+          responseText += `\n`;
+        }
+        
+        responseText += `📄 Full Project Summary:\n${JSON.stringify(projectSummary, null, 2)}`;
+
         return {
           content: [
             {
               type: 'text' as const,
-              text: `📋 Project Summary for ${repository}:\n\n${JSON.stringify(projectSummary, null, 2)}`,
+              text: responseText,
             },
           ],
         };
@@ -599,12 +605,12 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
     }
   );
 
-  // Tool 10: List All Project Summaries
+  // Tool 11: List All Project Summaries
   server.registerTool(
     'journal_list_project_summaries',
     {
       title: 'List All Project Summaries',
-      description: 'List project summaries across all repositories with pagination. Returns 30 summaries by default (max 50). Output complies with MCP truncation limits (~256 lines / 10 KiB). Use limit/offset for pagination.',
+      description: 'List project summaries across all repositories with pagination. Returns 30 summaries by default (max 50). Each summary includes journal entry statistics (entry_count, last_entry_date) and optional Linear integration fields (linear_project_id, linear_issue_id) if linked to Linear projects/issues. Output complies with MCP truncation limits (~256 lines / 10 KiB). Use limit/offset for pagination.',
       inputSchema: {
         limit: z.number().optional().default(30).describe('Maximum number of summaries to return (default: 30, max: 50)'),
         offset: z.number().optional().default(0).describe('Number of summaries to skip for pagination (default: 0)'),
@@ -615,12 +621,40 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
         const safeLimit = Math.min(limit || 30, 50); // Cap at 50
         const { summaries, total } = listAllProjectSummariesPaginated(safeLimit, offset || 0);
         
-        const output = {
+        // Check if output will be truncated before stringifying
+        const testOutput = {
           total_summaries: total,
           showing: `${offset || 0} to ${(offset || 0) + summaries.length}`,
           has_more: (offset || 0) + summaries.length < total,
           summaries,
         };
+        const testText = `📚 ${total} total project summaries:\n\n${JSON.stringify(testOutput, null, 2)}`;
+        const willTruncate = testText.split('\n').length > MAX_SAFE_LINES || Buffer.byteLength(testText, 'utf8') > MAX_SAFE_BYTES;
+        
+        // Build output object with warning FIRST if truncated (JavaScript preserves insertion order)
+        const output: any = {};
+        
+        // Add clear truncation warning at top of JSON FIRST if needed
+        if (willTruncate) {
+          output.warning = `⚠️ OUTPUT TRUNCATED ⚠️ Response exceeds MCP size limits (~256 lines / 10 KiB). Showing ${summaries.length} of ${total} summaries. Use pagination (limit/offset) to see more.`;
+          output.truncated = true;
+          output.summaries_returned = summaries.length;
+          output.summaries_total = total;
+        }
+        
+        // Add explanation about fields
+        output.note = 'Each summary includes:';
+        output.fields_explanation = {
+          journal_entry_stats: 'entry_count (number of journal entries) and last_entry_date (ISO date of last entry)',
+          linear_integration: 'linear_project_id and/or linear_issue_id (optional Linear project/issue IDs if linked)',
+          linear_usage: 'If linear_project_id or linear_issue_id is present, use linear_list_projects or linear_list_issues to fetch Linear data',
+        };
+        
+        // Then add the rest of the fields
+        output.total_summaries = total;
+        output.showing = `${offset || 0} to ${(offset || 0) + summaries.length}`;
+        output.has_more = (offset || 0) + summaries.length < total;
+        output.summaries = summaries;
         
         const text = `📚 ${total} total project summaries:\n\n${JSON.stringify(output, null, 2)}`;
         
@@ -638,65 +672,7 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
     }
   );
 
-  // Tool 11: Attach File to Entry
-  server.registerTool(
-    'journal_attach_file',
-    {
-      title: 'Attach File to Journal Entry',
-      description: 'Upload and attach a file (image, diagram, PDF, etc.) to a journal entry. Supports PNG, JPG, SVG, PDF, Mermaid diagrams (.mmd), and more. Include a description to explain what the attachment shows (e.g., "System architecture diagram", "Before/after comparison").',
-      inputSchema: {
-        commit_hash: AttachmentInputSchema.shape.commit_hash,
-        filename: AttachmentInputSchema.shape.filename,
-        mime_type: AttachmentInputSchema.shape.mime_type,
-        description: AttachmentInputSchema.shape.description,
-        data_base64: AttachmentInputSchema.shape.data_base64,
-      },
-    },
-    async ({ commit_hash, filename, mime_type, description, data_base64 }) => {
-      try {
-        // Decode base64 to Buffer
-        const data = Buffer.from(data_base64, 'base64');
-        const file_size = data.length;
-
-        // Insert attachment
-        const attachmentId = insertAttachment({
-          commit_hash,
-          filename,
-          mime_type,
-          description: description || null,
-          data,
-          file_size,
-        });
-
-        // Auto-backup to SQL
-        autoBackup();
-
-        // Get stats
-        const stats = getAttachmentStats(commit_hash);
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `✅ Attached file to commit ${commit_hash}
-
-**File:** ${filename}
-**Type:** ${mime_type}
-**Size:** ${(file_size / 1024).toFixed(2)} KB
-**Description:** ${description || '(no description)'}
-**Attachment ID:** ${attachmentId}
-
-**Total attachments for this commit:** ${stats.count} files (${(stats.total_size / 1024).toFixed(2)} KB total)`,
-            },
-          ],
-        };
-      } catch (error) {
-        throw toMcpError(error);
-      }
-    }
-  );
-
-  // Tool 12: List Attachments for Journal Entry
+  // Tool 9: List Attachments for Journal Entry
   server.registerTool(
     'journal_list_attachments',
     {
@@ -748,7 +724,7 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
     }
   );
 
-  // Tool 13: Get Attachment by ID
+  // Tool 10: Get Attachment by ID
   server.registerTool(
     'journal_get_attachment',
     {
@@ -814,87 +790,5 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
     }
   );
 
-  // Tool 14: Delete Attachment
-  server.registerTool(
-    'journal_delete_attachment',
-    {
-      title: 'Delete Attachment',
-      description: 'Remove an attachment from a journal entry by its ID.',
-      inputSchema: {
-        attachment_id: z.number().positive().describe('Attachment ID to delete'),
-      },
-    },
-    async ({ attachment_id }) => {
-      try {
-        // Get attachment info before deleting
-        const attachment = getAttachmentById(attachment_id);
-
-        if (!attachment) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `No attachment found with ID ${attachment_id}`,
-              },
-            ],
-          };
-        }
-
-        const { filename, commit_hash } = attachment;
-
-        deleteAttachment(attachment_id);
-
-        // Auto-backup to SQL
-        autoBackup();
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `✅ Deleted attachment ${attachment_id}
-
-**File:** ${filename}
-**Commit:** ${commit_hash}`,
-            },
-          ],
-        };
-      } catch (error) {
-        throw toMcpError(error);
-      }
-    }
-  );
-
-  // Tool 16: Update Repository Name
-  server.registerTool(
-    'journal_update_repository_name',
-    {
-      title: 'Update Repository Name',
-      description: 'Update the repository name for all entries matching the old name. Useful for fixing misnamed repositories or consolidating repositories.',
-      inputSchema: {
-        old_repository: z.string().min(1).describe('Current repository name to change'),
-        new_repository: z.string().min(1).describe('New repository name'),
-      },
-    },
-    async ({ old_repository, new_repository }) => {
-      try {
-        const count = updateRepositoryName(old_repository, new_repository);
-        
-        // Auto-backup to SQL
-        autoBackup();
-        
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `✅ Updated ${count} entries from repository "${old_repository}" to "${new_repository}"`,
-            },
-          ],
-        };
-      } catch (error) {
-        throw toMcpError(error);
-      }
-    }
-  );
-
-  logger.success('Journal tools registered (16 tools)');
+  logger.success('Journal tools registered (10 tools)');
 }

@@ -173,5 +173,67 @@ export function registerLinearTools(server: McpServer, client: LinearClient, def
     }
   );
 
-  logger.success('Linear tools registered (4 tools)');
+  // Tool 6: List Projects
+  server.registerTool(
+    'linear_list_projects',
+    {
+      title: 'List Linear Projects',
+      description: 'List all projects in your Linear workspace. Optionally filter by team ID.',
+      inputSchema: {
+        teamId: z.string().optional().describe('Filter projects by team ID'),
+      },
+    },
+    async ({ teamId }) => {
+      try {
+        const projects = await client.listProjects(teamId);
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(projects, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        throw toMcpError(error);
+      }
+    }
+  );
+
+  // Tool 7: Update Project
+  server.registerTool(
+    'linear_update_project',
+    {
+      title: 'Update Linear Project',
+      description: 'Update an existing Linear project (name, description, and/or content). Note: Rich content with images is stored in the "content" field, not "description".',
+      inputSchema: {
+        projectId: z.string().describe('Project ID to update'),
+        name: z.string().optional().describe('New project name'),
+        description: z.string().optional().describe('New project description (plain text)'),
+        content: z.string().optional().describe('New project content (rich text markdown with images and formatting)'),
+      },
+    },
+    async ({ projectId, name, description, content }) => {
+      try {
+        const project = await client.updateProject({
+          projectId,
+          name,
+          description,
+          content,
+        });
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(project, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        throw toMcpError(error);
+      }
+    }
+  );
+
+  logger.success('Linear tools registered (6 tools)');
 }

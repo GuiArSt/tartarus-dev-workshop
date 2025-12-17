@@ -5,6 +5,7 @@ import fs from 'node:fs';
 
 // Load .env from the project root (where this script is located)
 // We manually parse and inject to avoid dotenv v17's banner that interferes with MCP stdio
+// If .env file doesn't exist, environment variables from MCP config will be used instead
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const envPath = path.join(__dirname, '..', '.env');
@@ -17,13 +18,14 @@ try {
     const [key, ...valueParts] = trimmed.split('=');
     if (key && valueParts.length > 0) {
       const value = valueParts.join('=').trim();
+      // Only set if not already set (MCP config env vars take precedence)
       if (!process.env[key]) {
         process.env[key] = value;
       }
     }
   });
 } catch (error) {
-  // .env file not found, rely on environment variables
+  // .env file not found, rely on environment variables from MCP config
 }
 
 import { UnifiedMCPServer } from './server.js';

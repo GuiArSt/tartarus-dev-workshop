@@ -28,6 +28,45 @@ import type { JournalEntry, JournalEntryInsert, ProjectSummary, ProjectSummaryIn
 
 let db: Database.Database | null = null;
 
+/**
+ * Get MCP server installation directory (where the code is located)
+ * This is different from process.cwd() which returns where the agent is running from
+ */
+function getMCPInstallationRoot(): string {
+  // Use import.meta.url to find where this module is located
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  
+  // Walk up from dist/modules/journal/db/database.js to find project root
+  let currentDir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    // Look for Developer Journal Workspace directory with package.json or Soul.xml
+    if (path.basename(currentDir) === 'Developer Journal Workspace' && 
+        (fs.existsSync(path.join(currentDir, 'package.json')) || 
+         fs.existsSync(path.join(currentDir, 'Soul.xml')))) {
+      return currentDir;
+    }
+    const parent = path.dirname(currentDir);
+    if (parent === currentDir) break; // Reached filesystem root
+    currentDir = parent;
+  }
+  
+  // Fallback: if we can't find it, use __dirname and walk up to find package.json
+  currentDir = __dirname;
+  for (let i = 0; i < 10; i++) {
+    if (fs.existsSync(path.join(currentDir, 'package.json')) || 
+        fs.existsSync(path.join(currentDir, 'Soul.xml'))) {
+      return currentDir;
+    }
+    const parent = path.dirname(currentDir);
+    if (parent === currentDir) break;
+    currentDir = parent;
+  }
+  
+  // Last resort: return __dirname (shouldn't happen)
+  return currentDir;
+}
+
 const ensureDirectoryExists = (filePath: string) => {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
@@ -65,6 +104,8 @@ const createSchema = (handle: Database.Database) => {
       key_decisions TEXT NOT NULL,
       technologies TEXT NOT NULL,
       status TEXT NOT NULL,
+      linear_project_id TEXT,
+      linear_issue_id TEXT,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -93,6 +134,23 @@ const createSchema = (handle: Database.Database) => {
     }
   }
 
+  // Migrate existing tables: add Linear integration columns if they don't exist
+  try {
+    handle.exec(`ALTER TABLE project_summaries ADD COLUMN linear_project_id TEXT;`);
+  } catch (error: any) {
+    if (!error.message?.includes('duplicate column')) {
+      logger.warn('Could not add linear_project_id column (may already exist):', error.message);
+    }
+  }
+
+  try {
+    handle.exec(`ALTER TABLE project_summaries ADD COLUMN linear_issue_id TEXT;`);
+  } catch (error: any) {
+    if (!error.message?.includes('duplicate column')) {
+      logger.warn('Could not add linear_issue_id column (may already exist):', error.message);
+    }
+  }
+
   handle.exec(`CREATE INDEX IF NOT EXISTS idx_repository ON journal_entries(repository);`);
   handle.exec(`CREATE INDEX IF NOT EXISTS idx_branch ON journal_entries(repository, branch);`);
   handle.exec(`CREATE INDEX IF NOT EXISTS idx_commit ON journal_entries(commit_hash);`);
@@ -105,23 +163,13 @@ export const initDatabase = (dbPath?: string): Database.Database => {
     return db;
   }
 
-  // Default to project root (journal.db) if no path specified
-  // Calculate project root from this file's location (dist/modules/journal/db/)
-  // dist/modules/journal/db/ -> dist/modules/journal/ -> dist/modules/ -> dist/ -> project root
-  const getProjectRoot = () => {
-    try {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      return path.join(__dirname, '../../..');
-    } catch {
-      // Fallback to process.cwd() if import.meta.url not available
-      return process.cwd();
-    }
-  };
+  // Default to MCP server installation directory (journal.db)
+  // Use the MCP server's location, not process.cwd() (which is where the agent is running)
+  const mcpRoot = getMCPInstallationRoot();
 
   const finalPath = dbPath
     ? path.resolve(dbPath.replace(/^~/, os.homedir()))
-    : path.join(getProjectRoot(), 'journal.db');
+    : path.join(mcpRoot, 'journal.db');
 
   ensureDirectoryExists(finalPath);
 
@@ -335,15 +383,30 @@ export const listRepositories = (): string[] => {
   if (!db) {
     throw new Error('Database not initialized');
   }
-  const rows = db
+  // Include repositories from both journal entries and project summaries
+  // This ensures repositories with project summaries but no entries yet are still listed
+  const entryRows = db
     .prepare(
       `
     SELECT DISTINCT repository FROM journal_entries
-    ORDER BY repository ASC
   `
     )
-    .all();
-  return rows.map((row: any) => row.repository as string);
+    .all() as Array<{ repository: string }>;
+  
+  const summaryRows = db
+    .prepare(
+      `
+    SELECT DISTINCT repository FROM project_summaries
+  `
+    )
+    .all() as Array<{ repository: string }>;
+  
+  // Combine and deduplicate
+  const allRepos = new Set<string>();
+  entryRows.forEach(row => allRepos.add(row.repository));
+  summaryRows.forEach(row => allRepos.add(row.repository));
+  
+  return Array.from(allRepos).sort();
 };
 
 export const listBranches = (repository: string): string[] => {
@@ -360,6 +423,34 @@ export const listBranches = (repository: string): string[] => {
     )
     .all(repository);
   return rows.map((row: any) => row.branch as string);
+};
+
+/**
+ * Get journal entry statistics for a repository
+ * Returns count and date of last entry
+ */
+export const getRepositoryEntryStats = (repository: string): { count: number; lastEntryDate: string | null } => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+  
+  const countRow = db
+    .prepare('SELECT COUNT(*) as count FROM journal_entries WHERE repository = ?')
+    .get(repository) as { count: number };
+  
+  const lastEntryRow = db
+    .prepare(`
+      SELECT date FROM journal_entries 
+      WHERE repository = ? 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `)
+    .get(repository) as { date: string } | undefined;
+  
+  return {
+    count: countRow.count,
+    lastEntryDate: lastEntryRow?.date || null,
+  };
 };
 
 export const closeDatabase = () => {
@@ -460,18 +551,35 @@ export const updateRepositoryName = (oldRepository: string, newRepository: strin
 /**
  * Project Summary CRUD operations
  */
-const mapProjectSummaryRow = (row: any): ProjectSummary => ({
-  id: row.id,
-  repository: row.repository,
-  git_url: row.git_url,
-  summary: row.summary,
-  purpose: row.purpose,
-  architecture: row.architecture,
-  key_decisions: row.key_decisions,
-  technologies: row.technologies,
-  status: row.status,
-  updated_at: row.updated_at,
-});
+const mapProjectSummaryRow = (row: any): ProjectSummary => {
+  const summary: ProjectSummary = {
+    id: row.id,
+    repository: row.repository,
+    git_url: row.git_url,
+    summary: row.summary,
+    purpose: row.purpose,
+    architecture: row.architecture,
+    key_decisions: row.key_decisions,
+    technologies: row.technologies,
+    status: row.status,
+    updated_at: row.updated_at,
+    linear_project_id: row.linear_project_id || null,
+    linear_issue_id: row.linear_issue_id || null,
+  };
+  
+  // Add journal entry stats for this repository
+  try {
+    const stats = getRepositoryEntryStats(row.repository);
+    summary.entry_count = stats.count;
+    summary.last_entry_date = stats.lastEntryDate;
+  } catch (error) {
+    // If stats can't be retrieved, leave them undefined
+    summary.entry_count = 0;
+    summary.last_entry_date = null;
+  }
+  
+  return summary;
+};
 
 export const upsertProjectSummary = (summary: ProjectSummaryInsert): number => {
   if (!db) {
@@ -487,13 +595,15 @@ export const upsertProjectSummary = (summary: ProjectSummaryInsert): number => {
     key_decisions: summary.key_decisions,
     technologies: summary.technologies,
     status: summary.status,
+    linear_project_id: summary.linear_project_id || null,
+    linear_issue_id: summary.linear_issue_id || null,
   };
 
   const upsertStmt = db.prepare(`
     INSERT INTO project_summaries (
-      repository, git_url, summary, purpose, architecture, key_decisions, technologies, status
+      repository, git_url, summary, purpose, architecture, key_decisions, technologies, status, linear_project_id, linear_issue_id
     ) VALUES (
-      @repository, @git_url, @summary, @purpose, @architecture, @key_decisions, @technologies, @status
+      @repository, @git_url, @summary, @purpose, @architecture, @key_decisions, @technologies, @status, @linear_project_id, @linear_issue_id
     )
     ON CONFLICT(repository) DO UPDATE SET
       git_url = @git_url,
@@ -503,6 +613,8 @@ export const upsertProjectSummary = (summary: ProjectSummaryInsert): number => {
       key_decisions = @key_decisions,
       technologies = @technologies,
       status = @status,
+      linear_project_id = @linear_project_id,
+      linear_issue_id = @linear_issue_id,
       updated_at = CURRENT_TIMESTAMP
   `);
 
@@ -814,6 +926,8 @@ export const exportToSQL = (outputPath: string): void => {
       summary.key_decisions,
       summary.technologies,
       summary.status,
+      (summary as any).linear_project_id || null,
+      (summary as any).linear_issue_id || null,
       summary.updated_at,
     ].map(v => {
       if (v === null) return 'NULL';
@@ -823,7 +937,7 @@ export const exportToSQL = (outputPath: string): void => {
       return String(v);
     });
 
-    sql += `INSERT INTO project_summaries (repository, git_url, summary, purpose, architecture, key_decisions, technologies, status, updated_at) VALUES (${values.join(', ')});\n`;
+    sql += `INSERT INTO project_summaries (repository, git_url, summary, purpose, architecture, key_decisions, technologies, status, linear_project_id, linear_issue_id, updated_at) VALUES (${values.join(', ')});\n`;
   }
 
   sql += '\n-- Journal Entries\n';
@@ -862,4 +976,86 @@ export const exportToSQL = (outputPath: string): void => {
 
   fs.writeFileSync(outputPath, sql, 'utf-8');
   logger.success(`Exported ${entries.length} entries, ${summaries.length} project summaries, and ${attachmentMetadata.length} attachment references to ${outputPath}`);
+};
+
+/**
+ * Restore database from SQL backup file
+ * Skips entries that already exist (by commit_hash) to avoid duplicates
+ */
+export const restoreFromSQL = (sqlPath: string): void => {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  if (!fs.existsSync(sqlPath)) {
+    throw new Error(`SQL backup file not found: ${sqlPath}`);
+  }
+
+  const sqlContent = fs.readFileSync(sqlPath, 'utf-8');
+  
+  // Split by semicolons and filter out comments/empty lines
+  const statements = sqlContent
+    .split(';')
+    .map(s => s.trim())
+    .filter(s => s.length > 0 && !s.startsWith('--') && !s.startsWith('INSERT INTO') === false);
+
+  let restoredEntries = 0;
+  let restoredSummaries = 0;
+  let skippedEntries = 0;
+  let skippedSummaries = 0;
+
+  // Process INSERT statements
+  for (const statement of sqlContent.split('\n')) {
+    const trimmed = statement.trim();
+    if (!trimmed || trimmed.startsWith('--')) continue;
+
+    if (trimmed.startsWith('INSERT INTO project_summaries')) {
+      try {
+        // Extract repository name to check if exists
+        const repoMatch = trimmed.match(/VALUES\s*\(['"]([^'"]+)['"]/);
+        if (repoMatch) {
+          const repo = repoMatch[1];
+          const existing = db.prepare('SELECT repository FROM project_summaries WHERE repository = ?').get(repo);
+          if (existing) {
+            skippedSummaries++;
+            continue;
+          }
+        }
+        db.exec(trimmed);
+        restoredSummaries++;
+      } catch (error: any) {
+        if (error.message?.includes('UNIQUE constraint') || error.message?.includes('duplicate')) {
+          skippedSummaries++;
+        } else {
+          logger.warn(`Failed to restore project summary: ${error.message}`);
+        }
+      }
+    } else if (trimmed.startsWith('INSERT INTO journal_entries')) {
+      try {
+        // Extract commit_hash to check if exists
+        const commitMatch = trimmed.match(/VALUES\s*\(['"]([a-f0-9]{7,})['"]/i);
+        if (commitMatch) {
+          const commitHash = commitMatch[1];
+          const existing = db.prepare('SELECT commit_hash FROM journal_entries WHERE commit_hash = ?').get(commitHash);
+          if (existing) {
+            skippedEntries++;
+            continue;
+          }
+        }
+        db.exec(trimmed);
+        restoredEntries++;
+      } catch (error: any) {
+        if (error.message?.includes('UNIQUE constraint') || error.message?.includes('duplicate')) {
+          skippedEntries++;
+        } else {
+          logger.warn(`Failed to restore journal entry: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  logger.success(
+    `Restored ${restoredEntries} entries, ${restoredSummaries} project summaries. ` +
+    `Skipped ${skippedEntries} duplicate entries, ${skippedSummaries} duplicate summaries.`
+  );
 };

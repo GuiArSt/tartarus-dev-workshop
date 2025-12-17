@@ -11,13 +11,6 @@ export class ConfigurationError extends Error {
   }
 }
 
-export class SlackAPIError extends Error {
-  constructor(message: string, public readonly slackError?: any) {
-    super(message);
-    this.name = 'SlackAPIError';
-  }
-}
-
 export class LinearAPIError extends Error {
   constructor(message: string, public readonly linearError?: any) {
     super(message);
@@ -38,13 +31,6 @@ export class JournalError extends Error {
 export function toMcpError(error: any): McpError {
   if (error instanceof ConfigurationError) {
     return new McpError(ErrorCode.InvalidRequest, error.message);
-  }
-
-  if (error instanceof SlackAPIError) {
-    return new McpError(
-      ErrorCode.InternalError,
-      `Slack API Error: ${error.message}`
-    );
   }
 
   if (error instanceof LinearAPIError) {

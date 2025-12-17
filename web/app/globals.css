@@ -1,0 +1,1143 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* ===== shadcn/ui CSS Variables ===== */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Radius */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* ===== TARTARUS / CHRONUS PALETTE ===== */
+  /* Dark mythological aesthetic - black, teal, gold, ivory */
+
+  /* Core blacks */
+  --tartarus-void: #0a0a0a;
+  --tartarus-deep: #111111;
+  --tartarus-surface: #1a1a1a;
+  --tartarus-elevated: #242424;
+
+  /* Teal/Cyan - flowing energy */
+  --tartarus-teal: #00CED1;
+  --tartarus-teal-dim: #008B8B;
+  --tartarus-teal-glow: rgba(0, 206, 209, 0.3);
+  --tartarus-teal-soft: rgba(0, 206, 209, 0.1);
+
+  /* Gold - divine accents */
+  --tartarus-gold: #D4AF37;
+  --tartarus-gold-bright: #FFD700;
+  --tartarus-gold-dim: #B8860B;
+  --tartarus-gold-glow: rgba(212, 175, 55, 0.3);
+  --tartarus-gold-soft: rgba(212, 175, 55, 0.1);
+
+  /* Ivory - text and light elements */
+  --tartarus-ivory: #FFFFF0;
+  --tartarus-ivory-dim: #E8E4D9;
+  --tartarus-ivory-muted: #A0998A;
+  --tartarus-ivory-faded: #6B6560;
+
+  /* Status colors */
+  --tartarus-success: #2ECC71;
+  --tartarus-warning: #F39C12;
+  --tartarus-error: #E74C3C;
+
+  /* Borders and shadows */
+  --tartarus-border: #2a2a2a;
+  --tartarus-border-light: #3a3a3a;
+  --tartarus-shadow: rgba(0, 0, 0, 0.5);
+  --tartarus-glow-teal: 0 0 20px rgba(0, 206, 209, 0.15);
+  --tartarus-glow-gold: 0 0 20px rgba(212, 175, 55, 0.15);
+
+  /* Light mode - ivory paper with dark accents (for those who prefer light) */
+  --background: 60 100% 97%;
+  --foreground: 0 0% 10%;
+
+  --card: 60 50% 96%;
+  --card-foreground: 0 0% 10%;
+
+  --popover: 60 50% 96%;
+  --popover-foreground: 0 0% 10%;
+
+  --primary: 177 100% 35%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 60 20% 92%;
+  --secondary-foreground: 0 0% 15%;
+
+  --muted: 60 20% 90%;
+  --muted-foreground: 0 0% 40%;
+
+  --accent: 60 30% 90%;
+  --accent-foreground: 0 0% 15%;
+
+  --destructive: 4 70% 57%;
+  --destructive-foreground: 60 100% 97%;
+
+  --border: 60 20% 85%;
+  --input: 60 20% 85%;
+  --ring: 177 100% 41%;
+
+  --chart-1: 177 100% 41%;
+  --chart-2: 45 70% 52%;
+  --chart-3: 145 63% 49%;
+  --chart-4: 36 100% 50%;
+  --chart-5: 4 70% 57%;
+
+  /* Sidebar - light mode */
+  --sidebar: 60 30% 94%;
+  --sidebar-foreground: 0 0% 15%;
+  --sidebar-primary: 177 100% 41%;
+  --sidebar-primary-foreground: 60 100% 97%;
+  --sidebar-accent: 45 70% 52%;
+  --sidebar-accent-foreground: 0 0% 10%;
+  --sidebar-border: 60 20% 85%;
+  --sidebar-ring: 177 100% 41%;
+}
+
+.dark {
+  /* ===== TARTARUS DARK MODE - THE TRUE EXPERIENCE ===== */
+  /* Deep void blacks with teal energy and golden divinity */
+
+  --background: 0 0% 4%;
+  --foreground: 60 33% 96%;
+
+  --card: 0 0% 7%;
+  --card-foreground: 60 33% 96%;
+
+  --popover: 0 0% 7%;
+  --popover-foreground: 60 33% 96%;
+
+  --primary: 177 100% 41%;
+  --primary-foreground: 0 0% 4%;
+
+  --secondary: 45 70% 46%;
+  --secondary-foreground: 0 0% 4%;
+
+  --muted: 0 0% 15%;
+  --muted-foreground: 60 10% 60%;
+
+  --accent: 45 70% 46%;
+  --accent-foreground: 0 0% 4%;
+
+  --destructive: 4 70% 50%;
+  --destructive-foreground: 60 33% 96%;
+
+  --border: 0 0% 16%;
+  --input: 0 0% 16%;
+  --ring: 177 100% 41%;
+
+  --chart-1: 177 100% 41%;
+  --chart-2: 45 70% 52%;
+  --chart-3: 145 63% 42%;
+  --chart-4: 36 100% 50%;
+  --chart-5: 4 70% 50%;
+
+  /* Sidebar - deep void */
+  --sidebar: 0 0% 5%;
+  --sidebar-foreground: 60 33% 96%;
+  --sidebar-primary: 177 100% 41%;
+  --sidebar-primary-foreground: 0 0% 4%;
+  --sidebar-accent: 0 0% 12%;
+  --sidebar-accent-foreground: 60 33% 96%;
+  --sidebar-border: 0 0% 14%;
+  --sidebar-ring: 177 100% 41%;
+}
+
+/* Base styles */
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+}
+
+/* Scrollbar styling - Tartarus */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--tartarus-deep);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--tartarus-border-light);
+  border-radius: 4px;
+  border: 2px solid var(--tartarus-deep);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tartarus-teal-dim);
+}
+
+/* Mermaid diagram styling */
+.mermaid {
+  background: transparent;
+}
+
+
+/* ===== TARTARUS THEME ===== */
+/* Dark mythological aesthetic - the oracle's chamber */
+
+.tartarus-page {
+  font-family: var(--font-sans);
+  background: var(--tartarus-void);
+  color: var(--tartarus-ivory);
+  min-height: 100%;
+}
+
+/* Void background with subtle energy */
+.tartarus-void-bg {
+  background:
+    radial-gradient(ellipse at 50% 0%, var(--tartarus-teal-soft) 0%, transparent 50%),
+    var(--tartarus-void);
+}
+
+/* Card styling - obsidian panels */
+.tartarus-card {
+  background: var(--tartarus-surface);
+  border: 1px solid var(--tartarus-border);
+  border-radius: 0.5rem;
+  box-shadow: var(--tartarus-glow-teal);
+}
+
+.tartarus-card:hover {
+  border-color: var(--tartarus-teal-dim);
+  box-shadow: var(--tartarus-glow-teal), 0 4px 20px var(--tartarus-shadow);
+}
+
+/* Card with gold accent */
+.tartarus-card-gold {
+  background: var(--tartarus-surface);
+  border: 1px solid var(--tartarus-border);
+  border-radius: 0.5rem;
+  box-shadow: var(--tartarus-glow-gold);
+}
+
+.tartarus-card-gold:hover {
+  border-color: var(--tartarus-gold-dim);
+}
+
+/* Header styling */
+.tartarus-header {
+  background: linear-gradient(180deg, var(--tartarus-surface) 0%, var(--tartarus-deep) 100%);
+  border-bottom: 1px solid var(--tartarus-border);
+  position: relative;
+}
+
+.tartarus-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--tartarus-teal), transparent);
+}
+
+.tartarus-title {
+  color: var(--tartarus-ivory);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.tartarus-subtitle {
+  color: var(--tartarus-ivory-muted);
+}
+
+/* Input styling */
+.tartarus-input {
+  background: var(--tartarus-deep);
+  border: 1px solid var(--tartarus-border);
+  color: var(--tartarus-ivory);
+  border-radius: 0.5rem;
+}
+
+.tartarus-input:focus {
+  border-color: var(--tartarus-teal);
+  box-shadow: 0 0 0 3px var(--tartarus-teal-soft);
+  outline: none;
+}
+
+.tartarus-input::placeholder {
+  color: var(--tartarus-ivory-faded);
+}
+
+/* Button - teal energy */
+.tartarus-btn {
+  background: linear-gradient(180deg, var(--tartarus-teal) 0%, var(--tartarus-teal-dim) 100%);
+  color: var(--tartarus-void);
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  box-shadow: var(--tartarus-glow-teal);
+}
+
+.tartarus-btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 25px var(--tartarus-teal-glow);
+}
+
+.tartarus-btn:active {
+  filter: brightness(0.95);
+}
+
+/* Button - gold divine */
+.tartarus-btn-gold {
+  background: linear-gradient(180deg, var(--tartarus-gold) 0%, var(--tartarus-gold-dim) 100%);
+  color: var(--tartarus-void);
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  box-shadow: var(--tartarus-glow-gold);
+}
+
+.tartarus-btn-gold:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 25px var(--tartarus-gold-glow);
+}
+
+.tartarus-btn-outline {
+  background: transparent;
+  color: var(--tartarus-teal);
+  border: 1px solid var(--tartarus-teal);
+  box-shadow: none;
+}
+
+.tartarus-btn-outline:hover {
+  background: var(--tartarus-teal-soft);
+}
+
+/* Badge styles */
+.tartarus-badge {
+  background: var(--tartarus-surface);
+  color: var(--tartarus-ivory-dim);
+  border: 1px solid var(--tartarus-border);
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.tartarus-badge-teal {
+  background: var(--tartarus-teal-soft);
+  color: var(--tartarus-teal);
+  border: 1px solid var(--tartarus-teal-dim);
+}
+
+.tartarus-badge-gold {
+  background: var(--tartarus-gold-soft);
+  color: var(--tartarus-gold);
+  border: 1px solid var(--tartarus-gold-dim);
+}
+
+/* Tabs */
+.tartarus-tabs {
+  background: var(--tartarus-deep);
+  border-bottom: 1px solid var(--tartarus-border);
+}
+
+.tartarus-tab {
+  color: var(--tartarus-ivory-muted);
+  padding: 0.75rem 1.25rem;
+  border-bottom: 2px solid transparent;
+}
+
+.tartarus-tab:hover {
+  color: var(--tartarus-ivory);
+  background: var(--tartarus-surface);
+}
+
+.tartarus-tab.active {
+  color: var(--tartarus-teal);
+  border-bottom-color: var(--tartarus-teal);
+}
+
+/* Sidebar */
+.tartarus-sidebar {
+  background: var(--tartarus-deep);
+  border-right: 1px solid var(--tartarus-border);
+}
+
+.tartarus-sidebar-item {
+  color: var(--tartarus-ivory-dim);
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+}
+
+.tartarus-sidebar-item:hover {
+  background: var(--tartarus-surface);
+  color: var(--tartarus-ivory);
+}
+
+.tartarus-sidebar-item.active {
+  background: var(--tartarus-surface);
+  color: var(--tartarus-teal);
+  border-left: 3px solid var(--tartarus-teal);
+}
+
+/* Section headers */
+.tartarus-section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--tartarus-ivory);
+  border-bottom: 1px solid var(--tartarus-border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.tartarus-section-title::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: var(--tartarus-teal);
+}
+
+/* Entry cards */
+.tartarus-entry {
+  background: var(--tartarus-surface);
+  border: 1px solid var(--tartarus-border);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.tartarus-entry::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--tartarus-teal), var(--tartarus-gold), var(--tartarus-teal));
+}
+
+/* Content area */
+.tartarus-content {
+  background: var(--tartarus-surface);
+  border: 1px solid var(--tartarus-border);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  line-height: 1.8;
+}
+
+/* Prose styling for Tartarus */
+.tartarus-page .prose {
+  color: var(--tartarus-ivory-dim);
+}
+
+.tartarus-page .prose h1,
+.tartarus-page .prose h2,
+.tartarus-page .prose h3 {
+  color: var(--tartarus-ivory);
+  font-weight: 600;
+}
+
+.tartarus-page .prose code {
+  background: var(--tartarus-deep);
+  color: var(--tartarus-teal);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.tartarus-page .prose pre {
+  background: var(--tartarus-void);
+  border: 1px solid var(--tartarus-border);
+  border-radius: 0.5rem;
+  color: var(--tartarus-ivory-dim);
+}
+
+.tartarus-page .prose blockquote {
+  border-left: 3px solid var(--tartarus-teal);
+  background: var(--tartarus-deep);
+  padding: 1rem 1.25rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: var(--tartarus-ivory-muted);
+}
+
+.tartarus-page .prose a {
+  color: var(--tartarus-teal);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tartarus-page .prose a:hover {
+  color: var(--tartarus-gold);
+}
+
+.tartarus-page .prose strong {
+  color: var(--tartarus-ivory);
+  font-weight: 600;
+}
+
+.tartarus-page .prose hr {
+  border-color: var(--tartarus-border);
+  margin: 2rem 0;
+}
+
+/* Table styling */
+.tartarus-page table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tartarus-page th {
+  background: var(--tartarus-deep);
+  color: var(--tartarus-ivory);
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border: 1px solid var(--tartarus-border);
+}
+
+.tartarus-page td {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--tartarus-border);
+  background: var(--tartarus-surface);
+}
+
+.tartarus-page tr:nth-child(even) td {
+  background: var(--tartarus-elevated);
+}
+
+/* Dialog */
+.tartarus-dialog {
+  background: var(--tartarus-surface);
+  border: 1px solid var(--tartarus-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px var(--tartarus-shadow);
+}
+
+/* Glow effects */
+.tartarus-glow-teal {
+  box-shadow: var(--tartarus-glow-teal);
+}
+
+.tartarus-glow-gold {
+  box-shadow: var(--tartarus-glow-gold);
+}
+
+/* Line art decorative elements */
+.tartarus-line-accent {
+  position: relative;
+}
+
+.tartarus-line-accent::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--tartarus-teal), transparent);
+}
+
+
+/* ===== KRONUS CHAT THEME ===== */
+/* Oracle chamber - Tartarus dark theme for chat */
+
+.kronus-chamber {
+  --kronus-void: var(--tartarus-void);
+  --kronus-deep: var(--tartarus-deep);
+  --kronus-surface: var(--tartarus-surface);
+  --kronus-teal: var(--tartarus-teal);
+  --kronus-teal-dim: var(--tartarus-teal-dim);
+  --kronus-teal-glow: var(--tartarus-teal-glow);
+  --kronus-gold: var(--tartarus-gold);
+  --kronus-gold-glow: var(--tartarus-gold-glow);
+  --kronus-ivory: var(--tartarus-ivory);
+  --kronus-ivory-dim: var(--tartarus-ivory-dim);
+  --kronus-ivory-muted: var(--tartarus-ivory-muted);
+  --kronus-border: var(--tartarus-border);
+  --kronus-shadow: var(--tartarus-shadow);
+  --kronus-ink: var(--tartarus-ivory-dim);
+
+  font-family: var(--font-sans);
+  background: var(--kronus-void);
+  color: var(--kronus-ivory);
+}
+
+/* Kronus messages - oracle's response */
+.kronus-message {
+  background: var(--kronus-surface);
+  border: 1px solid var(--kronus-border);
+  border-left: 3px solid var(--kronus-teal);
+  box-shadow: 0 0 15px rgba(0, 206, 209, 0.1);
+  border-radius: 0.5rem;
+  position: relative;
+}
+
+.kronus-message::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--kronus-teal), transparent);
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+/* User messages - golden inquiry */
+.user-message {
+  background: var(--kronus-surface);
+  border: 1px solid var(--kronus-border);
+  border-right: 3px solid var(--kronus-gold);
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.1);
+  border-radius: 0.5rem;
+}
+
+/* Tool invocations - arcane operations */
+.tool-invocation {
+  background: var(--kronus-deep);
+  border: 1px dashed var(--kronus-border);
+  border-radius: 0.375rem;
+  position: relative;
+  font-family: var(--font-mono);
+}
+
+.tool-invocation::before {
+  content: "⚙";
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  background: var(--kronus-void);
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--kronus-ivory-muted);
+}
+
+.tool-invocation.success {
+  border-color: var(--tartarus-success);
+  border-style: solid;
+}
+
+.tool-invocation.success::before {
+  content: "✓";
+  color: var(--tartarus-success);
+}
+
+/* Input area - oracle's pedestal */
+.kronus-input-area {
+  background: var(--kronus-deep);
+  border-top: 1px solid var(--kronus-border);
+  position: relative;
+}
+
+.kronus-input-area::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--kronus-teal), transparent);
+}
+
+.kronus-input {
+  background: var(--kronus-surface);
+  border: 1px solid var(--kronus-border);
+  color: var(--kronus-ivory);
+  border-radius: 0.5rem;
+  font-family: var(--font-sans);
+}
+
+.kronus-input:focus {
+  border-color: var(--kronus-teal);
+  box-shadow: 0 0 0 3px var(--kronus-teal-glow);
+  outline: none;
+}
+
+.kronus-input::placeholder {
+  color: var(--kronus-ivory-muted);
+}
+
+/* Send button - energy orb */
+.kronus-send-btn {
+  background: linear-gradient(135deg, var(--kronus-teal) 0%, var(--kronus-teal-dim) 100%);
+  color: var(--kronus-void);
+  border: none;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 15px var(--kronus-teal-glow);
+}
+
+.kronus-send-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 25px var(--kronus-teal-glow);
+}
+
+.kronus-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Thinking animation - energy pulse */
+.kronus-thinking {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.kronus-thinking span {
+  width: 6px;
+  height: 6px;
+  background: var(--kronus-teal);
+  border-radius: 50%;
+  animation: kronus-pulse 1.4s infinite ease-in-out both;
+}
+
+.kronus-thinking span:nth-child(1) { animation-delay: -0.32s; }
+.kronus-thinking span:nth-child(2) { animation-delay: -0.16s; }
+.kronus-thinking span:nth-child(3) { animation-delay: 0s; }
+
+@keyframes kronus-pulse {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 8px var(--kronus-teal);
+  }
+}
+
+/* History sidebar - archive */
+.kronus-sidebar {
+  background: var(--kronus-deep);
+  border-right: 1px solid var(--kronus-border);
+}
+
+.kronus-sidebar-item {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  color: var(--kronus-ivory-dim);
+}
+
+.kronus-sidebar-item:hover {
+  background: var(--kronus-surface);
+  border-color: var(--kronus-border);
+  color: var(--kronus-ivory);
+}
+
+.kronus-sidebar-item.active {
+  background: var(--kronus-surface);
+  border-left: 3px solid var(--kronus-teal);
+  border-color: var(--kronus-border);
+  color: var(--kronus-teal);
+}
+
+/* Toolbar */
+.kronus-toolbar {
+  background: var(--kronus-deep);
+  border-bottom: 1px solid var(--kronus-border);
+}
+
+.kronus-toolbar button {
+  color: var(--kronus-ivory-muted);
+}
+
+.kronus-toolbar button:hover {
+  color: var(--kronus-ivory);
+  background: var(--kronus-surface);
+}
+
+/* Avatar styles - energy orbs */
+.kronus-avatar {
+  background: linear-gradient(135deg, var(--kronus-teal) 0%, var(--kronus-teal-dim) 100%);
+  border: 2px solid var(--kronus-gold);
+  box-shadow: 0 0 10px var(--kronus-teal-glow);
+}
+
+.user-avatar {
+  background: linear-gradient(135deg, var(--kronus-gold) 0%, var(--tartarus-gold-dim) 100%);
+  border: 2px solid var(--kronus-teal);
+  box-shadow: 0 0 10px var(--kronus-gold-glow);
+}
+
+/* Message entrance */
+@keyframes message-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.kronus-message,
+.user-message {
+  animation: message-fade-in 0.3s ease-out;
+}
+
+
+/* ===== TARTARUS READER THEME ===== */
+/* Light ivory background for readability with Tartarus accents */
+
+.tartarus-reader {
+  --reader-bg: #FFFFF8;
+  --reader-bg-alt: #FAF8F2;
+  --reader-bg-card: #FEFDFB;
+  --reader-text: #2A2520;
+  --reader-text-muted: #5C5550;
+  --reader-border: #E5E0D8;
+  --reader-accent: var(--tartarus-teal);
+  --reader-accent-soft: rgba(0, 206, 209, 0.1);
+  --reader-gold: var(--tartarus-gold);
+
+  font-family: var(--font-sans);
+  background: var(--reader-bg);
+  color: var(--reader-text);
+}
+
+/* Reader header - subtle gradient with teal accent line */
+.tartarus-reader-header {
+  background: linear-gradient(180deg, var(--reader-bg-alt) 0%, var(--reader-bg) 100%);
+  border-bottom: 1px solid var(--reader-border);
+  position: relative;
+}
+
+.tartarus-reader-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--tartarus-teal), transparent);
+}
+
+.tartarus-reader-header h1 {
+  color: var(--reader-text);
+  font-weight: 600;
+}
+
+/* Reader content area */
+.tartarus-reader-content {
+  background: var(--reader-bg);
+  padding: 1.5rem;
+}
+
+/* Reader cards */
+.tartarus-reader-card {
+  background: var(--reader-bg-card);
+  border: 1px solid var(--reader-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.tartarus-reader-card:hover {
+  border-color: var(--tartarus-teal-dim);
+  box-shadow: 0 2px 8px rgba(0, 206, 209, 0.1);
+}
+
+/* Reader entry card with accent bar */
+.tartarus-reader-entry {
+  background: var(--reader-bg-card);
+  border: 1px solid var(--reader-border);
+  border-radius: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.tartarus-reader-entry::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--tartarus-teal), var(--tartarus-gold));
+}
+
+/* Reader prose styling */
+.tartarus-reader .prose {
+  color: var(--reader-text);
+}
+
+.tartarus-reader .prose h1,
+.tartarus-reader .prose h2,
+.tartarus-reader .prose h3 {
+  color: var(--reader-text);
+  font-weight: 600;
+}
+
+.tartarus-reader .prose code {
+  background-color: var(--reader-bg-alt);
+  color: var(--tartarus-teal-dim);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  border: 1px solid var(--reader-border);
+}
+
+.tartarus-reader .prose pre {
+  background-color: var(--tartarus-deep);
+  border: 1px solid var(--tartarus-border);
+  border-radius: 0.5rem;
+  color: var(--tartarus-ivory-dim);
+}
+
+.tartarus-reader .prose blockquote {
+  border-left: 3px solid var(--tartarus-teal);
+  background: var(--reader-bg-alt);
+  padding: 1rem 1.25rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: var(--reader-text-muted);
+}
+
+.tartarus-reader .prose a {
+  color: var(--tartarus-teal-dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tartarus-reader .prose a:hover {
+  color: var(--tartarus-gold);
+}
+
+.tartarus-reader .prose strong {
+  color: var(--reader-text);
+  font-weight: 600;
+}
+
+/* Reader badges */
+.tartarus-reader-badge {
+  background: var(--reader-accent-soft);
+  color: var(--tartarus-teal-dim);
+  border: 1px solid rgba(0, 206, 209, 0.3);
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.tartarus-reader-badge-gold {
+  background: var(--tartarus-gold-soft);
+  color: var(--tartarus-gold-dim);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+/* Reader filter bar */
+.tartarus-reader-filters {
+  background: var(--reader-bg-alt);
+  border-bottom: 1px solid var(--reader-border);
+  padding: 0.75rem 1.5rem;
+}
+
+/* Reader Kronus wisdom card */
+.tartarus-reader-wisdom {
+  background: linear-gradient(135deg, var(--reader-accent-soft) 0%, var(--reader-bg-card) 100%);
+  border: 1px solid rgba(0, 206, 209, 0.2);
+  border-left: 3px solid var(--tartarus-teal);
+}
+
+/* Legacy journal-page/journal-header mapping to tartarus-reader */
+:root {
+  --journal-paper: #FFFFF8;
+}
+
+.journal-page {
+  font-family: var(--font-sans);
+  background: var(--journal-paper);
+  color: #2A2520;
+  min-height: 100%;
+}
+
+.journal-header {
+  background: linear-gradient(180deg, #FAF8F2 0%, #FFFFF8 100%);
+  border-bottom: 1px solid #E5E0D8;
+  position: relative;
+}
+
+.journal-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--tartarus-teal), transparent);
+}
+
+.journal-title {
+  color: #2A2520;
+  font-weight: 600;
+}
+
+.journal-tabs {
+  background: #FAF8F2;
+  border-bottom: 1px solid #E5E0D8;
+}
+
+/* Journal reader legacy class */
+.journal-reader {
+  font-family: var(--font-sans);
+  color: #2A2520;
+  background: #FFFFF8;
+}
+
+.journal-reader .prose {
+  color: #2A2520;
+}
+
+.journal-reader .prose h1,
+.journal-reader .prose h2,
+.journal-reader .prose h3 {
+  color: #2A2520;
+  font-weight: 600;
+}
+
+.journal-reader .prose code {
+  background-color: #FAF8F2;
+  color: var(--tartarus-teal-dim);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: var(--font-mono);
+  border: 1px solid #E5E0D8;
+}
+
+.journal-reader .prose pre {
+  background-color: var(--tartarus-deep);
+  border: 1px solid var(--tartarus-border);
+  color: var(--tartarus-ivory-dim);
+}
+
+.journal-reader .prose strong {
+  color: #2A2520;
+  font-weight: 600;
+}
+
+.journal-reader .prose a {
+  color: var(--tartarus-teal-dim);
+  text-decoration: underline;
+}
+
+.journal-reader .prose a:hover {
+  color: var(--tartarus-gold);
+}
+
+/* ===== ATROPOS DIFF STYLES ===== */
+/* Git-like diff highlighting for Atropos corrections */
+
+.atropos-diff-removed {
+  background-color: rgba(231, 76, 60, 0.2);
+  color: #ff8a80;
+  text-decoration: line-through;
+  text-decoration-color: rgba(231, 76, 60, 0.5);
+  border-radius: 3px;
+  padding: 1px 3px;
+  margin: 0 1px;
+  transition: all 0.2s ease;
+}
+
+.atropos-diff-added {
+  background-color: rgba(0, 206, 209, 0.2);
+  color: #64ffda;
+  border-radius: 3px;
+  padding: 1px 3px;
+  margin: 0 1px;
+  transition: all 0.2s ease;
+}
+
+/* Current change highlight - like Cursor's navigation */
+.atropos-diff-current.atropos-diff-removed {
+  background-color: rgba(231, 76, 60, 0.45);
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.4), 0 0 12px rgba(231, 76, 60, 0.3);
+  outline: 1px solid rgba(231, 76, 60, 0.6);
+}
+
+.atropos-diff-current.atropos-diff-added {
+  background-color: rgba(0, 206, 209, 0.45);
+  box-shadow: 0 0 0 2px rgba(0, 206, 209, 0.4), 0 0 12px rgba(0, 206, 209, 0.3);
+  outline: 1px solid rgba(0, 206, 209, 0.6);
+}
+
+/* Light mode adjustments */
+.journal-page .atropos-diff-removed,
+.tartarus-reader .atropos-diff-removed {
+  background-color: rgba(231, 76, 60, 0.15);
+  color: #c0392b;
+}
+
+.journal-page .atropos-diff-added,
+.tartarus-reader .atropos-diff-added {
+  background-color: rgba(46, 204, 113, 0.2);
+  color: #27ae60;
+}
+
+
+/* ===== UTILITY CLASSES ===== */
+
+/* Text colors */
+.text-tartarus-teal { color: var(--tartarus-teal); }
+.text-tartarus-gold { color: var(--tartarus-gold); }
+.text-tartarus-ivory { color: var(--tartarus-ivory); }
+.text-tartarus-muted { color: var(--tartarus-ivory-muted); }
+
+/* Background colors */
+.bg-tartarus-void { background-color: var(--tartarus-void); }
+.bg-tartarus-deep { background-color: var(--tartarus-deep); }
+.bg-tartarus-surface { background-color: var(--tartarus-surface); }
+.bg-tartarus-elevated { background-color: var(--tartarus-elevated); }
+
+/* Border colors */
+.border-tartarus { border-color: var(--tartarus-border); }
+.border-tartarus-teal { border-color: var(--tartarus-teal); }
+.border-tartarus-gold { border-color: var(--tartarus-gold); }
+
+/* Gradient text effect - for headings */
+.text-gradient-teal-gold {
+  background: linear-gradient(135deg, var(--tartarus-teal) 0%, var(--tartarus-gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated glow effect */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px var(--tartarus-teal-glow);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--tartarus-teal-glow), 0 0 30px var(--tartarus-teal-soft);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}

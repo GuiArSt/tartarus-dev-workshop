@@ -33,6 +33,8 @@ export const ProjectSummaryInputSchema = z.object({
   key_decisions: z.string().min(10).describe('Major architectural decisions'),
   technologies: z.string().min(3).describe('Core technologies used'),
   status: z.string().min(3).describe('Current project status'),
+  linear_project_id: z.string().optional().describe('Optional Linear project ID to link this repository to a Linear project'),
+  linear_issue_id: z.string().optional().describe('Optional Linear issue ID to link this repository to a Linear issue'),
 });
 
 /**
@@ -88,6 +90,12 @@ export interface ProjectSummary {
   technologies: string;
   status: string;
   updated_at: string;
+  // Journal entry statistics for this repository
+  entry_count?: number; // Number of journal entries
+  last_entry_date?: string | null; // Date of the last journal entry (ISO format)
+  // Optional Linear integration
+  linear_project_id?: string | null; // Linear project ID if linked to a Linear project
+  linear_issue_id?: string | null; // Linear issue ID if linked to a Linear issue
 }
 
 export interface ProjectSummaryInsert {
@@ -99,6 +107,8 @@ export interface ProjectSummaryInsert {
   key_decisions: string;
   technologies: string;
   status: string;
+  linear_project_id?: string | null;
+  linear_issue_id?: string | null;
 }
 
 /**
