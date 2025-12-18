@@ -186,7 +186,7 @@ cp .env.example .env
 
 ### 4. Add to Your MCP Client Configuration
 
-**📝 Important**: Replace `/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace` with your actual installation path in all configs below.
+**📝 Important**: Replace `/path/to/developer-journal-workspace` with your actual installation path in all configs below.
 
 The server automatically loads `.env` from the project root, so you don't need to specify environment variables in the config files below.
 
@@ -199,7 +199,7 @@ The server automatically loads `.env` from the project root, so you don't need t
   "mcpServers": {
     "developer-journal": {
       "command": "node",
-      "args": ["/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
+      "args": ["/path/to/developer-journal-workspace/dist/index.js"]
     }
   }
 }
@@ -215,7 +215,7 @@ The server automatically loads `.env` from the project root, so you don't need t
   "mcpServers": {
     "developer-journal": {
       "command": "node",
-      "args": ["/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
+      "args": ["/path/to/developer-journal-workspace/dist/index.js"]
     }
   }
 }
@@ -227,7 +227,7 @@ The server automatically loads `.env` from the project root, so you don't need t
   "mcpServers": {
     "developer-journal": {
       "command": "node",
-      "args": ["C:\\Users\\YourUsername\\Documents\\Software\\Laboratory\\Developer Journal Workspace\\dist\\index.js"]
+      "args": ["C:\\path\\to\\developer-journal-workspace\\dist\\index.js"]
     }
   }
 }
@@ -239,7 +239,7 @@ The server automatically loads `.env` from the project root, so you don't need t
   "mcpServers": {
     "developer-journal": {
       "command": "node",
-      "args": ["/home/yourusername/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
+      "args": ["/path/to/developer-journal-workspace/dist/index.js"]
     }
   }
 }
@@ -256,7 +256,7 @@ If using an MCP extension for VS Code, add to your VS Code settings (`settings.j
   "mcp.servers": {
     "developer-journal": {
       "command": "node",
-      "args": ["/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
+      "args": ["/path/to/developer-journal-workspace/dist/index.js"]
     }
   }
 }
@@ -271,7 +271,7 @@ If using an MCP extension for VS Code, add to your VS Code settings (`settings.j
   "mcpServers": {
     "developer-journal": {
       "command": "node",
-      "args": ["/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/dist/index.js"]
+      "args": ["/path/to/developer-journal-workspace/dist/index.js"]
     }
   }
 }
@@ -425,7 +425,7 @@ JOURNAL_DB_PATH=/path/to/your/existing/journal.db
 **Option 2: Copy your database to the new location**
 ```bash
 # Copy your old database to the new project root
-cp ~/.mcp-unified/journal.db "/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/journal.db"
+cp ~/.mcp-unified/journal.db /path/to/developer-journal-workspace/journal.db
 ```
 
 The app will automatically migrate your database schema if needed (e.g., adding new columns like `description` to attachments).
