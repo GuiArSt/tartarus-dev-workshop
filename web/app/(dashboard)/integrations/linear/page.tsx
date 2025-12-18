@@ -233,11 +233,12 @@ export default function LinearPage() {
               fetchIssues();
               fetchProjects();
             }}
+            className="text-[var(--tartarus-ivory)] border-[var(--tartarus-border)] hover:bg-[var(--tartarus-surface)]"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          <Button size="sm">
+          <Button size="sm" className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal)]/90">
             <Plus className="mr-2 h-4 w-4" />
             New Issue
           </Button>
@@ -587,13 +588,13 @@ export default function LinearPage() {
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t">
-                <Button variant="outline" asChild>
+                <Button variant="outline" asChild className="text-[var(--tartarus-ivory)] border-[var(--tartarus-border)] hover:bg-[var(--tartarus-surface)]">
                   <a href={selectedIssue.url} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open in Linear
                   </a>
                 </Button>
-                <Button onClick={() => { setSelectedIssue(null); workWithAI(selectedIssue); }}>
+                <Button onClick={() => { setSelectedIssue(null); workWithAI(selectedIssue); }} className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal)]/90">
                   <Sparkles className="h-4 w-4 mr-2" />
                   Discuss with Kronus
                 </Button>
@@ -658,7 +659,7 @@ export default function LinearPage() {
               </div>
 
               <div className="flex items-center justify-end pt-4 border-t">
-                <Button onClick={() => { setSelectedProject(null); workWithProjectAI(selectedProject); }}>
+                <Button onClick={() => { setSelectedProject(null); workWithProjectAI(selectedProject); }} className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal)]/90">
                   <Sparkles className="h-4 w-4 mr-2" />
                   Discuss with Kronus
                 </Button>
