@@ -11,10 +11,9 @@ import * as path from "path";
 
 
 function getProjectRoot(): string {
-  // The Legacy and data folders are at /Users/guillermo.as/Documents/Software/Laboratory/
-  // Find the Laboratory directory by walking up until we find it
+  // Find the Laboratory directory by walking up from current location
   let currentDir = process.cwd();
-  
+
   // If we're in the web folder, go up one level
   if (path.basename(currentDir) === "web") {
     currentDir = path.dirname(currentDir);
@@ -23,7 +22,7 @@ function getProjectRoot(): string {
   if (path.basename(currentDir) === "scripts") {
     currentDir = path.dirname(path.dirname(currentDir));
   }
-  
+
   // Walk up to find Laboratory directory
   while (currentDir !== path.dirname(currentDir)) {
     if (path.basename(currentDir) === "Laboratory") {
@@ -31,9 +30,10 @@ function getProjectRoot(): string {
     }
     currentDir = path.dirname(currentDir);
   }
-  
-  // Fallback: use hardcoded path if Laboratory not found
-  return "/Users/guillermo.as/Documents/Software/Laboratory";
+
+  // Fallback: return the Developer Journal Workspace parent
+  // This script must be run from within the project
+  throw new Error("Could not find Laboratory directory. Run this script from within the project.");
 }
 
 function slugify(text: string): string {

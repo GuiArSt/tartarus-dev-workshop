@@ -2,23 +2,30 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 let supabase: SupabaseClient | null = null;
 
+/**
+ * Client-side Supabase client using publishable key.
+ * Uses the new Supabase API key format (sb_publishable_...).
+ * Falls back to legacy ANON_KEY for backwards compatibility.
+ */
 export function getSupabaseClient(): SupabaseClient | null {
   if (supabase) return supabase;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // New format: SUPABASE_PUBLISHABLE_KEY, fallback to legacy ANON_KEY
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("Supabase not configured. Image storage features will be disabled.");
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn("Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
     return null;
   }
 
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
+  supabase = createClient(supabaseUrl, supabaseKey);
   return supabase;
 }
 
 export function isSupabaseConfigured(): boolean {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const hasKey = !!(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && hasKey);
 }
 
 // Storage bucket name

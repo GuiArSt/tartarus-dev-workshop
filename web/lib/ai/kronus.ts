@@ -18,12 +18,12 @@ export function loadKronusSoul(): string {
   // Try environment variable path first
   const soulPathEnv = process.env.SOUL_XML_PATH;
 
-  // Try common locations
+  // Try common locations (relative to project, no hardcoded paths)
   const possiblePaths = [
     soulPathEnv ? path.resolve(soulPathEnv.replace(/^~/, os.homedir())) : null,
     path.join(process.cwd(), "..", "Soul.xml"),
     path.join(process.cwd(), "Soul.xml"),
-    "/Users/guillermo.as/Documents/Software/Laboratory/Developer Journal Workspace/Soul.xml",
+    path.join(__dirname, "..", "..", "..", "Soul.xml"),
   ].filter(Boolean) as string[];
 
   for (const soulPath of possiblePaths) {
