@@ -110,7 +110,7 @@ export default function MultimediaPage() {
       const imagesWithUrls = (data.images || []).map((img: StorageImage) => ({
         ...img,
         publicUrl: data.supabaseUrl
-          ? `${data.supabaseUrl}/storage/v1/object/public/tartarus-media/${img.name}`
+          ? `${data.supabaseUrl}/storage/v1/object/public/journal-images/uploads/${img.name}`
           : undefined,
       }));
       setImages(imagesWithUrls);

@@ -8,10 +8,17 @@ const { createClient } = require('@supabase/supabase-js');
 const Database = require('better-sqlite3');
 const path = require('path');
 
-// Config
-const SUPABASE_URL = 'https://bmiksouidrydxxqniyfy.supabase.co';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtaWtzb3VpZHJ5ZHh4cW5peWZ5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTczNDIxNiwiZXhwIjoyMDgxMzEwMjE2fQ.4wFgJyhWkl3jP-K092XU4lPcpZJjfs5F4r1QQ_jDoWM';
+// Config - Load from environment variables
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SQLITE_PATH = path.join(__dirname, '..', '..', 'journal.db');
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error('❌ Missing environment variables:');
+  console.error('   NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required');
+  console.error('   Set them in .env or pass them as environment variables');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 const sqlite = new Database(SQLITE_PATH);

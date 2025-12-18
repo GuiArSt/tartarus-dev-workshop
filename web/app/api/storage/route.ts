@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const path = searchParams.get("path") || "";
+    const path = searchParams.get("path") || "uploads";
 
     const { data, error } = await client.storage.from(STORAGE_BUCKET).list(path);
 
