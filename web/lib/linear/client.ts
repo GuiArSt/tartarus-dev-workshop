@@ -228,9 +228,11 @@ export async function listProjects(options: { teamId?: string; showAll?: boolean
           id
           name
           description
+          content
           state
           progress
           targetDate
+          url
           lead {
             id
             name

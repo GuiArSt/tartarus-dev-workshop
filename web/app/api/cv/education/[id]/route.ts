@@ -33,7 +33,7 @@ export async function PUT(
     const { id } = await params;
     const db = getDatabase();
     const body = await request.json();
-    const { degree, field, institution, location, dateStart, dateEnd, tagline, note, focusAreas, achievements } = body;
+    const { degree, field, institution, location, dateStart, dateEnd, tagline, note, focusAreas, achievements, logo } = body;
 
     const existing = db.prepare("SELECT * FROM education WHERE id = ?").get(id) as any;
     if (!existing) {
@@ -53,6 +53,7 @@ export async function PUT(
     if (note !== undefined) { updates.push("note = ?"); values.push(note || null); }
     if (focusAreas !== undefined) { updates.push("focusAreas = ?"); values.push(JSON.stringify(focusAreas)); }
     if (achievements !== undefined) { updates.push("achievements = ?"); values.push(JSON.stringify(achievements)); }
+    if (logo !== undefined) { updates.push("logo = ?"); values.push(logo || null); }
 
     if (updates.length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });

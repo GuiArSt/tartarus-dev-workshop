@@ -859,11 +859,37 @@ Details: ${data.details}` : "";
                 tags: typedArgs.tags,
               }),
             });
-            
+
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to update skill");
-            
+
             output = `✅ Updated skill: ${typedArgs.id}`;
+            break;
+          }
+
+          case "repository_create_skill": {
+            const res = await fetch("/api/cv/skills", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: typedArgs.id,
+                name: typedArgs.name,
+                category: typedArgs.category,
+                magnitude: typedArgs.magnitude,
+                description: typedArgs.description,
+                icon: typedArgs.icon,
+                color: typedArgs.color,
+                url: typedArgs.url,
+                tags: typedArgs.tags || [],
+                firstUsed: typedArgs.firstUsed,
+                lastUsed: typedArgs.lastUsed,
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to create skill");
+
+            output = `✅ Created new skill: ${typedArgs.name} (${typedArgs.category}) - ${typedArgs.magnitude}/5`;
             break;
           }
 
@@ -871,12 +897,12 @@ Details: ${data.details}` : "";
             const res = await fetch("/api/cv");
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to list experience");
-            
+
             const exp = data.experience || [];
             if (exp.length === 0) {
               output = "No work experience found.";
             } else {
-              const expList = exp.map((e: any) => 
+              const expList = exp.map((e: any) =>
                 `• ${e.title} at ${e.company} (${e.dateStart} - ${e.dateEnd || "Present"})\n  ${e.tagline || ""}`
               ).join("\n");
               output = `Found ${exp.length} experience(s):\n${expList}`;
@@ -884,20 +910,71 @@ Details: ${data.details}` : "";
             break;
           }
 
+          case "repository_create_experience": {
+            const res = await fetch("/api/cv/experience", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: typedArgs.id,
+                title: typedArgs.title,
+                company: typedArgs.company,
+                department: typedArgs.department,
+                location: typedArgs.location,
+                dateStart: typedArgs.dateStart,
+                dateEnd: typedArgs.dateEnd,
+                tagline: typedArgs.tagline,
+                note: typedArgs.note,
+                achievements: typedArgs.achievements || [],
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to create experience");
+
+            output = `✅ Created new work experience: ${typedArgs.title} at ${typedArgs.company}`;
+            break;
+          }
+
           case "repository_list_education": {
             const res = await fetch("/api/cv");
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to list education");
-            
+
             const edu = data.education || [];
             if (edu.length === 0) {
               output = "No education found.";
             } else {
-              const eduList = edu.map((e: any) => 
+              const eduList = edu.map((e: any) =>
                 `• ${e.degree} in ${e.field} - ${e.institution} (${e.dateStart} - ${e.dateEnd})`
               ).join("\n");
               output = `Found ${edu.length} education(s):\n${eduList}`;
             }
+            break;
+          }
+
+          case "repository_create_education": {
+            const res = await fetch("/api/cv/education", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: typedArgs.id,
+                degree: typedArgs.degree,
+                field: typedArgs.field,
+                institution: typedArgs.institution,
+                location: typedArgs.location,
+                dateStart: typedArgs.dateStart,
+                dateEnd: typedArgs.dateEnd,
+                tagline: typedArgs.tagline,
+                note: typedArgs.note,
+                focusAreas: typedArgs.focusAreas || [],
+                achievements: typedArgs.achievements || [],
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to create education");
+
+            output = `✅ Created new education: ${typedArgs.degree} in ${typedArgs.field} at ${typedArgs.institution}`;
             break;
           }
 
@@ -932,14 +1009,46 @@ Details: ${data.details}` : "";
       const res = await fetch("/api/conversations?limit=20");
       const data = await res.json();
       setSavedConversations(data.conversations || []);
+      return data.conversations || [];
     } catch (error) {
       console.error("Failed to load conversations:", error);
+      return [];
     }
   }, []);
 
+  // On mount: check for prefill first, otherwise load most recent conversation
   useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
+    const initChat = async () => {
+      // Check for prefill FIRST (from "Edit with Kronus" buttons)
+      const prefill = sessionStorage.getItem("kronusPrefill");
+      if (prefill) {
+        // Clear prefill and start FRESH NEW conversation with the context
+        sessionStorage.removeItem("kronusPrefill");
+        setMessages([]); // Clear all messages
+        setCurrentConversationId(null); // No existing conversation
+        setToolStates({}); // Clear any tool states
+        setHasSentPrefill(true);
+
+        // Load conversation list in background (for sidebar)
+        loadConversations();
+
+        // Send the prefill message after a brief delay to ensure state is cleared
+        setTimeout(() => {
+          sendMessage({ text: prefill });
+        }, 150);
+        return;
+      }
+
+      // No prefill - load conversations and auto-load most recent
+      const conversations = await loadConversations();
+      if (conversations.length > 0 && messages.length === 0 && !currentConversationId) {
+        const mostRecent = conversations[0]; // Already sorted by updated_at desc
+        handleLoadConversation(mostRecent.id);
+      }
+    };
+    initChat();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   // Debug: log status and messages changes
   useEffect(() => {
@@ -1072,26 +1181,8 @@ Details: ${data.details}` : "";
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showSearch]);
 
-  // Check for prefill from Linear integration (or other sources)
+  // Track if prefill was sent (used by init effect)
   const [hasSentPrefill, setHasSentPrefill] = useState(false);
-  
-  useEffect(() => {
-    // Only run once and when not already loading
-    if (hasSentPrefill || status === "streaming" || status === "submitted") return;
-    
-    const prefill = sessionStorage.getItem("kronusPrefill");
-    if (prefill) {
-      sessionStorage.removeItem("kronusPrefill");
-      setHasSentPrefill(true);
-      
-      // Wait for component to be fully ready
-      const timer = setTimeout(() => {
-        sendMessage({ text: prefill });
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [hasSentPrefill, status, sendMessage]);
 
   // Handle file selection and generate previews
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

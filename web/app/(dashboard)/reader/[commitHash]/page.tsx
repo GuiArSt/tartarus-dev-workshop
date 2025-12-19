@@ -24,9 +24,9 @@ import {
   Edit,
   Save,
   X,
-  MessageSquare,
   Plus,
 } from "lucide-react";
+import Image from "next/image";
 
 interface JournalEntry {
   id: number;
@@ -224,6 +224,21 @@ export default function EntryDetailPage() {
     }
   };
 
+  // Navigate to chat to EDIT this entry with Kronus - includes full content
+  const editWithKronus = () => {
+    if (!entry) return;
+
+    // Build attachment info if present
+    const attachmentInfo = entry.attachments && entry.attachments.length > 0
+      ? `\n\n**Attachments (${entry.attachments.length}):**\n${entry.attachments.map(a => `- ${a.filename} (${a.mime_type}, ${(a.file_size / 1024).toFixed(1)}KB)${a.description ? `: ${a.description}` : ""}`).join("\n")}`
+      : "";
+
+    const context = `I want to UPDATE this journal entry. Please help me modify it:\n\n**Commit Hash:** ${entry.commit_hash}\n**Repository:** ${entry.repository}/${entry.branch}\n**Date:** ${new Date(entry.date).toLocaleDateString()}\n**Author:** ${entry.author}\n\n**Why:**\n${entry.why}\n\n**What Changed:**\n${entry.what_changed}\n\n**Decisions:**\n${entry.decisions}\n\n**Technologies:** ${entry.technologies}\n\n**Kronus Wisdom:**\n${entry.kronus_wisdom || "(none)"}\n\n**Raw Agent Report:**\n${entry.raw_agent_report.substring(0, 1500)}${entry.raw_agent_report.length > 1500 ? "..." : ""}${attachmentInfo}\n\nWhat changes would you like to make? You can update any field (why, what_changed, decisions, technologies, kronus_wisdom) using the journal_edit_entry tool, or regenerate the entire entry with new context using journal_regenerate_entry.`;
+
+    sessionStorage.setItem("kronusPrefill", context);
+    router.push("/chat");
+  };
+
   if (loading) {
     return (
       <div className="flex h-full flex-col">
@@ -280,11 +295,13 @@ export default function EntryDetailPage() {
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
               </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/chat?entry=${commitHash}`}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Ask Kronus
-                </Link>
+              <Button
+                size="sm"
+                onClick={editWithKronus}
+                className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
+              >
+                <Image src="/chronus-logo.png" alt="Kronus" width={16} height={16} className="mr-2 rounded-full" />
+                Edit with Kronus
               </Button>
             </>
           )}

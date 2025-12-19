@@ -25,6 +25,14 @@ interface Skill {
   tags: string[];
 }
 
+interface SkillCategory {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  sortOrder: number;
+}
+
 interface WorkExperience {
   id: string;
   title: string;
@@ -52,7 +60,7 @@ interface Education {
   achievements: string[];
 }
 
-export function SkillEditForm({ skill, onSave, onCancel }: { skill: Skill; onSave: (data: Partial<Skill>) => void; onCancel: () => void }) {
+export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { skill: Skill; onSave: (data: Partial<Skill>) => void; onCancel: () => void; categories?: SkillCategory[] }) {
   const [formData, setFormData] = useState(skill);
   const [newTag, setNewTag] = useState("");
 
@@ -107,11 +115,26 @@ export function SkillEditForm({ skill, onSave, onCancel }: { skill: Skill; onSav
         </div>
         <div className="space-y-2">
           <Label className="text-sm font-medium text-[#2A2520]">Category</Label>
-          <Input
-            value={formData.category}
-            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            className="h-10 border-[#E5E0D8]"
-          />
+          {categories.length > 0 ? (
+            <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+              <SelectTrigger className="h-10 border-[#E5E0D8]">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent className="z-[100] bg-white border-[#E5E0D8]">
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.name}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="h-10 border-[#E5E0D8]"
+            />
+          )}
         </div>
         <div className="space-y-2">
           <Label className="text-sm font-medium text-[#2A2520]">Magnitude (1-4)</Label>

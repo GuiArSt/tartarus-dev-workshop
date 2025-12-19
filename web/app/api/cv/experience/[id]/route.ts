@@ -32,7 +32,7 @@ export async function PUT(
     const { id } = await params;
     const db = getDatabase();
     const body = await request.json();
-    const { title, company, department, location, dateStart, dateEnd, tagline, note, achievements } = body;
+    const { title, company, department, location, dateStart, dateEnd, tagline, note, achievements, logo } = body;
 
     const existing = db.prepare("SELECT * FROM work_experience WHERE id = ?").get(id) as any;
     if (!existing) {
@@ -51,6 +51,7 @@ export async function PUT(
     if (tagline !== undefined) { updates.push("tagline = ?"); values.push(tagline); }
     if (note !== undefined) { updates.push("note = ?"); values.push(note || null); }
     if (achievements !== undefined) { updates.push("achievements = ?"); values.push(JSON.stringify(achievements)); }
+    if (logo !== undefined) { updates.push("logo = ?"); values.push(logo || null); }
 
     if (updates.length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });

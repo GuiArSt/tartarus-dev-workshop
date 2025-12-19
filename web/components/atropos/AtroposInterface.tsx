@@ -320,7 +320,7 @@ export function AtroposInterface() {
 
       setShowSaveDialog(false);
       setExtractedLearnings(null);
-      setFinalVersion("");
+      // Keep finalVersion visible so user can see what they saved
       loadMemory();
     } catch (e: any) {
       setError(e.message);

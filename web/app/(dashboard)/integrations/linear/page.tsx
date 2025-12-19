@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Dialog,
   DialogContent,
@@ -36,8 +39,6 @@ import {
   ExternalLink,
   Filter,
   Expand,
-  MessageSquare,
-  Sparkles,
 } from "lucide-react";
 
 interface LinearIssue {
@@ -71,9 +72,11 @@ interface LinearProject {
   id: string;
   name: string;
   description?: string;
+  content?: string;
   state: string;
   progress: number;
   targetDate?: string;
+  url?: string;
   lead?: {
     id: string;
     name: string;
@@ -89,11 +92,11 @@ interface LinearViewer {
 }
 
 const priorityLabels: Record<number, { label: string; color: string; emoji: string }> = {
-  0: { label: "No priority", color: "text-muted-foreground", emoji: "⚪" },
-  1: { label: "Urgent", color: "text-red-500", emoji: "🔴" },
-  2: { label: "High", color: "text-orange-500", emoji: "🟠" },
-  3: { label: "Medium", color: "text-yellow-500", emoji: "🟡" },
-  4: { label: "Low", color: "text-blue-500", emoji: "🔵" },
+  0: { label: "No priority", color: "text-[var(--tartarus-ivory-faded)]", emoji: "○" },
+  1: { label: "Urgent", color: "text-[var(--tartarus-error)]", emoji: "●" },
+  2: { label: "High", color: "text-orange-400", emoji: "●" },
+  3: { label: "Medium", color: "text-[var(--tartarus-gold)]", emoji: "●" },
+  4: { label: "Low", color: "text-[var(--tartarus-teal)]", emoji: "●" },
 };
 
 export default function LinearPage() {
@@ -170,19 +173,25 @@ export default function LinearPage() {
     }
   };
 
-  // Navigate to chat with issue context
-  const workWithAI = (issue: LinearIssue) => {
-    const context = `I want to discuss this Linear issue:\n\n**${issue.identifier}: ${issue.title}**\n- Status: ${issue.state.name}\n- Priority: ${priorityLabels[issue.priority]?.emoji} ${priorityLabels[issue.priority]?.label}\n- Team: ${issue.team.name}${issue.project ? `\n- Project: ${issue.project.name}` : ""}${issue.assignee ? `\n- Assignee: ${issue.assignee.name}` : ""}${issue.description ? `\n\n**Description:**\n${issue.description}` : ""}\n\n**URL:** ${issue.url}`;
-    
-    // Store in sessionStorage and navigate
+  // Navigate to chat to UPDATE an issue
+  const editIssueWithAI = (issue: LinearIssue) => {
+    const context = `I want to UPDATE this Linear issue. Please help me modify it:\n\n**Issue ID:** ${issue.id}\n**${issue.identifier}: ${issue.title}**\n- Status: ${issue.state.name}\n- Priority: ${priorityLabels[issue.priority]?.emoji} ${priorityLabels[issue.priority]?.label}\n- Team: ${issue.team.name}${issue.project ? `\n- Project: ${issue.project.name}` : ""}${issue.assignee ? `\n- Assignee: ${issue.assignee.name}` : ""}${issue.description ? `\n\n**Current Description:**\n${issue.description}` : ""}\n\nWhat changes would you like to make? You can update the title, description, status, priority, or assignee using the linear_update_issue tool.`;
+
     sessionStorage.setItem("kronusPrefill", context);
     router.push("/chat");
   };
 
-  // Navigate to chat with project context
-  const workWithProjectAI = (project: LinearProject) => {
-    const context = `I want to discuss this Linear project:\n\n**${project.name}**\n- State: ${project.state}\n- Progress: ${Math.round(project.progress * 100)}%${project.lead ? `\n- Lead: ${project.lead.name}` : ""}${project.targetDate ? `\n- Target: ${project.targetDate}` : ""}${project.description ? `\n\n**Description:**\n${project.description}` : ""}`;
-    
+  // Navigate to chat to UPDATE a project
+  const editProjectWithAI = (project: LinearProject) => {
+    const contentSection = project.content
+      ? `\n\n**Current Content (Rich Text):**\n${project.content.substring(0, 2000)}${project.content.length > 2000 ? "..." : ""}`
+      : "";
+    const descriptionSection = project.description
+      ? `\n\n**Description:**\n${project.description}`
+      : "";
+
+    const context = `I want to UPDATE this Linear project. Please help me modify it:\n\n**Project ID:** ${project.id}\n**${project.name}**\n- State: ${project.state}\n- Progress: ${Math.round(project.progress * 100)}%${project.lead ? `\n- Lead: ${project.lead.name}` : ""}${project.targetDate ? `\n- Target: ${project.targetDate}` : ""}${project.url ? `\n- URL: ${project.url}` : ""}${descriptionSection}${contentSection}\n\nWhat changes would you like to make? You can update the name, description, or content using the linear_update_project tool.`;
+
     sessionStorage.setItem("kronusPrefill", context);
     router.push("/chat");
   };
@@ -203,24 +212,24 @@ export default function LinearPage() {
         <div className="flex items-center gap-3">
           <h1 className="journal-title text-lg">Linear Integration</h1>
           {viewer && (
-            <Badge variant="outline" className="gap-1">
+            <Badge variant="outline" className="gap-1 border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)]">
               <User className="h-3 w-3" />
               {viewer.name}
             </Badge>
           )}
           {viewer && !viewer.configuredUserId && (
-            <Badge variant="destructive" className="gap-1 text-xs">
-              ⚠️ LINEAR_USER_ID not set
+            <Badge variant="destructive" className="gap-1 text-xs bg-[var(--tartarus-error)] text-[var(--tartarus-ivory)]">
+              LINEAR_USER_ID not set
             </Badge>
           )}
           {filteredByUser && !showAllIssues && (
-            <Badge variant="secondary" className="gap-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            <Badge variant="secondary" className="gap-1 bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
               <Filter className="h-3 w-3" />
               My Issues
             </Badge>
           )}
           {showAllIssues && (
-            <Badge variant="outline" className="gap-1">
+            <Badge variant="outline" className="gap-1 border-[var(--tartarus-border-light)] text-[var(--tartarus-ivory-muted)]">
               All Issues
             </Badge>
           )}
@@ -247,10 +256,10 @@ export default function LinearPage() {
 
       {/* Config Warning */}
       {viewer && !viewer.configuredUserId && (
-        <div className="border-b border-yellow-500/20 bg-yellow-50 px-6 py-3 dark:bg-yellow-900/20">
-          <p className="text-sm text-yellow-800 dark:text-yellow-200">
-            <strong>Tip:</strong> Set <code className="rounded bg-yellow-200 px-1 dark:bg-yellow-800">LINEAR_USER_ID</code> in your .env file to filter by your issues.
-            Your user ID is: <code className="rounded bg-yellow-200 px-1 dark:bg-yellow-800">{viewer.id}</code>
+        <div className="border-b border-[var(--tartarus-gold-dim)]/30 bg-[var(--tartarus-gold-soft)] px-6 py-3">
+          <p className="text-sm text-[var(--tartarus-gold)]">
+            <strong>Tip:</strong> Set <code className="rounded bg-[var(--tartarus-deep)] px-1 text-[var(--tartarus-gold-bright)]">LINEAR_USER_ID</code> in your .env file to filter by your issues.
+            Your user ID is: <code className="rounded bg-[var(--tartarus-deep)] px-1 text-[var(--tartarus-gold-bright)]">{viewer.id}</code>
           </p>
         </div>
       )}
@@ -258,19 +267,19 @@ export default function LinearPage() {
       {/* Content */}
       <Tabs defaultValue="issues" className="flex flex-1 flex-col">
         <div className="journal-tabs px-6">
-          <TabsList className="h-12">
-            <TabsTrigger value="issues" className="gap-2">
+          <TabsList className="h-12 bg-[var(--tartarus-deep)]">
+            <TabsTrigger value="issues" className="gap-2 data-[state=active]:bg-[var(--tartarus-surface)] data-[state=active]:text-[var(--tartarus-teal)]">
               <Circle className="h-4 w-4" />
               Issues
               {issues.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{issues.length}</Badge>
+                <Badge variant="secondary" className="ml-1 bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">{issues.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="projects" className="gap-2">
+            <TabsTrigger value="projects" className="gap-2 data-[state=active]:bg-[var(--tartarus-surface)] data-[state=active]:text-[var(--tartarus-teal)]">
               <Layers className="h-4 w-4" />
               Projects
               {projects.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{projects.length}</Badge>
+                <Badge variant="secondary" className="ml-1 bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">{projects.length}</Badge>
               )}
             </TabsTrigger>
           </TabsList>
@@ -281,49 +290,49 @@ export default function LinearPage() {
             {/* Filters */}
             <div className="mb-6 flex flex-wrap items-center gap-4">
               <div className="relative max-w-sm flex-1">
-                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                <Search className="text-[var(--tartarus-ivory-faded)] absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                 <Input
                   placeholder="Search issues..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 bg-[var(--tartarus-elevated)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                 />
               </div>
               
               {/* Owner Filter */}
-              <Select 
-                value={showAllIssues ? "all" : "mine"} 
+              <Select
+                value={showAllIssues ? "all" : "mine"}
                 onValueChange={(v) => setShowAllIssues(v === "all")}
               >
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[160px] bg-[var(--tartarus-elevated)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
                   <User className="mr-2 h-4 w-4" />
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mine">
+                <SelectContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
+                  <SelectItem value="mine" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
                     <span className="flex items-center gap-2">
                       🎯 My Issues
                     </span>
                   </SelectItem>
-                  <SelectItem value="all">
+                  <SelectItem value="all" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
                     <span className="flex items-center gap-2">
                       📋 All Issues
                     </span>
                   </SelectItem>
                 </SelectContent>
               </Select>
-              
+
               {/* Team Filter */}
               {viewer && viewer.teams.length > 0 && (
                 <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[180px] bg-[var(--tartarus-elevated)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
                     <Building2 className="mr-2 h-4 w-4" />
                     <SelectValue placeholder="All Teams" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Teams</SelectItem>
+                  <SelectContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
+                    <SelectItem value="all" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">All Teams</SelectItem>
                     {viewer.teams.map((team) => (
-                      <SelectItem key={team.id} value={team.id}>
+                      <SelectItem key={team.id} value={team.id} className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
                         {team.name}
                       </SelectItem>
                     ))}
@@ -336,19 +345,19 @@ export default function LinearPage() {
             {loading ? (
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Card key={i}>
+                  <Card key={i} className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
                     <CardContent className="p-4">
-                      <Skeleton className="mb-2 h-5 w-1/3" />
-                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="mb-2 h-5 w-1/3 bg-[var(--tartarus-elevated)]" />
+                      <Skeleton className="h-4 w-2/3 bg-[var(--tartarus-elevated)]" />
                     </CardContent>
                   </Card>
                 ))}
               </div>
             ) : filteredIssues.length === 0 ? (
               <div className="py-12 text-center">
-                <Circle className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-                <h3 className="mb-2 font-semibold">No issues found</h3>
-                <p className="text-muted-foreground text-sm">
+                <Circle className="text-[var(--tartarus-ivory-faded)] mx-auto mb-4 h-12 w-12" />
+                <h3 className="mb-2 font-semibold text-[var(--tartarus-ivory)]">No issues found</h3>
+                <p className="text-[var(--tartarus-ivory-muted)] text-sm">
                   {searchQuery
                     ? "Try a different search term"
                     : showAllIssues
@@ -359,19 +368,19 @@ export default function LinearPage() {
             ) : (
               <div className="space-y-3">
                 {filteredIssues.map((issue) => (
-                  <Card key={issue.id} className="hover:bg-accent/50 transition-colors">
+                  <Card key={issue.id} className="bg-[var(--tartarus-elevated)] border-[var(--tartarus-border)] hover:border-[var(--tartarus-teal-dim)] transition-all">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="mb-1 flex items-center gap-2">
-                            <Badge variant="outline" className="font-mono text-xs">
+                            <Badge variant="outline" className="font-mono text-xs border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)]">
                               {issue.identifier}
                             </Badge>
                             <span
                               className="h-2 w-2 rounded-full"
                               style={{ backgroundColor: issue.state.color }}
                             />
-                            <span className="text-muted-foreground text-xs">
+                            <span className="text-[var(--tartarus-ivory-muted)] text-xs">
                               {issue.state.name}
                             </span>
                             <span
@@ -380,8 +389,8 @@ export default function LinearPage() {
                               {priorityLabels[issue.priority]?.emoji} {priorityLabels[issue.priority]?.label}
                             </span>
                           </div>
-                          <h3 className="font-medium">{issue.title}</h3>
-                          <div className="text-muted-foreground mt-2 flex items-center gap-3 text-xs">
+                          <h3 className="font-medium text-[var(--tartarus-ivory)]">{issue.title}</h3>
+                          <div className="text-[var(--tartarus-ivory-faded)] mt-2 flex items-center gap-3 text-xs">
                             <span className="flex items-center gap-1">
                               <Building2 className="h-3 w-3" />
                               {issue.team.name}
@@ -406,19 +415,26 @@ export default function LinearPage() {
                             size="icon"
                             onClick={() => setSelectedIssue(issue)}
                             title="View details"
+                            className="text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]"
                           >
                             <Expand className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => workWithAI(issue)}
-                            title="Discuss with Kronus"
-                            className="text-primary hover:text-primary"
+                            onClick={() => editIssueWithAI(issue)}
+                            title="Edit with Kronus"
+                            className="text-[var(--tartarus-gold)] hover:text-[var(--tartarus-gold-bright)] hover:bg-[var(--tartarus-gold-soft)]"
                           >
-                            <Sparkles className="h-4 w-4" />
+                            <Image src="/chronus-logo.png" alt="Kronus" width={16} height={16} className="rounded-full" />
                           </Button>
-                          <Button variant="ghost" size="icon" asChild title="Open in Linear">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            title="Open in Linear"
+                            className="text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]"
+                          >
                             <a href={issue.url} target="_blank" rel="noopener noreferrer">
                               <ExternalLink className="h-4 w-4" />
                             </a>
@@ -435,21 +451,21 @@ export default function LinearPage() {
           <TabsContent value="projects" className="mt-0 p-6">
             {/* Project Filters */}
             <div className="mb-6 flex items-center gap-4">
-              <Select 
-                value={showAllProjects ? "all" : "mine"} 
+              <Select
+                value={showAllProjects ? "all" : "mine"}
                 onValueChange={(v) => setShowAllProjects(v === "all")}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[180px] bg-[var(--tartarus-elevated)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
                   <User className="mr-2 h-4 w-4" />
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mine">
+                <SelectContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
+                  <SelectItem value="mine" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
                     <span className="flex items-center gap-2">
                       🎯 My Projects
                     </span>
                   </SelectItem>
-                  <SelectItem value="all">
+                  <SelectItem value="all" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
                     <span className="flex items-center gap-2">
                       📋 All Projects
                     </span>
@@ -460,9 +476,9 @@ export default function LinearPage() {
 
             {projects.length === 0 ? (
               <div className="py-12 text-center">
-                <Layers className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-                <h3 className="mb-2 font-semibold">No projects found</h3>
-                <p className="text-muted-foreground text-sm">
+                <Layers className="text-[var(--tartarus-ivory-faded)] mx-auto mb-4 h-12 w-12" />
+                <h3 className="mb-2 font-semibold text-[var(--tartarus-ivory)]">No projects found</h3>
+                <p className="text-[var(--tartarus-ivory-muted)] text-sm">
                   {showAllProjects
                     ? "No projects in your workspace"
                     : "No projects you're a member of. Toggle 'Show all' to see others."}
@@ -471,15 +487,15 @@ export default function LinearPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {projects.map((project) => (
-                  <Card key={project.id} className="hover:bg-accent/50 transition-colors">
+                  <Card key={project.id} className="bg-[var(--tartarus-elevated)] border-[var(--tartarus-border)] hover:border-[var(--tartarus-teal-dim)] transition-all">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
-                        <CardTitle className="text-base">{project.name}</CardTitle>
+                        <CardTitle className="text-base text-[var(--tartarus-ivory)]">{project.name}</CardTitle>
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-8 w-8 text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]"
                             onClick={() => setSelectedProject(project)}
                             title="View details"
                           >
@@ -488,35 +504,35 @@ export default function LinearPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-primary hover:text-primary"
-                            onClick={() => workWithProjectAI(project)}
-                            title="Discuss with Kronus"
+                            className="h-8 w-8 text-[var(--tartarus-gold)] hover:text-[var(--tartarus-gold-bright)] hover:bg-[var(--tartarus-gold-soft)]"
+                            onClick={() => editProjectWithAI(project)}
+                            title="Edit with Kronus"
                           >
-                            <Sparkles className="h-4 w-4" />
+                            <Image src="/chronus-logo.png" alt="Kronus" width={16} height={16} className="rounded-full" />
                           </Button>
                         </div>
                       </div>
                       {project.description && (
-                        <CardDescription className="line-clamp-2">
+                        <CardDescription className="line-clamp-2 text-[var(--tartarus-ivory-muted)]">
                           {project.description}
                         </CardDescription>
                       )}
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between text-sm">
-                        <Badge variant="outline">{project.state}</Badge>
-                        <span className="text-muted-foreground">
+                        <Badge variant="outline" className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)]">{project.state}</Badge>
+                        <span className="text-[var(--tartarus-ivory-muted)]">
                           {Math.round(project.progress * 100)}% complete
                         </span>
                       </div>
-                      <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
+                      <div className="bg-[var(--tartarus-deep)] mt-2 h-2 overflow-hidden rounded-full">
                         <div
-                          className="bg-primary h-full transition-all"
+                          className="bg-[var(--tartarus-teal)] h-full transition-all"
                           style={{ width: `${project.progress * 100}%` }}
                         />
                       </div>
                       {project.lead && (
-                        <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                        <div className="mt-2 text-xs text-[var(--tartarus-ivory-faded)] flex items-center gap-1">
                           <User className="h-3 w-3" />
                           Lead: {project.lead.name}
                         </div>
@@ -532,40 +548,40 @@ export default function LinearPage() {
 
       {/* Issue Detail Dialog */}
       <Dialog open={!!selectedIssue} onOpenChange={() => setSelectedIssue(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
           {selectedIssue && (
             <>
               <DialogHeader>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="font-mono">
+                  <Badge variant="outline" className="font-mono border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)]">
                     {selectedIssue.identifier}
                   </Badge>
                   <span
                     className="h-3 w-3 rounded-full"
                     style={{ backgroundColor: selectedIssue.state.color }}
                   />
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-[var(--tartarus-ivory-muted)]">
                     {selectedIssue.state.name}
                   </span>
                 </div>
-                <DialogTitle className="text-xl">{selectedIssue.title}</DialogTitle>
+                <DialogTitle className="text-xl text-[var(--tartarus-ivory)]">{selectedIssue.title}</DialogTitle>
                 <DialogDescription asChild>
                   <div className="flex flex-wrap items-center gap-2 pt-2">
-                    <Badge variant="secondary">
+                    <Badge variant="secondary" className="bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory-dim)]">
                       {priorityLabels[selectedIssue.priority]?.emoji} {priorityLabels[selectedIssue.priority]?.label}
                     </Badge>
-                    <Badge variant="outline">
+                    <Badge variant="outline" className="border-[var(--tartarus-border-light)] text-[var(--tartarus-ivory-muted)]">
                       <Building2 className="h-3 w-3 mr-1" />
                       {selectedIssue.team.name}
                     </Badge>
                     {selectedIssue.project && (
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="border-[var(--tartarus-border-light)] text-[var(--tartarus-ivory-muted)]">
                         <Layers className="h-3 w-3 mr-1" />
                         {selectedIssue.project.name}
                       </Badge>
                     )}
                     {selectedIssue.assignee && (
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="border-[var(--tartarus-border-light)] text-[var(--tartarus-ivory-muted)]">
                         <User className="h-3 w-3 mr-1" />
                         {selectedIssue.assignee.name}
                       </Badge>
@@ -573,30 +589,33 @@ export default function LinearPage() {
                   </div>
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="space-y-4 py-4">
                 {selectedIssue.description ? (
                   <div>
-                    <h4 className="font-medium mb-2">Description</h4>
-                    <div className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap">
-                      {selectedIssue.description}
+                    <h4 className="font-medium mb-2 text-[var(--tartarus-ivory)]">Description</h4>
+                    <div className="bg-[var(--tartarus-deep)] p-5 rounded-lg border border-[var(--tartarus-border)] max-h-[400px] overflow-auto prose prose-base max-w-none leading-relaxed prose-headings:text-[var(--tartarus-ivory)] prose-headings:font-semibold prose-headings:mb-3 prose-p:text-[var(--tartarus-ivory-dim)] prose-p:leading-relaxed prose-p:mb-3 prose-a:text-[var(--tartarus-teal)] prose-a:underline prose-strong:text-[var(--tartarus-ivory)] prose-em:text-[var(--tartarus-ivory-muted)] prose-code:text-[var(--tartarus-teal)] prose-code:bg-[var(--tartarus-void)] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-[var(--tartarus-void)] prose-pre:p-4 prose-ul:text-[var(--tartarus-ivory-dim)] prose-ul:my-3 prose-ol:text-[var(--tartarus-ivory-dim)] prose-ol:my-3 prose-li:my-1">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedIssue.description}</ReactMarkdown>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-muted-foreground text-sm italic">No description</p>
+                  <p className="text-[var(--tartarus-ivory-faded)] text-sm italic">No description</p>
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t">
-                <Button variant="outline" asChild className="text-[var(--tartarus-ivory)] border-[var(--tartarus-border)] hover:bg-[var(--tartarus-surface)]">
+              <div className="flex items-center justify-between pt-4 border-t border-[var(--tartarus-border)]">
+                <Button variant="outline" asChild className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]">
                   <a href={selectedIssue.url} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open in Linear
                   </a>
                 </Button>
-                <Button onClick={() => { setSelectedIssue(null); workWithAI(selectedIssue); }} className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal)]/90">
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Discuss with Kronus
+                <Button
+                  onClick={() => { setSelectedIssue(null); editIssueWithAI(selectedIssue); }}
+                  className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
+                >
+                  <Image src="/chronus-logo.png" alt="Kronus" width={16} height={16} className="mr-2 rounded-full" />
+                  Edit with Kronus
                 </Button>
               </div>
             </>
@@ -606,62 +625,82 @@ export default function LinearPage() {
 
       {/* Project Detail Dialog */}
       <Dialog open={!!selectedProject} onOpenChange={() => setSelectedProject(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
           {selectedProject && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-xl">{selectedProject.name}</DialogTitle>
+                <DialogTitle className="text-xl text-[var(--tartarus-ivory)]">{selectedProject.name}</DialogTitle>
                 <DialogDescription asChild>
                   <div className="flex flex-wrap items-center gap-2 pt-2">
-                    <Badge variant="secondary">{selectedProject.state}</Badge>
-                    <Badge variant="outline">
+                    <Badge variant="secondary" className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">{selectedProject.state}</Badge>
+                    <Badge variant="outline" className="border-[var(--tartarus-border-light)] text-[var(--tartarus-ivory-muted)]">
                       {Math.round(selectedProject.progress * 100)}% complete
                     </Badge>
                     {selectedProject.lead && (
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="border-[var(--tartarus-border-light)] text-[var(--tartarus-ivory-muted)]">
                         <User className="h-3 w-3 mr-1" />
                         Lead: {selectedProject.lead.name}
                       </Badge>
                     )}
                     {selectedProject.targetDate && (
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="border-[var(--tartarus-border-light)] text-[var(--tartarus-ivory-muted)]">
                         Target: {selectedProject.targetDate}
                       </Badge>
                     )}
                   </div>
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="space-y-4 py-4">
                 <div>
-                  <h4 className="font-medium mb-2">Progress</h4>
-                  <div className="bg-muted h-4 rounded-full overflow-hidden">
+                  <h4 className="font-medium mb-2 text-[var(--tartarus-ivory)]">Progress</h4>
+                  <div className="bg-[var(--tartarus-deep)] h-4 rounded-full overflow-hidden">
                     <div
-                      className="bg-primary h-full transition-all"
+                      className="bg-[var(--tartarus-teal)] h-full transition-all"
                       style={{ width: `${selectedProject.progress * 100}%` }}
                     />
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-sm text-[var(--tartarus-ivory-muted)] mt-1">
                     {Math.round(selectedProject.progress * 100)}% complete
                   </p>
                 </div>
 
-                {selectedProject.description ? (
+                {selectedProject.description && (
                   <div>
-                    <h4 className="font-medium mb-2">Description</h4>
-                    <div className="bg-muted p-4 rounded-lg text-sm whitespace-pre-wrap">
-                      {selectedProject.description}
+                    <h4 className="font-medium mb-2 text-[var(--tartarus-ivory)]">Description</h4>
+                    <div className="bg-[var(--tartarus-deep)] p-5 rounded-lg border border-[var(--tartarus-border)] prose prose-base max-w-none leading-relaxed prose-headings:text-[var(--tartarus-ivory)] prose-headings:font-semibold prose-headings:mb-3 prose-p:text-[var(--tartarus-ivory-dim)] prose-p:leading-relaxed prose-p:mb-3 prose-a:text-[var(--tartarus-teal)] prose-a:underline prose-strong:text-[var(--tartarus-ivory)] prose-em:text-[var(--tartarus-ivory-muted)] prose-code:text-[var(--tartarus-teal)] prose-code:bg-[var(--tartarus-void)] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-[var(--tartarus-void)] prose-pre:p-4 prose-ul:text-[var(--tartarus-ivory-dim)] prose-ul:my-3 prose-ol:text-[var(--tartarus-ivory-dim)] prose-ol:my-3 prose-li:my-1">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedProject.description}</ReactMarkdown>
                     </div>
                   </div>
-                ) : (
-                  <p className="text-muted-foreground text-sm italic">No description</p>
+                )}
+
+                {selectedProject.content ? (
+                  <div>
+                    <h4 className="font-medium mb-2 text-[var(--tartarus-ivory)]">Content</h4>
+                    <div className="bg-[var(--tartarus-deep)] p-5 rounded-lg border border-[var(--tartarus-border)] max-h-[500px] overflow-auto prose prose-base max-w-none leading-relaxed prose-headings:text-[var(--tartarus-ivory)] prose-headings:font-semibold prose-headings:mb-3 prose-p:text-[var(--tartarus-ivory-dim)] prose-p:leading-relaxed prose-p:mb-3 prose-a:text-[var(--tartarus-teal)] prose-a:underline prose-strong:text-[var(--tartarus-ivory)] prose-em:text-[var(--tartarus-ivory-muted)] prose-code:text-[var(--tartarus-teal)] prose-code:bg-[var(--tartarus-void)] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-[var(--tartarus-void)] prose-pre:p-4 prose-ul:text-[var(--tartarus-ivory-dim)] prose-ul:my-3 prose-ol:text-[var(--tartarus-ivory-dim)] prose-ol:my-3 prose-li:my-1 prose-img:rounded-lg prose-img:max-w-full prose-img:my-4">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedProject.content}</ReactMarkdown>
+                    </div>
+                  </div>
+                ) : !selectedProject.description && (
+                  <p className="text-[var(--tartarus-ivory-faded)] text-sm italic">No description or content</p>
                 )}
               </div>
 
-              <div className="flex items-center justify-end pt-4 border-t">
-                <Button onClick={() => { setSelectedProject(null); workWithProjectAI(selectedProject); }} className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal)]/90">
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Discuss with Kronus
+              <div className="flex items-center justify-between pt-4 border-t border-[var(--tartarus-border)]">
+                {selectedProject.url && (
+                  <Button variant="outline" asChild className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]">
+                    <a href={selectedProject.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open in Linear
+                    </a>
+                  </Button>
+                )}
+                <Button
+                  onClick={() => { setSelectedProject(null); editProjectWithAI(selectedProject); }}
+                  className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)] ml-auto"
+                >
+                  <Image src="/chronus-logo.png" alt="Kronus" width={16} height={16} className="mr-2 rounded-full" />
+                  Edit with Kronus
                 </Button>
               </div>
             </>

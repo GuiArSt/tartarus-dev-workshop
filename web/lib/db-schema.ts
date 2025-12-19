@@ -20,7 +20,7 @@ export interface Skill {
   id: string;
   name: string;
   category: string;
-  magnitude: number; // 1-4
+  magnitude: number; // 1-5
   description: string;
   icon?: string;
   color?: string;
@@ -28,6 +28,23 @@ export interface Skill {
   tags: string; // JSON array as string
   firstUsed?: string;
   lastUsed?: string;
+}
+
+export interface SkillCategory {
+  id: string;
+  name: string;
+  color: string; // Tailwind color name like "violet", "pink", "blue"
+  icon: string; // Lucide icon name like "cpu", "palette", "database"
+  sortOrder: number;
+}
+
+export interface DocumentType {
+  id: string;
+  name: string;
+  description: string;
+  color: string; // Tailwind color name
+  icon: string; // Lucide icon name
+  sortOrder: number;
 }
 
 export interface WorkExperience {
@@ -41,6 +58,7 @@ export interface WorkExperience {
   tagline: string;
   note?: string;
   achievements: string; // JSON array as string
+  logo?: string; // base64 or URL for company logo
 }
 
 export interface Education {
@@ -55,6 +73,7 @@ export interface Education {
   note?: string;
   focusAreas: string; // JSON array as string
   achievements: string; // JSON array as string
+  logo?: string; // base64 or URL for institution logo
 }
 
 export interface MediaAsset {
@@ -100,13 +119,77 @@ export function initRepositorySchema() {
     CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at);
   `);
 
+  // Skill Categories table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS skill_categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      color TEXT NOT NULL DEFAULT 'gray',
+      icon TEXT NOT NULL DEFAULT 'tag',
+      sortOrder INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_skill_categories_sortOrder ON skill_categories(sortOrder);
+  `);
+
+  // Seed default categories if table is empty
+  const categoryCount = db.prepare("SELECT COUNT(*) as count FROM skill_categories").get() as { count: number };
+  if (categoryCount.count === 0) {
+    const defaultCategories = [
+      { id: "ai-dev", name: "AI & Development", color: "violet", icon: "cpu", sortOrder: 1 },
+      { id: "design-creative", name: "Design & Creative Production", color: "pink", icon: "palette", sortOrder: 2 },
+      { id: "data-analytics", name: "Data & Analytics", color: "blue", icon: "database", sortOrder: 3 },
+      { id: "infra-devops", name: "Infrastructure & DevOps", color: "orange", icon: "server", sortOrder: 4 },
+      { id: "writing-comm", name: "Writing & Communication", color: "emerald", icon: "pen-tool", sortOrder: 5 },
+      { id: "business-leadership", name: "Business & Leadership", color: "amber", icon: "users", sortOrder: 6 },
+    ];
+    const insertCategory = db.prepare("INSERT INTO skill_categories (id, name, color, icon, sortOrder) VALUES (?, ?, ?, ?, ?)");
+    for (const cat of defaultCategories) {
+      insertCategory.run(cat.id, cat.name, cat.color, cat.icon, cat.sortOrder);
+    }
+  }
+
+  // Document Types table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS document_types (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '',
+      color TEXT NOT NULL DEFAULT 'emerald',
+      icon TEXT NOT NULL DEFAULT 'file-text',
+      sortOrder INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_document_types_sortOrder ON document_types(sortOrder);
+  `);
+
+  // Seed default document types if table is empty
+  const docTypeCount = db.prepare("SELECT COUNT(*) as count FROM document_types").get() as { count: number };
+  if (docTypeCount.count === 0) {
+    const defaultDocTypes = [
+      { id: "manifesto", name: "manifesto", description: "Personal manifestos and philosophical writings", color: "violet", icon: "scroll", sortOrder: 1 },
+      { id: "poem", name: "poem", description: "Poetry and verse", color: "pink", icon: "feather", sortOrder: 2 },
+      { id: "manifesto-poem", name: "manifesto-poem", description: "Poetic manifestos blending philosophy and verse", color: "indigo", icon: "sparkles", sortOrder: 3 },
+      { id: "essay", name: "essay", description: "Long-form analytical writing", color: "emerald", icon: "file-text", sortOrder: 4 },
+      { id: "reflection", name: "reflection", description: "Personal reflections and introspection", color: "amber", icon: "lightbulb", sortOrder: 5 },
+      { id: "letter", name: "letter", description: "Personal letters and correspondence", color: "rose", icon: "mail", sortOrder: 6 },
+      { id: "story", name: "story", description: "Short stories and narratives", color: "blue", icon: "book-open", sortOrder: 7 },
+      { id: "system-prompt", name: "system-prompt", description: "AI system prompts and instructions", color: "cyan", icon: "terminal", sortOrder: 8 },
+      { id: "agent-prompt", name: "agent-prompt", description: "Agent-specific prompts and configurations", color: "teal", icon: "bot", sortOrder: 9 },
+    ];
+    const insertDocType = db.prepare("INSERT INTO document_types (id, name, description, color, icon, sortOrder) VALUES (?, ?, ?, ?, ?, ?)");
+    for (const dt of defaultDocTypes) {
+      insertDocType.run(dt.id, dt.name, dt.description, dt.color, dt.icon, dt.sortOrder);
+    }
+  }
+
   // Skills table
   db.exec(`
     CREATE TABLE IF NOT EXISTS skills (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       category TEXT NOT NULL,
-      magnitude INTEGER NOT NULL CHECK(magnitude >= 1 AND magnitude <= 4),
+      magnitude INTEGER NOT NULL CHECK(magnitude >= 1 AND magnitude <= 5),
       description TEXT NOT NULL,
       icon TEXT,
       color TEXT,
@@ -115,7 +198,7 @@ export function initRepositorySchema() {
       firstUsed TEXT,
       lastUsed TEXT
     );
-    
+
     CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category);
     CREATE INDEX IF NOT EXISTS idx_skills_magnitude ON skills(magnitude);
   `);
@@ -245,6 +328,34 @@ export function initRepositorySchema() {
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_atropos_memory_user_id ON atropos_memory(user_id);
   `);
+
+  // Run migrations for new columns
+  migrateLogoColumns(db);
+}
+
+/**
+ * Add logo columns to work_experience and education tables
+ */
+function migrateLogoColumns(db: ReturnType<typeof getDatabase>) {
+  // Add logo column to work_experience
+  try {
+    db.exec(`ALTER TABLE work_experience ADD COLUMN logo TEXT;`);
+    console.log("Added logo column to work_experience table");
+  } catch (error: any) {
+    if (!error.message?.includes("duplicate column")) {
+      // Column already exists, that's fine
+    }
+  }
+
+  // Add logo column to education
+  try {
+    db.exec(`ALTER TABLE education ADD COLUMN logo TEXT;`);
+    console.log("Added logo column to education table");
+  } catch (error: any) {
+    if (!error.message?.includes("duplicate column")) {
+      // Column already exists, that's fine
+    }
+  }
 }
 
 export interface WritingMemory {

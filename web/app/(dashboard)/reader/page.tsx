@@ -27,6 +27,8 @@ import {
   FolderGit2,
   ChevronRight,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface JournalEntry {
   id: number;
@@ -45,6 +47,7 @@ interface JournalEntry {
 }
 
 export default function ReaderPage() {
+  const router = useRouter();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [repositories, setRepositories] = useState<string[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<string>("all");
@@ -53,6 +56,16 @@ export default function ReaderPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
+
+  // Navigate to chat to EDIT an entry with Kronus
+  const editWithKronus = (entry: JournalEntry, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const context = `I want to UPDATE this journal entry. Please help me modify it:\n\n**Commit Hash:** ${entry.commit_hash}\n**Repository:** ${entry.repository}/${entry.branch}\n**Date:** ${new Date(entry.date).toLocaleDateString()}\n**Author:** ${entry.author}\n\n**Why:**\n${entry.why}\n\n**Decisions:**\n${entry.decisions}\n\n**Technologies:** ${entry.technologies}\n\n**Kronus Wisdom:** ${entry.kronus_wisdom || "(none)"}\n\nWhat changes would you like to make? You can update any field using the journal_edit_entry tool.`;
+
+    sessionStorage.setItem("kronusPrefill", context);
+    router.push("/chat");
+  };
 
   useEffect(() => {
     fetchRepositories();
@@ -202,7 +215,18 @@ export default function ReaderPage() {
                           )}
                         </div>
                       </div>
-                      <ChevronRight className="text-muted-foreground h-5 w-5 opacity-0 transition-opacity group-hover:opacity-100" />
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-950 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => editWithKronus(entry, e)}
+                          title="Edit with Kronus"
+                        >
+                          <Image src="/chronus-logo.png" alt="Kronus" width={16} height={16} className="rounded-full" />
+                        </Button>
+                        <ChevronRight className="text-muted-foreground h-5 w-5 opacity-0 transition-opacity group-hover:opacity-100" />
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
