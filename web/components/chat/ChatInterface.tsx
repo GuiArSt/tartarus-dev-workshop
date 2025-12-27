@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SoulConfig, SoulConfigState, DEFAULT_CONFIG } from "./SoulConfig";
+import { compressImage, formatBytes, CompressionResult } from "@/lib/image-compression";
 
 // Memoized markdown components - tighter spacing for better density
 const markdownComponents = {
@@ -150,6 +151,8 @@ export function ChatInterface() {
   // Image upload state
   const [selectedFiles, setSelectedFiles] = useState<FileList | undefined>(undefined);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [compressionInfo, setCompressionInfo] = useState<CompressionResult[]>([]);
+  const [isCompressing, setIsCompressing] = useState(false);
 
   // Chat search state
   const [showSearch, setShowSearch] = useState(false);
@@ -1186,36 +1189,139 @@ Details: ${data.details}` : "";
   // Track if prefill was sent (used by init effect)
   const [hasSentPrefill, setHasSentPrefill] = useState(false);
 
-  // Handle file selection and generate previews
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Process and compress images
+  const processImages = useCallback(async (files: File[]) => {
+    if (files.length === 0) return;
+
+    setIsCompressing(true);
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+
+    try {
+      const results: CompressionResult[] = [];
+      const previews: string[] = [];
+      const processedBlobs: Blob[] = [];
+
+      for (const file of imageFiles) {
+        const result = await compressImage(file);
+        results.push(result);
+        processedBlobs.push(result.blob);
+
+        // Generate preview from compressed blob
+        const reader = new FileReader();
+        const previewPromise = new Promise<string>((resolve) => {
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(result.blob);
+        });
+        previews.push(await previewPromise);
+      }
+
+      setCompressionInfo(results);
+      setImagePreviews(previews);
+
+      // Create a new FileList-like object from compressed blobs
+      const dataTransfer = new DataTransfer();
+      processedBlobs.forEach((blob, i) => {
+        const originalFile = imageFiles[i];
+        const ext = results[i].format === "image/jpeg" ? ".jpg" : ".png";
+        const filename = originalFile.name.replace(/\.[^.]+$/, "") + ext;
+        const compressedFile = new File([blob], filename, { type: results[i].format });
+        dataTransfer.items.add(compressedFile);
+      });
+      setSelectedFiles(dataTransfer.files);
+    } catch (error) {
+      console.error("Image compression failed:", error);
+      // Fallback to original files
+      const dataTransfer = new DataTransfer();
+      imageFiles.forEach((f) => dataTransfer.items.add(f));
+      setSelectedFiles(dataTransfer.files);
+
+      // Generate previews for original files
+      const previews: string[] = [];
+      for (const file of imageFiles) {
+        const reader = new FileReader();
+        const previewPromise = new Promise<string>((resolve) => {
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+        previews.push(await previewPromise);
+      }
+      setImagePreviews(previews);
+    } finally {
+      setIsCompressing(false);
+    }
+  }, []);
+
+  // Handle file selection from input
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      setSelectedFiles(files);
-      // Generate previews for image files
-      const previews: string[] = [];
-      Array.from(files).forEach((file) => {
-        if (file.type.startsWith("image/")) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            if (e.target?.result) {
-              previews.push(e.target.result as string);
-              setImagePreviews([...previews]);
-            }
-          };
-          reader.readAsDataURL(file);
-        }
-      });
+      processImages(Array.from(files));
     }
-  };
+  }, [processImages]);
+
+  // Handle paste event (Ctrl+V / Cmd+V with images)
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      processImages(imageFiles);
+    }
+  }, [processImages]);
+
+  // Handle drop event
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/")
+    );
+
+    if (files.length > 0) {
+      processImages(files);
+    }
+  }, [processImages]);
+
+  // Handle drag over
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  // Add paste listener to window
+  useEffect(() => {
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [handlePaste]);
 
   // Remove a selected image
   const removeImage = (index: number) => {
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
-    // Reset the file input if all images removed
-    if (imagePreviews.length <= 1) {
-      setSelectedFiles(undefined);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+    setCompressionInfo((prev) => prev.filter((_, i) => i !== index));
+
+    // Rebuild FileList without the removed file
+    if (selectedFiles) {
+      const dataTransfer = new DataTransfer();
+      Array.from(selectedFiles).forEach((f, i) => {
+        if (i !== index) dataTransfer.items.add(f);
+      });
+      if (dataTransfer.files.length === 0) {
+        setSelectedFiles(undefined);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } else {
+        setSelectedFiles(dataTransfer.files);
       }
     }
   };
@@ -1224,6 +1330,7 @@ Details: ${data.details}` : "";
   const clearFiles = () => {
     setSelectedFiles(undefined);
     setImagePreviews([]);
+    setCompressionInfo([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1860,27 +1967,53 @@ Details: ${data.details}` : "";
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="kronus-input-area p-4 z-10">
+        <div
+          className="kronus-input-area p-4 z-10"
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+        >
           <form onSubmit={handleSubmit} className="mx-auto max-w-3xl">
-            {/* Image Previews */}
-            {imagePreviews.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2">
-                {imagePreviews.map((preview, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={preview}
-                      alt={`Preview ${index + 1}`}
-                      className="h-20 w-20 object-cover rounded-lg border-2 border-[var(--kronus-border)]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+            {/* Image Previews with compression info */}
+            {(imagePreviews.length > 0 || isCompressing) && (
+              <div className="mb-3">
+                {isCompressing && (
+                  <div className="flex items-center gap-2 text-[var(--kronus-ivory-muted)] text-sm mb-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Optimizing images...</span>
                   </div>
-                ))}
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {imagePreviews.map((preview, index) => {
+                    const info = compressionInfo[index];
+                    const showCompressionBadge = info?.wasCompressed;
+
+                    return (
+                      <div key={index} className="relative group">
+                        <img
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="h-20 w-20 object-cover rounded-lg border-2 border-[var(--kronus-border)]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        {/* Compression badge */}
+                        {showCompressionBadge && (
+                          <div
+                            className="absolute bottom-0 left-0 right-0 bg-black/70 text-[var(--kronus-teal)] text-[9px] px-1 py-0.5 rounded-b-lg text-center"
+                            title={`Compressed: ${formatBytes(info.originalSize)} → ${formatBytes(info.compressedSize)} (${info.method})`}
+                          >
+                            {formatBytes(info.compressedSize)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -1909,7 +2042,7 @@ Details: ${data.details}` : "";
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={imagePreviews.length > 0 ? "Ask about the image(s)..." : "Speak your query to the oracle..."}
+                placeholder={imagePreviews.length > 0 ? "Ask about the image(s)..." : "Speak your query to the oracle... (paste/drop images here)"}
                 className="kronus-input max-h-[200px] min-h-[60px] resize-none px-4 py-3"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -1917,12 +2050,12 @@ Details: ${data.details}` : "";
                     handleSubmit(e);
                   }
                 }}
-                disabled={status === "submitted" || status === "streaming"}
+                disabled={status === "submitted" || status === "streaming" || isCompressing}
               />
               <button
                 type="submit"
                 className="kronus-send-btn"
-                disabled={(!input.trim() && !selectedFiles) || status === "submitted" || status === "streaming"}
+                disabled={(!input.trim() && !selectedFiles) || status === "submitted" || status === "streaming" || isCompressing}
               >
                 {(status === "submitted" || status === "streaming") ? (
                   <Loader2 className="h-5 w-5 animate-spin" />

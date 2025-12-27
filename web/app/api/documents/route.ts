@@ -48,12 +48,14 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const db = getDatabase();
 
   // Build query with conditions
+  // Documents can appear in multiple tabs via metadata.alsoShownIn array
   let query = "SELECT * FROM documents WHERE 1=1";
   const params: (string | number)[] = [];
 
   if (type) {
-    query += " AND type = ?";
-    params.push(type);
+    // Match primary type OR documents where alsoShownIn includes this type
+    query += " AND (type = ? OR json_extract(metadata, '$.alsoShownIn') LIKE ?)";
+    params.push(type, `%"${type}"%`);
   }
 
   if (year) {
@@ -82,8 +84,8 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const countParams: (string | number)[] = [];
 
   if (type) {
-    countQuery += " AND type = ?";
-    countParams.push(type);
+    countQuery += " AND (type = ? OR json_extract(metadata, '$.alsoShownIn') LIKE ?)";
+    countParams.push(type, `%"${type}"%`);
   }
   if (year) {
     countQuery += " AND json_extract(metadata, '$.year') = ?";

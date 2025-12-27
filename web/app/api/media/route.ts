@@ -13,18 +13,24 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get("offset") || "0");
 
     let query = `
-      SELECT 
+      SELECT
         id,
         filename,
         mime_type,
         file_size,
         description,
+        alt,
         prompt,
         model,
         tags,
+        drive_url,
+        supabase_url,
         destination,
         commit_hash,
         document_id,
+        portfolio_project_id,
+        width,
+        height,
         created_at,
         updated_at
       FROM media_assets

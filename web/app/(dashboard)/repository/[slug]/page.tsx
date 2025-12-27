@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,21 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
-import { Edit, Save, X, ArrowLeft, Tag, Plus, FileText, Settings } from "lucide-react";
+import { Edit, Save, X, ArrowLeft, Tag, Plus, FileText, Settings, Check, ImagePlus, Trash2, Image, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { compressImage, formatBytes } from "@/lib/image-compression";
+
+interface MediaAsset {
+  id: number;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  description: string | null;
+  alt: string | null;
+  drive_url: string | null;
+  supabase_url: string | null;
+  created_at: string;
+}
 
 interface Document {
   id: number;
@@ -57,7 +71,14 @@ export default function DocumentDetailPage() {
   const [editedTitle, setEditedTitle] = useState("");
   const [editedTags, setEditedTags] = useState<string[]>([]);
   const [editedType, setEditedType] = useState("");
+  const [editedAlsoShownIn, setEditedAlsoShownIn] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
+
+  // Media attachments
+  const [attachments, setAttachments] = useState<MediaAsset[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchDocument();
@@ -76,6 +97,75 @@ export default function DocumentDetailPage() {
     }
   };
 
+  const fetchAttachments = async (docId: number) => {
+    setLoadingAttachments(true);
+    try {
+      const res = await fetch(`/api/media?document_id=${docId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAttachments(data.assets || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch attachments:", error);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !document) return;
+
+    setUploadingMedia(true);
+    try {
+      for (const file of Array.from(files)) {
+        // Compress image if needed
+        let fileToUpload: File = file;
+        if (file.type.startsWith("image/") && file.size > 5 * 1024 * 1024) {
+          const result = await compressImage(file);
+          if (result.wasCompressed) {
+            fileToUpload = new File([result.blob], file.name, { type: result.format });
+          }
+        }
+
+        const formData = new FormData();
+        formData.append("file", fileToUpload);
+        formData.append("document_id", document.id.toString());
+
+        const res = await fetch("/api/media/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          console.error("Upload failed:", error);
+        }
+      }
+      // Refresh attachments
+      await fetchAttachments(document.id);
+    } catch (error) {
+      console.error("Upload error:", error);
+    } finally {
+      setUploadingMedia(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleDeleteAttachment = async (id: number) => {
+    if (!confirm("Remove this attachment?")) return;
+    try {
+      const res = await fetch(`/api/media/${id}`, { method: "DELETE" });
+      if (res.ok && document) {
+        await fetchAttachments(document.id);
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+    }
+  };
+
   const fetchDocument = async () => {
     try {
       const res = await fetch(`/api/documents/${slug}`);
@@ -83,6 +173,8 @@ export default function DocumentDetailPage() {
         const data = await res.json();
         setDocument(data);
         resetEditState(data);
+        // Fetch attachments for this document
+        fetchAttachments(data.id);
       }
     } catch (error) {
       console.error("Failed to fetch document:", error);
@@ -96,6 +188,7 @@ export default function DocumentDetailPage() {
     setEditedTitle(doc.title);
     setEditedTags(doc.metadata?.tags || []);
     setEditedType(doc.metadata?.type || "");
+    setEditedAlsoShownIn(doc.metadata?.alsoShownIn || []);
   };
 
   const handleSave = async () => {
@@ -108,7 +201,12 @@ export default function DocumentDetailPage() {
         body: JSON.stringify({
           content: editedContent,
           title: editedTitle,
-          metadata: { ...document.metadata, tags: editedTags, type: editedType || null },
+          metadata: {
+            ...document.metadata,
+            tags: editedTags,
+            type: editedType || null,
+            alsoShownIn: editedAlsoShownIn.length > 0 ? editedAlsoShownIn : undefined,
+          },
         }),
       });
       if (res.ok) {
@@ -301,6 +399,41 @@ export default function DocumentDetailPage() {
                       </p>
                     </div>
 
+                    {/* Also Show In - Cross-tab visibility */}
+                    <div>
+                      <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">
+                        Also show in other tabs
+                      </Label>
+                      <div className="flex flex-wrap gap-4">
+                        {["writing", "prompt", "note"]
+                          .filter((t) => t !== document.type) // Exclude primary type
+                          .map((tabType) => (
+                            <label
+                              key={tabType}
+                              className="flex items-center gap-2 cursor-pointer text-sm"
+                            >
+                              <Checkbox
+                                checked={editedAlsoShownIn.includes(tabType)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setEditedAlsoShownIn([...editedAlsoShownIn, tabType]);
+                                  } else {
+                                    setEditedAlsoShownIn(editedAlsoShownIn.filter((t) => t !== tabType));
+                                  }
+                                }}
+                                className="border-[var(--tartarus-border)] data-[state=checked]:bg-[var(--tartarus-teal)] data-[state=checked]:border-[var(--tartarus-teal)]"
+                              />
+                              <span className="text-[var(--tartarus-ivory-muted)] capitalize">
+                                {tabType === "writing" ? "Writings" : tabType === "prompt" ? "Prompts" : "Notes"}
+                              </span>
+                            </label>
+                          ))}
+                      </div>
+                      <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                        Document will appear in selected tabs in addition to its primary type.
+                      </p>
+                    </div>
+
                     {/* Tags Editor */}
                     <div>
                       <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block flex items-center gap-1">
@@ -360,6 +493,22 @@ export default function DocumentDetailPage() {
                       </div>
                     )}
 
+                    {/* Display Also Shown In */}
+                    {document.metadata?.alsoShownIn && document.metadata.alsoShownIn.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-[var(--tartarus-ivory-muted)]">Also in:</span>
+                        {document.metadata.alsoShownIn.map((tab: string) => (
+                          <Badge
+                            key={tab}
+                            variant="outline"
+                            className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] capitalize text-xs"
+                          >
+                            {tab === "writing" ? "Writings" : tab === "prompt" ? "Prompts" : "Notes"}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Display Tags */}
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-xs text-[var(--tartarus-ivory-muted)] mr-1">Tags:</span>
@@ -402,6 +551,95 @@ export default function DocumentDetailPage() {
                 </div>
               )}
             </CardContent>
+
+            {/* Attachments Section */}
+            <div className="border-t border-[var(--tartarus-border)] p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Image className="h-4 w-4 text-[var(--tartarus-ivory-muted)]" />
+                  <span className="text-sm font-medium text-[var(--tartarus-ivory)]">
+                    Attachments {attachments.length > 0 && `(${attachments.length})`}
+                  </span>
+                </div>
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingMedia}
+                    className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]"
+                  >
+                    {uploadingMedia ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <ImagePlus className="h-4 w-4 mr-2" />
+                        Add Image
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {loadingAttachments ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-[var(--tartarus-ivory-muted)]" />
+                </div>
+              ) : attachments.length === 0 ? (
+                <div className="text-center py-8 text-[var(--tartarus-ivory-faded)]">
+                  <Image className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No images attached yet</p>
+                  <p className="text-xs mt-1">Click "Add Image" to attach artwork, diagrams, or photos</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {attachments.map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="group relative aspect-square rounded-lg overflow-hidden border border-[var(--tartarus-border)] bg-[var(--tartarus-deep)]"
+                    >
+                      <img
+                        src={asset.supabase_url || asset.drive_url || `/api/media/${asset.id}/raw`}
+                        alt={asset.alt || asset.filename}
+                        className="h-full w-full object-cover"
+                      />
+                      {/* Overlay with info and actions */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => handleDeleteAttachment(asset.id)}
+                            className="p-1.5 rounded-full bg-red-500/80 hover:bg-red-500 text-white transition-colors"
+                            title="Remove attachment"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="text-white">
+                          <p className="text-xs font-medium truncate">{asset.filename}</p>
+                          <p className="text-[10px] text-white/70">{formatBytes(asset.file_size)}</p>
+                          {asset.drive_url && (
+                            <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-[var(--tartarus-gold)]/20 text-[var(--tartarus-gold)]">
+                              Archived
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </Card>
         </div>
       </div>

@@ -165,20 +165,37 @@ export const education = sqliteTable("education", {
 
 /**
  * Media assets - images, files
+ *
+ * Storage strategy:
+ * - `data`: Base64 encoded file for hot/active storage (SQLite/Supabase)
+ * - `driveUrl`: Google Drive URL for long-term archival (optional)
+ * - `supabaseUrl`: Supabase Storage URL for web-accessible CDN (optional)
+ *
+ * When both URLs exist, prefer supabaseUrl for display, driveUrl for archival.
+ * The `data` field can be cleared once external URLs are populated to save space.
  */
 export const mediaAssets = sqliteTable("media_assets", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   filename: text("filename").notNull(),
   mimeType: text("mime_type").notNull(),
-  data: text("data").notNull(), // base64 encoded
+  data: text("data"), // base64 encoded - nullable for external-only storage
   fileSize: integer("file_size").notNull(),
   description: text("description"),
-  prompt: text("prompt"),
-  model: text("model"),
+  alt: text("alt"), // Alt text for accessibility
+  prompt: text("prompt"), // AI generation prompt if applicable
+  model: text("model"), // AI model used if applicable
   tags: text("tags").default("[]"),
-  destination: text("destination", { enum: ["journal", "repository", "media"] }).notNull(),
+  // Storage URLs
+  driveUrl: text("drive_url"), // Google Drive long-term archival URL
+  supabaseUrl: text("supabase_url"), // Supabase Storage CDN URL
+  // Relationships
+  destination: text("destination", { enum: ["journal", "repository", "media", "portfolio"] }).notNull(),
   commitHash: text("commit_hash"),
   documentId: integer("document_id").references(() => documents.id, { onDelete: "set null" }),
+  portfolioProjectId: text("portfolio_project_id").references(() => portfolioProjects.id, { onDelete: "set null" }),
+  // Metadata
+  width: integer("width"), // Image dimensions
+  height: integer("height"),
   createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
   updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
 });

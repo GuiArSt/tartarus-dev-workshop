@@ -1059,11 +1059,14 @@ What project would you like to add?`;
                             onCancel={() => setEditingProject(null)}
                           />
                         ) : (
-                          <Card key={project.id} className="group relative overflow-hidden transition-shadow hover:shadow-lg">
+                          <Card key={project.id} className="group relative overflow-hidden transition-all hover:shadow-lg border-cyan-100 dark:border-cyan-900/40 h-full flex flex-col bg-gradient-to-br from-white to-cyan-50/30 dark:from-gray-900 dark:to-cyan-950/20">
+                            {/* Decorative top bar */}
+                            <div className={`h-1.5 ${project.featured ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400' : 'bg-gradient-to-r from-cyan-400 to-teal-500'}`} />
+
                             {/* Featured star */}
                             {project.featured && (
-                              <div className="absolute top-2 right-2 z-10">
-                                <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                              <div className="absolute top-4 right-3 z-10">
+                                <Star className="h-5 w-5 fill-amber-400 text-amber-500 drop-shadow-sm" />
                               </div>
                             )}
 
@@ -1071,7 +1074,7 @@ What project would you like to add?`;
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white"
+                              className="absolute top-4 left-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 shadow-sm"
                               onClick={() => setEditingProject(project.id)}
                             >
                               <Edit className="h-4 w-4" />
@@ -1079,54 +1082,72 @@ What project would you like to add?`;
 
                             {/* Image */}
                             {project.image && (
-                              <div className="h-32 w-full overflow-hidden bg-muted">
+                              <div className="h-36 w-full overflow-hidden bg-gradient-to-br from-cyan-100 to-teal-100 dark:from-cyan-900/30 dark:to-teal-900/30">
                                 <img
                                   src={project.image}
                                   alt={project.title}
-                                  className="h-full w-full object-cover"
+                                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
                                 />
                               </div>
                             )}
 
-                            <CardHeader className="pb-2">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <CardTitle className="text-lg">{project.title}</CardTitle>
-                                  <p className="text-sm text-muted-foreground">
-                                    {project.company || "Personal"} • {project.category}
+                            <CardHeader className={`pb-2 ${!project.image ? 'pt-6' : ''}`}>
+                              <div className="flex items-start justify-between pr-8">
+                                <div className="flex-1 min-w-0">
+                                  <CardTitle className="text-lg font-bold text-gray-900 dark:text-gray-50 line-clamp-2">
+                                    {project.title}
+                                  </CardTitle>
+                                  <p className="text-sm font-medium text-cyan-700 dark:text-cyan-400 mt-0.5">
+                                    {project.company || "Personal Project"}
+                                    <span className="text-gray-400 dark:text-gray-500 mx-1.5">•</span>
+                                    <span className="text-gray-600 dark:text-gray-400">{project.category}</span>
                                   </p>
                                 </div>
                               </div>
                             </CardHeader>
 
-                            <CardContent className="pt-0 space-y-3">
+                            <CardContent className="pt-0 space-y-3 flex-1 flex flex-col">
                               {/* Status badge */}
                               <div className="flex gap-2 flex-wrap">
                                 <Badge
-                                  variant={project.status === "shipped" ? "default" : project.status === "wip" ? "outline" : "secondary"}
+                                  className={`text-xs font-medium ${
+                                    project.status === "shipped"
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                                      : project.status === "wip"
+                                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                                      : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+                                  }`}
                                 >
                                   {project.status === "shipped" ? "Shipped" : project.status === "wip" ? "In Progress" : "Archived"}
                                 </Badge>
                                 {project.role && (
-                                  <Badge variant="outline">{project.role}</Badge>
+                                  <Badge variant="outline" className="text-xs text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600">
+                                    {project.role}
+                                  </Badge>
                                 )}
                               </div>
 
                               {/* Excerpt */}
                               {project.excerpt && (
-                                <p className="text-sm text-muted-foreground line-clamp-2">{project.excerpt}</p>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed flex-1">
+                                  {project.excerpt}
+                                </p>
                               )}
 
                               {/* Technologies */}
                               {project.technologies.length > 0 && (
-                                <div className="flex gap-1 flex-wrap">
+                                <div className="flex gap-1.5 flex-wrap pt-1">
                                   {project.technologies.slice(0, 4).map((tech) => (
-                                    <Badge key={tech} variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                                    <Badge
+                                      key={tech}
+                                      variant="secondary"
+                                      className="text-[11px] px-2 py-0.5 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-800 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 font-medium"
+                                    >
                                       {tech}
                                     </Badge>
                                   ))}
                                   {project.technologies.length > 4 && (
-                                    <Badge variant="secondary" className="text-xs">
+                                    <Badge variant="secondary" className="text-[11px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                                       +{project.technologies.length - 4}
                                     </Badge>
                                   )}
@@ -1135,14 +1156,15 @@ What project would you like to add?`;
 
                               {/* Links */}
                               {Object.keys(project.links).length > 0 && (
-                                <div className="flex gap-2">
+                                <div className="flex gap-3 pt-2 border-t border-cyan-100 dark:border-cyan-900/40">
                                   {Object.entries(project.links).map(([name, url]) => (
                                     <a
                                       key={name}
                                       href={url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                      className="text-xs font-medium text-cyan-700 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-cyan-300 hover:underline flex items-center gap-1 transition-colors"
+                                      onClick={(e) => e.stopPropagation()}
                                     >
                                       <ExternalLink className="h-3 w-3" />
                                       {name}
