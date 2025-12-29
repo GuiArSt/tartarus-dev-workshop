@@ -521,6 +521,4 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 The web app shares the same SQLite database as the MCP server, so all your journal entries are immediately available.
 
----
-
-**Built with**: TypeScript, Node.js, Next.js, SQLite, Claude Haiku 4.5, AI SDK, Model Context Protocol
+---**Built with**: TypeScript, Node.js, Next.js, SQLite, Claude Haiku 4.5, AI SDK, Model Context Protocol

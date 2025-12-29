@@ -71,7 +71,9 @@ export default function DocumentDetailPage() {
   const [editedTitle, setEditedTitle] = useState("");
   const [editedTags, setEditedTags] = useState<string[]>([]);
   const [editedType, setEditedType] = useState("");
+  const [editedPrimaryType, setEditedPrimaryType] = useState<"writing" | "prompt" | "note">("writing");
   const [editedAlsoShownIn, setEditedAlsoShownIn] = useState<string[]>([]);
+  const [editedYear, setEditedYear] = useState("");
   const [newTag, setNewTag] = useState("");
 
   // Media attachments
@@ -188,7 +190,9 @@ export default function DocumentDetailPage() {
     setEditedTitle(doc.title);
     setEditedTags(doc.metadata?.tags || []);
     setEditedType(doc.metadata?.type || "");
+    setEditedPrimaryType(doc.type);
     setEditedAlsoShownIn(doc.metadata?.alsoShownIn || []);
+    setEditedYear(doc.metadata?.year || "");
   };
 
   const handleSave = async () => {
@@ -201,10 +205,12 @@ export default function DocumentDetailPage() {
         body: JSON.stringify({
           content: editedContent,
           title: editedTitle,
+          type: editedPrimaryType, // Allow changing primary type
           metadata: {
             ...document.metadata,
             tags: editedTags,
             type: editedType || null,
+            year: editedYear || null,
             alsoShownIn: editedAlsoShownIn.length > 0 ? editedAlsoShownIn : undefined,
           },
         }),
@@ -367,9 +373,50 @@ export default function DocumentDetailPage() {
 
                 {isEditing ? (
                   <div className="space-y-4">
-                    {/* Type Editor - Dropdown from predefined types */}
+                    {/* Primary Type & Year - Row */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Primary Type (writing/prompt/note) */}
+                      <div>
+                        <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Primary Tab</Label>
+                        <Select value={editedPrimaryType} onValueChange={(v) => setEditedPrimaryType(v as "writing" | "prompt" | "note")}>
+                          <SelectTrigger className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
+                            <SelectItem value="writing" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
+                              Writings
+                            </SelectItem>
+                            <SelectItem value="prompt" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
+                              Prompts
+                            </SelectItem>
+                            <SelectItem value="note" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
+                              Notes
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                          Which tab this document appears in by default
+                        </p>
+                      </div>
+
+                      {/* Year Written */}
+                      <div>
+                        <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Year Written</Label>
+                        <Input
+                          value={editedYear}
+                          onChange={(e) => setEditedYear(e.target.value)}
+                          placeholder="e.g. 2024"
+                          className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                        />
+                        <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                          When this piece was originally written
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Subtype (essay, poem, etc.) */}
                     <div>
-                      <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Document Type</Label>
+                      <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Category/Subtype</Label>
                       <Select value={editedType || "_none_"} onValueChange={(v) => setEditedType(v === "_none_" ? "" : v)}>
                         <SelectTrigger className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
                           <SelectValue placeholder="Select a type..." />
@@ -395,7 +442,7 @@ export default function DocumentDetailPage() {
                         </SelectContent>
                       </Select>
                       <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
-                        Types are predefined. Manage them from the Repository page.
+                        Categorization (essay, poem, system-prompt, etc.)
                       </p>
                     </div>
 
@@ -406,7 +453,7 @@ export default function DocumentDetailPage() {
                       </Label>
                       <div className="flex flex-wrap gap-4">
                         {["writing", "prompt", "note"]
-                          .filter((t) => t !== document.type) // Exclude primary type
+                          .filter((t) => t !== editedPrimaryType) // Exclude current primary type
                           .map((tabType) => (
                             <label
                               key={tabType}
@@ -430,7 +477,7 @@ export default function DocumentDetailPage() {
                           ))}
                       </div>
                       <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
-                        Document will appear in selected tabs in addition to its primary type.
+                        Document will appear in selected tabs in addition to its primary tab.
                       </p>
                     </div>
 

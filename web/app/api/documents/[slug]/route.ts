@@ -80,9 +80,10 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
   const { slug } = await params;
   const db = getDatabase();
   const body = await request.json();
-  const { title, content, metadata } = body as {
+  const { title, content, type, metadata } = body as {
     title?: string;
     content?: string;
+    type?: "writing" | "prompt" | "note";
     metadata?: Record<string, unknown>;
   };
 
@@ -114,6 +115,11 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
   if (content !== undefined) {
     updates.push("content = ?");
     values.push(content);
+  }
+
+  if (type !== undefined && ["writing", "prompt", "note"].includes(type)) {
+    updates.push("type = ?");
+    values.push(type);
   }
 
   if (metadata !== undefined) {

@@ -559,27 +559,61 @@ body {
 
 
 /* ===== KRONUS CHAT THEME ===== */
-/* Oracle chamber - Tartarus dark theme for chat */
+/* Oracle chamber - supports both dark (void) and light (ivory) modes */
 
+/* Dark mode (default) - the void */
 .kronus-chamber {
   --kronus-void: var(--tartarus-void);
   --kronus-deep: var(--tartarus-deep);
   --kronus-surface: var(--tartarus-surface);
+  --kronus-elevated: var(--tartarus-elevated);
   --kronus-teal: var(--tartarus-teal);
   --kronus-teal-dim: var(--tartarus-teal-dim);
   --kronus-teal-glow: var(--tartarus-teal-glow);
+  --kronus-teal-soft: var(--tartarus-teal-soft);
   --kronus-gold: var(--tartarus-gold);
+  --kronus-gold-dim: var(--tartarus-gold-dim);
   --kronus-gold-glow: var(--tartarus-gold-glow);
+  --kronus-gold-soft: var(--tartarus-gold-soft);
   --kronus-ivory: var(--tartarus-ivory);
   --kronus-ivory-dim: var(--tartarus-ivory-dim);
   --kronus-ivory-muted: var(--tartarus-ivory-muted);
+  --kronus-ivory-faded: var(--tartarus-ivory-faded);
   --kronus-border: var(--tartarus-border);
+  --kronus-border-light: var(--tartarus-border-light);
   --kronus-shadow: var(--tartarus-shadow);
   --kronus-ink: var(--tartarus-ivory-dim);
 
   font-family: var(--font-sans);
   background: var(--kronus-void);
   color: var(--kronus-ivory);
+}
+
+/* Light mode - ivory parchment with dark ink */
+.kronus-chamber.kronus-light {
+  --kronus-void: #FFFFF8;
+  --kronus-deep: #FAF8F2;
+  --kronus-surface: #FEFDFB;
+  --kronus-elevated: #F5F3ED;
+  --kronus-teal: #008B8B;
+  --kronus-teal-dim: #006666;
+  --kronus-teal-glow: rgba(0, 139, 139, 0.2);
+  --kronus-teal-soft: rgba(0, 139, 139, 0.08);
+  --kronus-gold: #B8860B;
+  --kronus-gold-dim: #996515;
+  --kronus-gold-glow: rgba(184, 134, 11, 0.2);
+  --kronus-gold-soft: rgba(184, 134, 11, 0.08);
+  --kronus-ivory: #1a1a1a;
+  --kronus-ivory-dim: #2A2520;
+  --kronus-ivory-muted: #5C5550;
+  --kronus-ivory-faded: #8A8580;
+  --kronus-border: #E5E0D8;
+  --kronus-border-light: #D5D0C8;
+  --kronus-shadow: rgba(0, 0, 0, 0.08);
+  --kronus-ink: #2A2520;
+
+  background: var(--kronus-void);
+  color: var(--kronus-ink);
 }
 
 /* Kronus messages - oracle's response */

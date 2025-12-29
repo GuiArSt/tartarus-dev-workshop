@@ -34,59 +34,88 @@ import {
   Search,
   ArrowUp,
   ArrowDown,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SoulConfig, SoulConfigState, DEFAULT_CONFIG } from "./SoulConfig";
+import { FormatConfig, FormatConfigState, DEFAULT_FORMAT_CONFIG, KRONUS_FONTS, KRONUS_FONT_SIZES } from "./FormatConfig";
 import { compressImage, formatBytes, CompressionResult } from "@/lib/image-compression";
 
-// Memoized markdown components - tighter spacing for better density
+// Memoized markdown components - inherit font size from container
+// Clear hierarchy: H1 > H2 > H3 with distinct visual treatment
 const markdownComponents = {
+  // H1: Primary header - large, bold, gold accent, clear visual break
   h1: ({ children }: any) => (
-    <h1 className="text-lg font-bold mt-3 mb-1.5 text-[var(--kronus-ivory)]">{children}</h1>
+    <h1 className="text-[1.4em] font-bold mt-5 mb-2 text-[var(--kronus-ivory)] border-b border-[var(--kronus-gold)]/30 pb-1">
+      {children}
+    </h1>
   ),
+  // H2: Section header - medium size, teal accent with subtle underline
   h2: ({ children }: any) => (
-    <h2 className="text-base font-semibold mt-2.5 mb-1 text-[var(--kronus-ivory)]">{children}</h2>
+    <h2 className="text-[1.25em] font-semibold mt-5 mb-2 text-[var(--kronus-teal)] border-b border-[var(--kronus-teal)]/20 pb-1">
+      {children}
+    </h2>
   ),
+  // H3: Subsection - smaller, muted teal, no underline
   h3: ({ children }: any) => (
-    <h3 className="text-sm font-medium mt-2 mb-0.5 text-[var(--kronus-teal)]">{children}</h3>
+    <h3 className="text-[1.1em] font-medium mt-4 mb-1.5 text-[var(--kronus-teal-dim)]">
+      {children}
+    </h3>
+  ),
+  // H4-H6: Minor headers
+  h4: ({ children }: any) => (
+    <h4 className="font-semibold mt-2 mb-0.5 text-[var(--kronus-ivory)]">{children}</h4>
+  ),
+  h5: ({ children }: any) => (
+    <h5 className="font-medium mt-2 mb-0.5 text-[var(--kronus-ivory-dim)]">{children}</h5>
+  ),
+  h6: ({ children }: any) => (
+    <h6 className="font-medium mt-2 mb-0.5 text-[var(--kronus-ivory-muted)] text-[0.9em]">{children}</h6>
   ),
   p: ({ children }: any) => (
-    <p className="mb-1.5 leading-snug text-[var(--kronus-ivory-dim)]">{children}</p>
+    <p className="mb-3 leading-relaxed text-[var(--kronus-ivory-dim)]">{children}</p>
   ),
   ul: ({ children }: any) => (
-    <ul className="list-disc list-inside mb-1.5 space-y-0.5 ml-3 text-[var(--kronus-ivory-dim)]">{children}</ul>
+    <ul className="list-disc list-outside mb-3 mt-2 space-y-1.5 ml-6 text-[var(--kronus-ivory-dim)]">{children}</ul>
   ),
   ol: ({ children }: any) => (
-    <ol className="list-decimal list-inside mb-1.5 space-y-0.5 ml-3 text-[var(--kronus-ivory-dim)]">{children}</ol>
+    <ol className="list-decimal list-outside mb-3 mt-2 space-y-2 ml-6 text-[var(--kronus-ivory-dim)]">{children}</ol>
   ),
   li: ({ children }: any) => (
-    <li className="leading-snug marker:text-[var(--kronus-teal)]">{children}</li>
+    <li className="leading-relaxed marker:text-[var(--kronus-teal)] pl-1.5">{children}</li>
+  ),
+  pre: ({ children }: any) => (
+    <pre className="bg-[var(--kronus-deep)] border border-[var(--kronus-border)] p-4 rounded-lg my-3 overflow-x-auto">
+      {children}
+    </pre>
   ),
   code: ({ children, className }: any) => {
     const isInline = !className;
     return isInline ? (
-      <code className="bg-[var(--kronus-deep)] px-1 py-0.5 rounded text-xs font-mono text-[var(--kronus-teal)]">
+      <code className="bg-[var(--kronus-deep)] px-1.5 py-0.5 rounded text-[0.85em] font-mono text-[var(--kronus-teal)]">
         {children}
       </code>
     ) : (
-      <code className={cn("block bg-[var(--kronus-deep)] border border-[var(--kronus-border)] p-2 rounded-md text-xs font-mono overflow-x-auto text-[var(--kronus-ivory-dim)]", className)}>
+      <code className={cn("block text-[0.9em] font-mono text-[var(--kronus-teal)] leading-relaxed whitespace-pre-wrap", className)}>
         {children}
       </code>
     );
   },
   blockquote: ({ children }: any) => (
-    <blockquote className="border-l-2 border-[var(--kronus-teal)] bg-[var(--kronus-deep)] pl-3 pr-2 py-1.5 rounded-r-lg italic my-1.5 text-[var(--kronus-ivory-muted)]">
+    <blockquote className="border-l-3 border-[var(--kronus-teal)]/60 pl-6 pr-4 ml-2 my-5 py-3 text-[var(--kronus-ivory-muted)] italic bg-[var(--kronus-teal-soft)] rounded-r-md [&>p]:mb-0 [&>p]:py-1">
       {children}
     </blockquote>
   ),
-  hr: () => <hr className="my-2.5 border-[var(--kronus-border)]" />,
+  // HR: Kronus uses --- heavily - breathing room between sections
+  hr: () => <div className="my-4" />,
   strong: ({ children }: any) => (
     <strong className="font-semibold text-[var(--kronus-ivory)]">{children}</strong>
   ),
+  // em: Inline italic, NOT block - for emphasis within text
   em: ({ children }: any) => (
-    <em className="italic text-[var(--kronus-ivory-dim)]">{children}</em>
+    <em className="italic text-[var(--kronus-ivory-muted)]">{children}</em>
   ),
   a: ({ children, href }: any) => (
     <a href={href} className="text-[var(--kronus-teal)] underline underline-offset-2 hover:text-[var(--kronus-gold)]" target="_blank" rel="noopener noreferrer">{children}</a>
@@ -95,10 +124,10 @@ const markdownComponents = {
     <table className="w-full my-2 border-collapse">{children}</table>
   ),
   th: ({ children }: any) => (
-    <th className="border border-[var(--kronus-border)] bg-[var(--kronus-deep)] px-2 py-1.5 text-left text-[var(--kronus-ivory)] font-semibold text-sm">{children}</th>
+    <th className="border border-[var(--kronus-border)] bg-[var(--kronus-deep)] px-2 py-1.5 text-left text-[var(--kronus-ivory)] font-semibold">{children}</th>
   ),
   td: ({ children }: any) => (
-    <td className="border border-[var(--kronus-border)] px-2 py-1.5 text-[var(--kronus-ivory-dim)] text-sm">{children}</td>
+    <td className="border border-[var(--kronus-border)] px-2 py-1.5 text-[var(--kronus-ivory-dim)]">{children}</td>
   ),
 };
 
@@ -165,6 +194,32 @@ export function ChatInterface() {
   const [soulConfig, setSoulConfig] = useState<SoulConfigState>(DEFAULT_CONFIG);
   // Store the config that was used when the conversation started (locked after first message)
   const [lockedSoulConfig, setLockedSoulConfig] = useState<SoulConfigState | null>(null);
+
+  // Format config - controls chat font and size (applies immediately)
+  const [formatConfig, setFormatConfig] = useState<FormatConfigState>(DEFAULT_FORMAT_CONFIG);
+
+  // Context compression state
+  const [isCompressingContext, setIsCompressingContext] = useState(false);
+
+  // Theme state - synced with Sidebar's localStorage
+  const [kronusTheme, setKronusTheme] = useState<"dark" | "light">("dark");
+
+  // Initialize theme from localStorage and listen for changes
+  useEffect(() => {
+    // Check localStorage on mount
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "light") {
+      setKronusTheme("light");
+    }
+
+    // Listen for theme changes from Sidebar
+    const handleThemeChange = (e: CustomEvent<{ isDark: boolean }>) => {
+      setKronusTheme(e.detail.isDark ? "dark" : "light");
+    };
+
+    window.addEventListener("theme-change", handleThemeChange as EventListener);
+    return () => window.removeEventListener("theme-change", handleThemeChange as EventListener);
+  }, []);
 
   // Custom transport that includes soul config
   const chatTransport = useMemo(() => {
@@ -808,26 +863,38 @@ Details: ${data.details}` : "";
           }
 
           case "repository_update_document": {
+            // First fetch the existing document to merge metadata properly
+            const getRes = await fetch(`/api/documents/${typedArgs.id}`);
+            if (!getRes.ok) {
+              const errData = await getRes.json();
+              throw new Error(errData.error || "Document not found");
+            }
+            const existingDoc = await getRes.json();
+            const existingMeta = existingDoc.metadata || {};
+
             const updateData: any = {};
             if (typedArgs.title) updateData.title = typedArgs.title;
             if (typedArgs.content) updateData.content = typedArgs.content;
+
+            // Merge metadata: preserve existing, override with new values
             if (typedArgs.tags || typedArgs.metadata) {
               updateData.metadata = {
-                ...(typedArgs.metadata || {}),
-                tags: typedArgs.tags,
+                ...existingMeta,                    // Keep existing metadata (type, year, language, etc.)
+                ...(typedArgs.metadata || {}),      // Override with any new metadata fields
+                tags: typedArgs.tags ?? existingMeta.tags,  // Use new tags if provided, else keep existing
               };
             }
-            
+
             const res = await fetch(`/api/documents/${typedArgs.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(updateData),
             });
-            
+
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to update document");
-            
-            output = `✅ Updated document #${typedArgs.id}`;
+
+            output = `✅ Updated document #${typedArgs.id}: "${existingDoc.title}"`;
             break;
           }
 
@@ -1510,6 +1577,62 @@ Details: ${data.details}` : "";
     }
   };
 
+  // Estimate tokens in current conversation (rough: ~4 chars per token)
+  const estimatedTokens = useMemo(() => {
+    const textContent = messages
+      .map((m) => {
+        const textParts = m.parts?.filter((p) => p.type === "text") || [];
+        return textParts.map((p: any) => p.text || "").join("");
+      })
+      .join("");
+    return Math.round(textContent.length / 4);
+  }, [messages]);
+
+  // Context limit and warning thresholds
+  const CONTEXT_LIMIT = 200000;
+  const WARNING_THRESHOLD = 0.7; // 70% = 140K tokens
+  const COMPRESS_THRESHOLD = 0.85; // 85% = 170K tokens
+
+  const contextUsagePercent = (estimatedTokens / CONTEXT_LIMIT) * 100;
+  const showContextWarning = estimatedTokens > CONTEXT_LIMIT * WARNING_THRESHOLD;
+  const showCompressButton = estimatedTokens > CONTEXT_LIMIT * 0.5; // Show at 50%
+
+  // Handle context compression
+  const handleCompressContext = async () => {
+    if (!currentConversationId) {
+      // Save current conversation first if not saved
+      alert("Please save the conversation first before compressing.");
+      return;
+    }
+
+    setIsCompressingContext(true);
+    try {
+      const response = await fetch("/api/chat/compress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: currentConversationId }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Show the summary to the user
+        alert(
+          `Conversation compressed!\n\nOverview: ${result.summary.conversationOverview}\n\nTopics: ${result.summary.topicsDiscussed.join(", ")}`
+        );
+        // Reload conversations to show updated status
+        loadConversations();
+      } else {
+        alert(`Compression failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Failed to compress context:", error);
+      alert("Failed to compress context. Please try again.");
+    } finally {
+      setIsCompressingContext(false);
+    }
+  };
+
   const toggleToolExpanded = (toolCallId: string) => {
     setExpandedTools((prev) => {
       const next = new Set(prev);
@@ -1523,7 +1646,10 @@ Details: ${data.details}` : "";
   };
 
   return (
-    <div className="kronus-chamber flex h-full relative">
+    <div className={cn(
+      "kronus-chamber flex h-full relative",
+      kronusTheme === "light" && "kronus-light"
+    )}>
       {/* Conversation History Sidebar */}
       {showHistory && (
         <div className="kronus-sidebar flex w-64 flex-col z-10">
@@ -1585,6 +1711,11 @@ Details: ${data.details}` : "";
           <SoulConfig
             config={soulConfig}
             onChange={setSoulConfig}
+          />
+          {/* Format Config - font/size, applies immediately */}
+          <FormatConfig
+            config={formatConfig}
+            onChange={setFormatConfig}
           />
           <div className="flex-1" />
           {messages.length > 0 && (
@@ -1683,9 +1814,15 @@ Details: ${data.details}` : "";
 
         {/* Messages Area */}
         <ScrollArea className="flex-1 z-10" ref={scrollRef}>
-          <div className="mx-auto max-w-3xl space-y-4 p-4">
+          <div
+            className="mx-auto max-w-3xl space-y-2 p-4"
+            style={{
+              fontFamily: KRONUS_FONTS[formatConfig.font || "inter"].family,
+              fontSize: KRONUS_FONT_SIZES[formatConfig.fontSize || "base"].size,
+            }}
+          >
             {messages.length === 0 && (
-              <div className="kronus-message p-6">
+              <div className="kronus-message p-4">
                 <div className="flex items-start gap-4">
                   <div className="kronus-avatar flex h-12 w-12 shrink-0 items-center justify-center rounded-full overflow-hidden p-0">
                     <img src="/chronus-logo.png" alt="Kronus" className="h-full w-full object-cover" />
@@ -1735,33 +1872,60 @@ Details: ${data.details}` : "";
               >
                 <div
                   className={cn(
-                    "p-3 overflow-visible rounded-xl transition-all",
+                    "p-2.5 overflow-visible rounded-xl transition-all",
                     message.role === "user" ? "user-message ml-12" : "kronus-message",
                     isSearchMatch && "ring-2 ring-[var(--kronus-teal)]/50",
                     isCurrentSearchResult && "ring-2 ring-[var(--kronus-gold)] bg-[var(--kronus-gold)]/5"
                   )}
                 >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden",
-                        message.role === "user" ? "user-avatar" : "kronus-avatar p-0"
-                      )}
-                    >
-                      {message.role === "user" ? (
-                        <User className="h-5 w-5 text-white" />
-                      ) : (
-                        <img src="/chronus-logo.png" alt="Kronus" className="h-full w-full object-cover" />
-                      )}
+                  {message.role === "user" ? (
+                    /* User message: simple horizontal layout */
+                    <div className="flex items-start gap-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden user-avatar">
+                        <User className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1 overflow-wrap-anywhere break-words">
+                        <p className="mb-1.5 text-xs font-semibold text-[var(--kronus-gold)]">You</p>
+                        <div className="max-w-none break-words overflow-wrap-anywhere">
+                          {message.parts?.map((part, i) => {
+                            if (part.type === "file" && (part as any).mediaType?.startsWith("image/")) {
+                              return (
+                                <div key={i} className="mb-3">
+                                  <img
+                                    src={(part as any).url}
+                                    alt={(part as any).filename || "Attached image"}
+                                    className="max-w-full max-h-96 rounded-lg border border-[var(--kronus-border)] object-contain"
+                                  />
+                                </div>
+                              );
+                            }
+                            if (part.type === "text") {
+                              const isLastMessage = message.id === messages[messages.length - 1]?.id;
+                              const isStreaming = status === "streaming" && message.role === "assistant" && isLastMessage;
+                              if (isStreaming) {
+                                return <StreamingText key={i} text={part.text} />;
+                              }
+                              return <MemoizedMarkdown key={i} text={part.text} />;
+                            }
+                            return null;
+                          })}
+                        </div>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1 overflow-wrap-anywhere break-words">
-                      <p className={cn(
-                        "mb-1 text-sm font-semibold",
-                        message.role === "user" ? "text-[var(--kronus-gold)]" : "text-[var(--kronus-teal)]"
-                      )}>
-                        {message.role === "user" ? "You" : "Kronus"}
-                      </p>
-                      <div className="prose prose-sm dark:prose-invert max-w-none text-sm break-words overflow-wrap-anywhere">
+                  ) : (
+                    /* Kronus message: avatar + name on one row, content below */
+                    <div className="flex flex-col">
+                      {/* Header row: avatar centered with name */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden kronus-avatar p-0">
+                          <img src="/chronus-logo.png" alt="Kronus" className="h-full w-full object-cover" />
+                        </div>
+                        <p className="text-base font-bold tracking-[0.3em] uppercase text-[var(--kronus-teal)]" style={{ fontFamily: "var(--font-cinzel), serif" }}>
+                          Kronus
+                        </p>
+                      </div>
+                      {/* Content below header - indented for visual hierarchy */}
+                      <div className="max-w-none break-words overflow-wrap-anywhere pl-6 pr-2">
                         {message.parts?.map((part, i) => {
                           // Render image/file parts
                           if (part.type === "file" && (part as any).mediaType?.startsWith("image/")) {
@@ -1790,7 +1954,7 @@ Details: ${data.details}` : "";
                         })}
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {message.parts
@@ -1946,7 +2110,7 @@ Details: ${data.details}` : "";
 
             {(status === "submitted" || status === "streaming") && (
               <div className="kronus-message p-4">
-                <div className="flex items-start gap-3">
+                <div className="flex flex-col items-center justify-center gap-3">
                   <div className="kronus-avatar flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden p-0">
                     <img src="/chronus-logo.png" alt="Kronus" className="h-full w-full object-cover" />
                   </div>
@@ -1956,7 +2120,7 @@ Details: ${data.details}` : "";
                       <span></span>
                       <span></span>
                     </div>
-                    <span className="text-[var(--kronus-ivory-muted)] text-sm">
+                    <span className="text-[var(--kronus-ivory-muted)] text-sm italic">
                       {status === "submitted" ? "Consulting the oracle..." : "Kronus is weaving wisdom..."}
                     </span>
                   </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Crimson_Pro, Cormorant_Garamond, Cinzel, IBM_Plex_Sans, Source_Serif_4, Playfair_Display, Spectral } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -10,6 +10,49 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Kronus chat fonts
+const crimsonPro = Crimson_Pro({
+  variable: "--font-crimson-pro",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+const cinzel = Cinzel({
+  variable: "--font-cinzel",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+const ibmPlexSans = IBM_Plex_Sans({
+  variable: "--font-ibm-plex",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+const sourceSerif4 = Source_Serif_4({
+  variable: "--font-source-serif",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+const playfairDisplay = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+const spectral = Spectral({
+  variable: "--font-spectral",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -24,7 +67,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--tartarus-void)]`}>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${crimsonPro.variable} ${cormorantGaramond.variable} ${cinzel.variable} ${ibmPlexSans.variable} ${sourceSerif4.variable} ${playfairDisplay.variable} ${spectral.variable} antialiased bg-[var(--tartarus-void)]`}>{children}</body>
     </html>
   );
 }

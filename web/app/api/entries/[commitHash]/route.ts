@@ -114,6 +114,19 @@ export const PATCH = withErrorHandler<{ commitHash: string }>(async (
     fields.push("kronus_wisdom = ?");
     values.push(updates.kronus_wisdom ?? null);
   }
+  // Attribution fields
+  if (updates.author !== undefined) {
+    fields.push("author = ?");
+    values.push(updates.author);
+  }
+  if (updates.code_author !== undefined) {
+    fields.push("code_author = ?");
+    values.push(updates.code_author);
+  }
+  if (updates.team_members !== undefined) {
+    fields.push("team_members = ?");
+    values.push(updates.team_members);
+  }
 
   if (fields.length === 0) {
     throw new ValidationError("No fields to update");

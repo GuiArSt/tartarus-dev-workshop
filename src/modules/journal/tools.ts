@@ -699,14 +699,29 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
         }
 
         const stats = getAttachmentStats(commit_hash);
-        
-        const output = {
+
+        // Add download URLs if Tartarus URL is configured
+        const attachmentsWithUrls = attachments.map((att: any) => ({
+          ...att,
+          download_url: journalConfig.tartarusUrl
+            ? `${journalConfig.tartarusUrl}/api/attachments/${att.id}/raw`
+            : null,
+        }));
+
+        const output: any = {
           commit_hash,
           attachment_count: attachments.length,
           total_size_bytes: stats.total_size,
           total_size_kb: (stats.total_size / 1024).toFixed(2),
-          attachments,
+          attachments: attachmentsWithUrls,
         };
+
+        // Add helpful note about download URLs
+        if (journalConfig.tartarusUrl) {
+          output.download_note = 'Use download_url to fetch full file content via HTTP (bypasses MCP truncation limits)';
+        } else {
+          output.download_note = 'Set TARTARUS_URL env var to enable direct download URLs';
+        }
 
         const text = `📎 ${attachments.length} attachment(s) for commit ${commit_hash}\n\n${JSON.stringify(output, null, 2)}`;
         
@@ -751,6 +766,11 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
           };
         }
 
+        // Build download URL if Tartarus URL is configured
+        const downloadUrl = journalConfig.tartarusUrl
+          ? `${journalConfig.tartarusUrl}/api/attachments/${attachment.id}/raw`
+          : null;
+
         const output: any = {
           id: attachment.id,
           filename: attachment.filename,
@@ -760,6 +780,7 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
           file_size_kb: (attachment.file_size / 1024).toFixed(2),
           commit_hash: attachment.commit_hash,
           uploaded_at: attachment.uploaded_at,
+          download_url: downloadUrl,
         };
 
         if (include_data) {
@@ -767,11 +788,13 @@ export function registerJournalTools(server: McpServer, journalConfig?: JournalC
           const previewLength = Math.min(max_data_preview_chars || 500, data_base64.length);
           output.data_base64_preview = data_base64.substring(0, previewLength);
           output.data_base64_full_length = data_base64.length;
-          output.note = previewLength < data_base64.length 
-            ? `Data truncated for preview (${previewLength}/${data_base64.length} chars). Full data available in database.`
+          output.note = previewLength < data_base64.length
+            ? `Data truncated for preview (${previewLength}/${data_base64.length} chars). Use download_url to fetch full file.`
             : 'Full data included';
         } else {
-          output.note = 'Binary data excluded. Set include_data=true to retrieve base64-encoded file data.';
+          output.note = downloadUrl
+            ? 'Binary data excluded. Use download_url to fetch full file via HTTP (bypasses MCP limits).'
+            : 'Binary data excluded. Set TARTARUS_URL env var to enable direct download URLs.';
         }
 
         const text = `📄 Attachment ${attachment_id}\n\n${JSON.stringify(output, null, 2)}`;

@@ -25,12 +25,15 @@ const COLORS = {
 const MODEL_CONTEXT_LIMIT = 200000; // Opus 4 has 200K context
 const CONTEXT_WARNING_THRESHOLD = 0.5; // Warn at 50% (100K tokens)
 
+// SoulConfigState - only controls which repository sections Kronus knows about
+// Font/format settings have been moved to FormatConfig.tsx
 export interface SoulConfigState {
   writings: boolean;
   portfolioProjects: boolean;
   skills: boolean;
   workExperience: boolean;
   education: boolean;
+  journalEntries: boolean;
 }
 
 interface SectionStats {
@@ -39,6 +42,7 @@ interface SectionStats {
   skills: number;
   workExperience: number;
   education: number;
+  journalEntries: number;
   totalTokens: number;
 }
 
@@ -53,6 +57,7 @@ const DEFAULT_CONFIG: SoulConfigState = {
   skills: true,
   workExperience: true,
   education: true,
+  journalEntries: true,
 };
 
 // Estimated tokens per section (rough estimates based on current data)
@@ -62,6 +67,7 @@ const SECTION_TOKEN_ESTIMATES = {
   skills: 2000,         // 45 skills, ~45 tokens each
   workExperience: 1500, // 8 jobs, ~190 tokens each
   education: 500,       // 3 entries, ~170 tokens each
+  journalEntries: 15000, // ~30 entries, ~500 tokens each
   base: 6000,           // Soul.xml + tool definitions
 };
 
@@ -88,7 +94,8 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
             skills: 45,
             workExperience: 8,
             education: 3,
-            totalTokens: 64000,
+            journalEntries: 30,
+            totalTokens: 78000,
           });
           setLoading(false);
         });
@@ -102,7 +109,8 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
     (config.portfolioProjects ? SECTION_TOKEN_ESTIMATES.portfolioProjects : 0) +
     (config.skills ? SECTION_TOKEN_ESTIMATES.skills : 0) +
     (config.workExperience ? SECTION_TOKEN_ESTIMATES.workExperience : 0) +
-    (config.education ? SECTION_TOKEN_ESTIMATES.education : 0);
+    (config.education ? SECTION_TOKEN_ESTIMATES.education : 0) +
+    (config.journalEntries ? SECTION_TOKEN_ESTIMATES.journalEntries : 0);
 
   const toggleSection = (section: keyof SoulConfigState) => {
     onChange({ ...config, [section]: !config[section] });
@@ -110,25 +118,29 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
 
   const selectAll = () => {
     onChange({
+      ...config,
       writings: true,
       portfolioProjects: true,
       skills: true,
       workExperience: true,
       education: true,
+      journalEntries: true,
     });
   };
 
   const selectNone = () => {
     onChange({
+      ...config,
       writings: false,
       portfolioProjects: false,
       skills: false,
       workExperience: false,
       education: false,
+      journalEntries: false,
     });
   };
 
-  const enabledCount = Object.values(config).filter(Boolean).length;
+  const enabledCount = [config.writings, config.portfolioProjects, config.skills, config.workExperience, config.education, config.journalEntries].filter(Boolean).length;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -138,14 +150,14 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
           size="sm"
           className={cn(
             "gap-1",
-            enabledCount < 5 && "text-[var(--kronus-gold)]"
+            enabledCount < 6 && "text-[var(--kronus-gold)]"
           )}
         >
           <Settings2 className="h-4 w-4" />
           Soul
-          {enabledCount < 5 && (
+          {enabledCount < 6 && (
             <span className="text-xs bg-[var(--kronus-gold)]/20 px-1.5 py-0.5 rounded">
-              {enabledCount}/5
+              {enabledCount}/6
             </span>
           )}
         </Button>
@@ -286,6 +298,24 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
                 </span>
               </div>
               <span style={{ color: COLORS.muted, fontSize: "12px" }}>~0.5k</span>
+            </div>
+
+            {/* Journal Entries */}
+            <div className="flex items-center gap-3 group">
+              <Switch
+                checked={config.journalEntries}
+                onCheckedChange={() => toggleSection("journalEntries")}
+                style={{ backgroundColor: config.journalEntries ? COLORS.teal : COLORS.switchOff }}
+              />
+              <div className="flex-1">
+                <span style={{ color: config.journalEntries ? COLORS.teal : COLORS.muted, fontSize: "14px", transition: "color 0.2s" }}>
+                  Journal Entries
+                </span>
+                <span style={{ color: COLORS.muted, fontSize: "12px", marginLeft: "8px" }}>
+                  {loading ? "..." : stats?.journalEntries || 30}
+                </span>
+              </div>
+              <span style={{ color: COLORS.muted, fontSize: "12px" }}>~15k</span>
             </div>
           </div>
 

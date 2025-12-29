@@ -316,43 +316,35 @@ export default function EntryDetailPage() {
               <Badge variant="outline" className="font-mono bg-[var(--tartarus-teal-soft)] border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal-dim)]">
                 {entry.commit_hash}
               </Badge>
-              <span className="text-[#2A2520] flex items-center gap-1 text-sm font-medium">
-                <User className="h-3 w-3" />
-                Journal by: {editMode ? (
+              {/* Code Author - who wrote the commit */}
+              <span className="text-[#2A2520] flex items-center gap-1.5 text-sm font-medium">
+                <GitBranch className="h-3 w-3 text-[var(--tartarus-teal-dim)]" />
+                <span className="text-[#5C5550]">Commit by:</span>
+                {editMode ? (
+                  <Input
+                    value={editData.code_author || entry.code_author || entry.author}
+                    onChange={(e) => setEditData({ ...editData, code_author: e.target.value })}
+                    className="h-6 w-32 text-xs border-[#E5E0D8] bg-white"
+                    placeholder="Code author"
+                  />
+                ) : (
+                  <span className="font-semibold">{entry.code_author || entry.author}</span>
+                )}
+              </span>
+              {/* Journal Entry Author - who documented/analyzed it */}
+              <span className="text-[#5C5550] flex items-center gap-1.5 text-sm">
+                <Edit className="h-3 w-3 text-[var(--tartarus-gold-dim)]" />
+                <span>Entry by:</span>
+                {editMode ? (
                   <Input
                     value={editData.author || entry.author}
                     onChange={(e) => setEditData({ ...editData, author: e.target.value })}
                     className="h-6 w-32 text-xs border-[#E5E0D8] bg-white"
                   />
                 ) : (
-                  entry.author
+                  <span className="font-medium text-[#2A2520]">{entry.author}</span>
                 )}
               </span>
-              {entry.code_author && entry.code_author !== entry.author && (
-                <span className="text-[#5C5550] flex items-center gap-1 text-sm">
-                  <User className="h-3 w-3" />
-                  Code by: {editMode ? (
-                    <Input
-                      value={editData.code_author || entry.code_author}
-                      onChange={(e) => setEditData({ ...editData, code_author: e.target.value })}
-                      className="h-6 w-32 text-xs border-[#E5E0D8] bg-white"
-                    />
-                  ) : (
-                    entry.code_author
-                  )}
-                </span>
-              )}
-              {editMode && (
-                <span className="text-[#5C5550] flex items-center gap-1 text-sm">
-                  <User className="h-3 w-3" />
-                  Code by: <Input
-                    value={editData.code_author || entry.code_author || entry.author}
-                    onChange={(e) => setEditData({ ...editData, code_author: e.target.value })}
-                    className="h-6 w-32 text-xs border-[#E5E0D8] bg-white"
-                    placeholder="Code author"
-                  />
-                </span>
-              )}
               <span className="text-[#5C5550] flex items-center gap-1 text-sm">
                 <Calendar className="h-3 w-3" />
                 {new Date(entry.date).toLocaleString()}

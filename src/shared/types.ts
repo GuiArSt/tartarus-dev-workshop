@@ -27,6 +27,7 @@ export interface JournalConfig {
   dbPath: string;
   aiProvider: 'anthropic' | 'openai' | 'google';
   aiApiKey: string;
+  tartarusUrl?: string; // Base URL for Tartarus web app (for attachment download URLs)
 }
 
 export interface UnifiedConfig {

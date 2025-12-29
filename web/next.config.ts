@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "10mb",
     },
   },
+  // Output standalone for Docker deployment
+  output: "standalone",
 };
 
 export default nextConfig;

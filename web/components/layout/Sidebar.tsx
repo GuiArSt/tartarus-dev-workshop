@@ -95,6 +95,8 @@ export function Sidebar() {
     setIsDark(newIsDark);
     document.documentElement.classList.toggle("dark", newIsDark);
     localStorage.setItem("theme", newIsDark ? "dark" : "light");
+    // Dispatch event for Kronus chat to listen to
+    window.dispatchEvent(new CustomEvent("theme-change", { detail: { isDark: newIsDark } }));
   };
 
   const handleLogout = async () => {

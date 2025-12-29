@@ -350,6 +350,7 @@ export async function POST(req: Request) {
       skills: soulConfig.skills ?? true,
       workExperience: soulConfig.workExperience ?? true,
       education: soulConfig.education ?? true,
+      journalEntries: soulConfig.journalEntries ?? true,
     } : DEFAULT_SOUL_CONFIG;
 
     const model = getModel();

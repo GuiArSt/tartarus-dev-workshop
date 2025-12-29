@@ -8,6 +8,7 @@ import {
   skills,
   workExperience,
   education,
+  journalEntries,
 } from "@/lib/db/drizzle";
 import { eq, desc } from "drizzle-orm";
 
@@ -23,6 +24,7 @@ export interface SoulConfig {
   skills: boolean;
   workExperience: boolean;
   education: boolean;
+  journalEntries: boolean;
 }
 
 export const DEFAULT_SOUL_CONFIG: SoulConfig = {
@@ -31,6 +33,7 @@ export const DEFAULT_SOUL_CONFIG: SoulConfig = {
   skills: true,
   workExperience: true,
   education: true,
+  journalEntries: true,
 };
 
 /**
@@ -271,6 +274,43 @@ ${eduSection.join("\n\n---\n\n")}`;
       }
     }
 
+    // ===== JOURNAL ENTRIES =====
+    if (config.journalEntries) {
+      const entries = db
+        .select()
+        .from(journalEntries)
+        .orderBy(desc(journalEntries.date))
+        .limit(30) // Recent 30 entries
+        .all();
+
+      if (entries.length > 0) {
+        const entriesSection = entries.map((entry) => {
+          const techs = entry.technologies || "N/A";
+          return `### ${entry.repository} - ${entry.commitHash.substring(0, 7)}
+**Date:** ${new Date(entry.date).toLocaleDateString()} | **Branch:** ${entry.branch}
+**Author:** ${entry.codeAuthor || entry.author}
+
+**Why:** ${entry.why || "N/A"}
+
+**What Changed:** ${entry.whatChanged || "N/A"}
+
+**Decisions:** ${entry.decisions || "N/A"}
+
+**Technologies:** ${techs}`;
+        });
+
+        const journalText = `## Recent Journal Entries (${entries.length})
+
+Development history and documented decisions from recent commits.
+These entries capture the evolution of projects and the reasoning behind changes.
+
+${entriesSection.join("\n\n---\n\n")}`;
+
+        sections.push(journalText);
+        totalChars += journalText.length;
+      }
+    }
+
     // ===== ASSEMBLE REPOSITORY =====
     if (sections.length === 0) {
       return { content: "", tokenEstimate: 0 };
@@ -315,11 +355,32 @@ You have access to tools for:
    - **repository_list_documents**: Browse writings and prompts (filter by type)
    - **repository_get_document**: Read a specific document by ID or slug
    - **repository_create_document**: Add new writings/prompts/notes
-   - **repository_update_document**: Edit existing documents
+   - **repository_update_document**: Edit existing documents (requires document ID)
    - **repository_list_skills**: Browse skills (filter by category)
    - **repository_update_skill**: Update skill details
+   - **repository_create_skill**: Add a new skill to the CV
    - **repository_list_experience**: Browse work experience
+   - **repository_create_experience**: Add new work experience
    - **repository_list_education**: Browse education
+   - **repository_create_education**: Add new education entry
+
+### CRITICAL: Document Update Protocol
+**When the user wants to EDIT/UPDATE an existing document:**
+1. FIRST use **repository_list_documents** or **repository_get_document** to find the document and get its **ID**
+2. THEN use **repository_update_document** with that ID to make changes
+3. NEVER create a new document when the user asks to edit an existing one
+
+**When to CREATE vs UPDATE:**
+- User says "edit", "update", "modify", "change" an existing doc → ALWAYS UPDATE (find ID first!)
+- User says "create", "write", "add new" → CREATE new document
+- If unsure, ASK the user first
+
+**Document Types:**
+- **writing**: Creative works, essays, poems, philosophical pieces, fiction
+- **prompt**: System prompts, AI contexts, templates, instructions for AI
+- **note**: Quick notes, reference material, snippets
+
+**Tags are preserved**: When you update a document, existing metadata (type, year, tags) is preserved unless you explicitly change it
 4. **Image Generation**: Generate images using multiple providers (replicate_generate_image)
    - **FLUX.2 Pro** (default): \`black-forest-labs/flux-2-pro\` - Best quality via Replicate
    - **FLUX Schnell**: \`black-forest-labs/flux-schnell\` - Faster via Replicate

@@ -1,0 +1,38 @@
+# Tartarus - Kronus Web Docker Compose
+# Run with: docker compose up -d
+# Stop with: docker compose down
+# View logs: docker compose logs -f tartarus
+
+services:
+  tartarus:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: tartarus
+    restart: unless-stopped
+    ports:
+      # Fixed port 3777 for Tartarus (MCP uses this for attachment download URLs)
+      - "3777:3000"
+    volumes:
+      # Mount the SQLite database (read/write)
+      - ./journal.db:/app/journal.db
+      # Mount Soul.xml (read-only)
+      - ./Soul.xml:/app/Soul.xml:ro
+      # Optional: Mount local soul for dev
+      # - ./Soul.xml.local:/app/Soul.xml:ro
+    environment:
+      # Database path inside container
+      - JOURNAL_DB_PATH=/app/journal.db
+      # Soul.xml path inside container
+      - SOUL_XML_PATH=/app/Soul.xml
+      # Node environment
+      - NODE_ENV=production
+    env_file:
+      # Load API keys and other secrets from .env
+      - .env
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

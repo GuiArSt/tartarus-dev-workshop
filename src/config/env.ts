@@ -59,6 +59,7 @@ const envSchema = z.object({
   // Optional settings
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).optional(),
   SOUL_XML_PATH: z.string().optional(), // Path to Soul.xml (default: Soul.xml in project root)
+  TARTARUS_URL: z.string().optional(), // Base URL for Tartarus web app (e.g., http://localhost:3001)
 });
 
 /**
@@ -106,8 +107,9 @@ export function loadConfig(): UnifiedConfig {
       dbPath: defaultDbPath,
       aiProvider,
       aiApiKey,
+      tartarusUrl: env.TARTARUS_URL,
     };
-    logger.info(`Journal module enabled (AI provider: ${aiProvider})`);
+    logger.info(`Journal module enabled (AI provider: ${aiProvider})${env.TARTARUS_URL ? `, Tartarus: ${env.TARTARUS_URL}` : ''}`);
   }
 
   // Validate at least one module is configured

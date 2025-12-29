@@ -125,13 +125,21 @@ const SkillIcon = memo(function SkillIcon({
 // Strip markdown for plain text preview (faster than ReactMarkdown)
 function stripMarkdown(text: string): string {
   return text
-    .replace(/#{1,6}\s/g, '') // headers
+    .replace(/^#\s+.+$/m, '') // Remove first H1 title (usually same as doc title)
+    .replace(/#{1,6}\s+/g, '') // other headers
     .replace(/\*\*(.+?)\*\*/g, '$1') // bold
+    .replace(/__(.+?)__/g, '$1') // bold alt
     .replace(/\*(.+?)\*/g, '$1') // italic
-    .replace(/`(.+?)`/g, '$1') // code
+    .replace(/_(.+?)_/g, '$1') // italic alt
+    .replace(/`{3}[\s\S]*?`{3}/g, '') // code blocks
+    .replace(/`(.+?)`/g, '$1') // inline code
     .replace(/\[(.+?)\]\(.+?\)/g, '$1') // links
-    .replace(/^\s*[-*+]\s/gm, '') // list items
+    .replace(/!\[.*?\]\(.+?\)/g, '') // images
+    .replace(/^\s*[-*+]\s/gm, '• ') // list items → bullet
     .replace(/^\s*\d+\.\s/gm, '') // numbered lists
+    .replace(/>\s?/g, '') // blockquotes
+    .replace(/---+/g, '') // horizontal rules
+    .replace(/\n{3,}/g, '\n\n') // multiple newlines
     .trim();
 }
 
@@ -229,13 +237,22 @@ export default function RepositoryPage() {
   const [editingProject, setEditingProject] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  // Category management state
+  // Category management state (for skills)
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<SkillCategory | null>(null);
   const [categoryForm, setCategoryForm] = useState({ name: "", color: "violet", icon: "tag" });
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
   const [deletingCategory, setDeletingCategory] = useState(false);
+
+  // Document Types management state
+  const [docTypeDialogOpen, setDocTypeDialogOpen] = useState(false);
+  const [editingDocType, setEditingDocType] = useState<{ id: string; name: string; description: string; color: string; icon: string } | null>(null);
+  const [docTypeForm, setDocTypeForm] = useState({ name: "", description: "", color: "emerald", icon: "file-text" });
+  const [docTypeError, setDocTypeError] = useState<string | null>(null);
+  const [savingDocType, setSavingDocType] = useState(false);
+  const [deletingDocType, setDeletingDocType] = useState(false);
+  const [documentTypes, setDocumentTypes] = useState<Array<{ id: string; name: string; description: string; color: string; icon: string; sortOrder: number }>>([]);
 
   // Navigate to chat to EDIT a document with Kronus
   const editDocumentWithKronus = useCallback((doc: Document, e: React.MouseEvent) => {
@@ -366,21 +383,35 @@ What education entry would you like to add? Please provide the institution and d
     setLoading(true);
     try {
       if (activeTab === "writings") {
-        const res = await fetch("/api/documents?type=writing");
+        const [res, typesRes] = await Promise.all([
+          fetch("/api/documents?type=writing"),
+          fetch("/api/document-types"),
+        ]);
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
         }
         const data = await res.json();
         console.log("Fetched writings:", data.documents?.length || 0);
         setWritings(data.documents || []);
+        if (typesRes.ok) {
+          const typesData = await typesRes.json();
+          setDocumentTypes(typesData || []);
+        }
       } else if (activeTab === "prompts") {
-        const res = await fetch("/api/documents?type=prompt");
+        const [res, typesRes] = await Promise.all([
+          fetch("/api/documents?type=prompt"),
+          fetch("/api/document-types"),
+        ]);
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
         }
         const data = await res.json();
         console.log("Fetched prompts:", data.documents?.length || 0);
         setPrompts(data.documents || []);
+        if (typesRes.ok) {
+          const typesData = await typesRes.json();
+          setDocumentTypes(typesData || []);
+        }
       } else if (activeTab === "cv") {
         // Fetch CV data and categories in parallel
         const [cvRes, catRes] = await Promise.all([
@@ -669,6 +700,107 @@ What project would you like to add?`;
     return skills.filter(s => s.category === categoryName).length;
   }, [skills]);
 
+  // Document Type management handlers
+  const openDocTypeDialog = useCallback((docType?: typeof documentTypes[0]) => {
+    if (docType) {
+      setEditingDocType(docType);
+      setDocTypeForm({ name: docType.name, description: docType.description, color: docType.color, icon: docType.icon });
+    } else {
+      setEditingDocType(null);
+      setDocTypeForm({ name: "", description: "", color: "emerald", icon: "file-text" });
+    }
+    setDocTypeError(null);
+    setDocTypeDialogOpen(true);
+  }, []);
+
+  const closeDocTypeDialog = useCallback(() => {
+    setDocTypeDialogOpen(false);
+    setEditingDocType(null);
+    setDocTypeForm({ name: "", description: "", color: "emerald", icon: "file-text" });
+    setDocTypeError(null);
+  }, []);
+
+  const handleSaveDocType = useCallback(async () => {
+    if (!docTypeForm.name.trim()) {
+      setDocTypeError("Type name is required");
+      return;
+    }
+
+    setSavingDocType(true);
+    setDocTypeError(null);
+
+    try {
+      if (editingDocType) {
+        const res = await fetch(`/api/document-types/${editingDocType.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: docTypeForm.name.trim(),
+            description: docTypeForm.description.trim(),
+            color: docTypeForm.color,
+            icon: docTypeForm.icon,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to update type");
+        }
+      } else {
+        const res = await fetch("/api/document-types", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: docTypeForm.name.trim(),
+            description: docTypeForm.description.trim(),
+            color: docTypeForm.color,
+            icon: docTypeForm.icon,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to create type");
+        }
+      }
+
+      closeDocTypeDialog();
+      fetchData();
+    } catch (error: any) {
+      setDocTypeError(error.message);
+    } finally {
+      setSavingDocType(false);
+    }
+  }, [docTypeForm, editingDocType, closeDocTypeDialog, fetchData]);
+
+  const handleDeleteDocType = useCallback(async () => {
+    if (!editingDocType) return;
+
+    setDeletingDocType(true);
+    setDocTypeError(null);
+
+    try {
+      const res = await fetch(`/api/document-types/${editingDocType.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete type");
+      }
+
+      closeDocTypeDialog();
+      fetchData();
+    } catch (error: any) {
+      setDocTypeError(error.message);
+    } finally {
+      setDeletingDocType(false);
+    }
+  }, [editingDocType, closeDocTypeDialog, fetchData]);
+
+  // Get count of documents using a type
+  const getDocCountWithType = useCallback((typeName: string) => {
+    return writings.filter(d => d.metadata?.type === typeName).length +
+           prompts.filter(d => d.metadata?.type === typeName).length;
+  }, [writings, prompts]);
+
   return (
     <div className="journal-page flex h-full flex-col">
       <header className="journal-header flex h-14 items-center justify-between px-6">
@@ -775,6 +907,12 @@ What project would you like to add?`;
                   Clear filters
                 </Button>
               )}
+
+              {/* Manage Types button */}
+              <Button variant="outline" size="sm" onClick={() => openDocTypeDialog()}>
+                <Settings className="mr-2 h-4 w-4" />
+                Manage Types
+              </Button>
             </>
           )}
           {activeTab === "cv" && categories.length > 0 && (
@@ -866,44 +1004,58 @@ What project would you like to add?`;
                               <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                             </div>
                             <div className="flex-1 min-w-0 pr-8">
-                              <CardTitle className="text-base font-semibold line-clamp-2 h-12">
+                              <CardTitle className="text-base font-semibold line-clamp-2">
                                 {doc.title}
                               </CardTitle>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                                {doc.metadata?.year && (
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" />
-                                    {doc.metadata.year}
-                                  </span>
-                                )}
-                                {doc.metadata?.type && (
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                    {doc.metadata.type}
-                                  </Badge>
-                                )}
-                              </div>
                             </div>
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0 flex-1 flex flex-col">
+                          {/* Category badge - prominent, solid color */}
+                          {doc.metadata?.type && (
+                            <div className="mb-2">
+                              <Badge className="text-[10px] px-2 py-0.5 bg-emerald-600 text-white font-medium">
+                                {doc.metadata.type}
+                              </Badge>
+                            </div>
+                          )}
+
+                          {/* Content preview */}
                           <p className="text-muted-foreground line-clamp-3 text-sm flex-1">
                             {stripMarkdown(doc.content).substring(0, 150)}...
                           </p>
-                          <div className="mt-3 flex flex-wrap gap-1 min-h-[24px]">
-                            {doc.metadata?.tags && Array.isArray(doc.metadata.tags) && doc.metadata.tags.length > 0 ? (
-                              <>
+
+                          {/* Footer: Dates + Tags */}
+                          <div className="mt-3 pt-2 border-t border-emerald-100 dark:border-emerald-900/30">
+                            {/* Dates */}
+                            <div className="text-[10px] text-muted-foreground mb-2 flex items-center gap-3">
+                              {doc.metadata?.year && /^\d{4}$/.test(doc.metadata.year) && (
+                                <span>
+                                  <Calendar className="h-3 w-3 inline mr-1" />
+                                  Written {doc.metadata.year}
+                                </span>
+                              )}
+                              {doc.created_at && (
+                                <span className="text-muted-foreground/70">
+                                  Added {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                                </span>
+                              )}
+                            </div>
+                            {/* Tags - smaller, subtle */}
+                            {doc.metadata?.tags && Array.isArray(doc.metadata.tags) && doc.metadata.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
                                 {doc.metadata.tags.slice(0, 3).map((tag: string) => (
-                                  <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">
+                                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400">
                                     {tag}
-                                  </Badge>
+                                  </span>
                                 ))}
                                 {doc.metadata.tags.length > 3 && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  <span className="text-[9px] px-1.5 py-0.5 text-muted-foreground">
                                     +{doc.metadata.tags.length - 3}
-                                  </Badge>
+                                  </span>
                                 )}
-                              </>
-                            ) : null}
+                              </div>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -967,46 +1119,59 @@ What project would you like to add?`;
                               <Code className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                             </div>
                             <div className="flex-1 min-w-0 pr-8">
-                              <CardTitle className="text-base font-semibold line-clamp-2 h-12">
+                              <CardTitle className="text-base font-semibold line-clamp-2">
                                 {doc.title}
                               </CardTitle>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                                {doc.metadata?.type && (
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">
-                                    {doc.metadata.type}
-                                  </Badge>
-                                )}
-                                {doc.language && doc.language !== 'en' && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                    {doc.language.toUpperCase()}
-                                  </Badge>
-                                )}
-                              </div>
                             </div>
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0 flex-1 flex flex-col">
+                          {/* Category badge - if exists */}
+                          {doc.metadata?.type && (
+                            <div className="mb-2">
+                              <Badge className="text-[10px] px-2 py-0.5 bg-violet-600 text-white font-medium">
+                                {doc.metadata.type}
+                              </Badge>
+                              {doc.language && doc.language !== 'en' && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-1.5">
+                                  {doc.language.toUpperCase()}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Code preview */}
                           <div className="relative flex-1">
-                            <pre className="text-muted-foreground overflow-hidden text-xs bg-violet-50 dark:bg-violet-900/10 p-3 rounded-lg border border-violet-100 dark:border-violet-900/30 h-24 font-mono whitespace-pre-wrap break-words">
-                              {doc.content.substring(0, 200)}...
+                            <pre className="text-muted-foreground overflow-hidden text-xs bg-violet-50 dark:bg-violet-900/10 p-3 rounded-lg border border-violet-100 dark:border-violet-900/30 h-20 font-mono whitespace-pre-wrap break-words">
+                              {doc.content.substring(0, 180)}...
                             </pre>
                             <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-violet-50 dark:from-violet-900/10 to-transparent pointer-events-none rounded-b-lg" />
                           </div>
-                          <div className="mt-3 flex flex-wrap gap-1 min-h-[24px]">
-                            {doc.metadata?.tags && Array.isArray(doc.metadata.tags) && doc.metadata.tags.length > 0 ? (
-                              <>
+
+                          {/* Footer: Date + Tags */}
+                          <div className="mt-3 pt-2 border-t border-violet-100 dark:border-violet-900/30">
+                            {/* Date */}
+                            {doc.created_at && (
+                              <div className="text-[10px] text-muted-foreground mb-2">
+                                <Calendar className="h-3 w-3 inline mr-1" />
+                                Added {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                              </div>
+                            )}
+                            {/* Tags - smaller, subtle */}
+                            {doc.metadata?.tags && Array.isArray(doc.metadata.tags) && doc.metadata.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
                                 {doc.metadata.tags.slice(0, 4).map((tag: string) => (
-                                  <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400">
+                                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400">
                                     {tag}
-                                  </Badge>
+                                  </span>
                                 ))}
                                 {doc.metadata.tags.length > 4 && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  <span className="text-[9px] px-1.5 py-0.5 text-muted-foreground">
                                     +{doc.metadata.tags.length - 4}
-                                  </Badge>
+                                  </span>
                                 )}
-                              </>
-                            ) : null}
+                              </div>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -1757,6 +1922,115 @@ What project would you like to add?`;
             </Button>
             <Button type="button" onClick={handleSaveCategory} disabled={savingCategory || deletingCategory || !categoryForm.name.trim()}>
               {savingCategory ? "Saving..." : editingCategory ? "Update" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Types Dialog */}
+      <Dialog open={docTypeDialogOpen} onOpenChange={setDocTypeDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {editingDocType ? (
+                <>
+                  <Edit className="h-5 w-5" />
+                  Edit Document Type
+                </>
+              ) : (
+                <>
+                  <Plus className="h-5 w-5" />
+                  Create Document Type
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {editingDocType
+                ? "Update the document type name, description, and appearance."
+                : "Create a new type to categorize your documents."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            {/* Name */}
+            <div className="grid gap-2">
+              <Label htmlFor="doctype-name">Name</Label>
+              <Input
+                id="doctype-name"
+                value={docTypeForm.name}
+                onChange={(e) => setDocTypeForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., essay, poem, system-prompt"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="grid gap-2">
+              <Label htmlFor="doctype-desc">Description</Label>
+              <Input
+                id="doctype-desc"
+                value={docTypeForm.description}
+                onChange={(e) => setDocTypeForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brief description of this type"
+              />
+            </div>
+
+            {/* Existing Types List */}
+            {documentTypes.length > 0 && !editingDocType && (
+              <div className="grid gap-2">
+                <Label>Existing Types</Label>
+                <div className="max-h-40 overflow-y-auto border rounded-lg p-2 space-y-1">
+                  {documentTypes.map((dt) => (
+                    <button
+                      key={dt.id}
+                      type="button"
+                      onClick={() => openDocTypeDialog(dt)}
+                      className="w-full text-left px-2 py-1.5 rounded hover:bg-muted flex items-center justify-between group"
+                    >
+                      <span className="font-medium text-sm">{dt.name}</span>
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground">
+                        {getDocCountWithType(dt.name)} docs • Edit
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {docTypeError && (
+              <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                {docTypeError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            {editingDocType && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDeleteDocType}
+                disabled={deletingDocType || savingDocType || getDocCountWithType(editingDocType.name) > 0}
+                className="mr-auto"
+                title={getDocCountWithType(editingDocType.name) > 0
+                  ? `Cannot delete: ${getDocCountWithType(editingDocType.name)} documents use this type`
+                  : "Delete type"}
+              >
+                {deletingDocType ? (
+                  "Deleting..."
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </>
+                )}
+              </Button>
+            )}
+            <Button type="button" variant="outline" onClick={closeDocTypeDialog} disabled={savingDocType || deletingDocType}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSaveDocType} disabled={savingDocType || deletingDocType || !docTypeForm.name.trim()}>
+              {savingDocType ? "Saving..." : editingDocType ? "Update" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>

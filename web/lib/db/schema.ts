@@ -206,11 +206,27 @@ export const mediaAssets = sqliteTable("media_assets", {
 
 /**
  * Conversations - Kronus chat history
+ *
+ * Compression flow:
+ * 1. Chat grows large → user clicks "Compress" or auto-trigger at ~180K tokens
+ * 2. Haiku 4.5 generates CompressionSummary from messages
+ * 3. New conversation created with summary as context
+ * 4. Old conversation archived (isCompressed=true)
  */
 export const conversations = sqliteTable("conversations", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
   messages: text("messages").notNull().default("[]"),
+  // Soul config snapshot - what repo sections were included
+  soulConfig: text("soul_config").default("{}"),
+  // Compression fields
+  isCompressed: integer("is_compressed", { mode: "boolean" }).default(false),
+  compressionSummary: text("compression_summary"), // JSON: CompressionSummary
+  parentConversationId: integer("parent_conversation_id"), // Link to previous if continued
+  childConversationId: integer("child_conversation_id"), // Link to continuation
+  // Metadata
+  messageCount: integer("message_count").default(0),
+  estimatedTokens: integer("estimated_tokens").default(0),
   createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
   updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
 });
