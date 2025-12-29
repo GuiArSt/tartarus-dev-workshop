@@ -41,6 +41,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SoulConfig, SoulConfigState, DEFAULT_CONFIG } from "./SoulConfig";
 import { FormatConfig, FormatConfigState, DEFAULT_FORMAT_CONFIG, KRONUS_FONTS, KRONUS_FONT_SIZES } from "./FormatConfig";
+import { ToolsConfig, ToolsConfigState, DEFAULT_CONFIG as DEFAULT_TOOLS_CONFIG } from "./ToolsConfig";
 import { compressImage, formatBytes, CompressionResult } from "@/lib/image-compression";
 
 // Memoized markdown components - inherit font size from container
@@ -195,6 +196,11 @@ export function ChatInterface() {
   // Store the config that was used when the conversation started (locked after first message)
   const [lockedSoulConfig, setLockedSoulConfig] = useState<SoulConfigState | null>(null);
 
+  // Tools config - controls which tool categories are enabled
+  const [toolsConfig, setToolsConfig] = useState<ToolsConfigState>(DEFAULT_TOOLS_CONFIG);
+  // Store the tools config that was used when the conversation started (locked after first message)
+  const [lockedToolsConfig, setLockedToolsConfig] = useState<ToolsConfigState | null>(null);
+
   // Format config - controls chat font and size (applies immediately)
   const [formatConfig, setFormatConfig] = useState<FormatConfigState>(DEFAULT_FORMAT_CONFIG);
 
@@ -221,13 +227,16 @@ export function ChatInterface() {
     return () => window.removeEventListener("theme-change", handleThemeChange as EventListener);
   }, []);
 
-  // Custom transport that includes soul config
+  // Custom transport that includes soul config and tools config
   const chatTransport = useMemo(() => {
     return new DefaultChatTransport({
       api: "/api/chat",
-      body: { soulConfig: lockedSoulConfig || soulConfig },
+      body: {
+        soulConfig: lockedSoulConfig || soulConfig,
+        toolsConfig: lockedToolsConfig || toolsConfig,
+      },
     });
-  }, [lockedSoulConfig, soulConfig]);
+  }, [lockedSoulConfig, soulConfig, lockedToolsConfig, toolsConfig]);
 
   const { messages, sendMessage, status, setMessages, addToolResult, error } = useChat({
     transport: chatTransport,
@@ -1050,6 +1059,69 @@ Details: ${data.details}` : "";
             break;
           }
 
+          // ===== Perplexity Web Search Tools =====
+          case "perplexity_search": {
+            const res = await fetch("/api/perplexity", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "search",
+                query: typedArgs.query,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Perplexity search failed");
+            output = `🔍 **Search Results**\n\n${data.result}`;
+            break;
+          }
+
+          case "perplexity_ask": {
+            const res = await fetch("/api/perplexity", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "ask",
+                question: typedArgs.question,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Perplexity ask failed");
+            output = `💬 **Answer**\n\n${data.result}`;
+            break;
+          }
+
+          case "perplexity_research": {
+            const res = await fetch("/api/perplexity", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "research",
+                topic: typedArgs.topic,
+                strip_thinking: typedArgs.strip_thinking ?? true,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Perplexity research failed");
+            output = `📚 **Research Report**\n\n${data.result}`;
+            break;
+          }
+
+          case "perplexity_reason": {
+            const res = await fetch("/api/perplexity", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "reason",
+                problem: typedArgs.problem,
+                strip_thinking: typedArgs.strip_thinking ?? true,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Perplexity reasoning failed");
+            output = `🧠 **Reasoning Analysis**\n\n${data.result}`;
+            break;
+          }
+
           default:
             output = `Unknown tool: ${toolName}`;
         }
@@ -1407,9 +1479,10 @@ Details: ${data.details}` : "";
     e.preventDefault();
     if ((!input.trim() && !selectedFiles) || status === "submitted" || status === "streaming") return;
 
-    // Lock the soul config on first message of a new conversation
+    // Lock the soul and tools config on first message of a new conversation
     if (messages.length === 0 && !lockedSoulConfig) {
       setLockedSoulConfig(soulConfig);
+      setLockedToolsConfig(toolsConfig);
     }
 
     // Send message with optional files
@@ -1562,6 +1635,7 @@ Details: ${data.details}` : "";
     setToolStates({});
     setShowHistory(false);
     setLockedSoulConfig(null); // Unlock config for new conversation
+    setLockedToolsConfig(null);
   };
 
   const handleDeleteConversation = async (id: number, e: React.MouseEvent) => {
@@ -1711,6 +1785,11 @@ Details: ${data.details}` : "";
           <SoulConfig
             config={soulConfig}
             onChange={setSoulConfig}
+          />
+          {/* Tools Config - controls which tool categories are enabled */}
+          <ToolsConfig
+            config={toolsConfig}
+            onChange={setToolsConfig}
           />
           {/* Format Config - font/size, applies immediately */}
           <FormatConfig

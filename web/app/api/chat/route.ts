@@ -6,6 +6,30 @@ import { z } from "zod";
 import { getKronusSystemPrompt, SoulConfig, DEFAULT_SOUL_CONFIG } from "@/lib/ai/kronus";
 
 /**
+ * Tool configuration - controls which tool categories are enabled
+ */
+export interface ToolsConfig {
+  // Core tools (always conceptually available, but can be toggled)
+  journal: boolean;      // Journal entries, project summaries
+  repository: boolean;   // Documents, skills, experience, education
+  linear: boolean;       // Linear issue tracking
+  media: boolean;        // Media library, attachments
+
+  // Heavy/optional tools
+  imageGeneration: boolean;  // FLUX, Gemini image generation
+  webSearch: boolean;        // Perplexity web search/research
+}
+
+export const DEFAULT_TOOLS_CONFIG: ToolsConfig = {
+  journal: true,
+  repository: true,
+  linear: true,
+  media: true,
+  imageGeneration: false,  // Off by default - heavy
+  webSearch: false,        // Off by default - requires API key
+};
+
+/**
  * Get the AI model - Anthropic is preferred for Kronus
  * 
  * Models:
@@ -339,9 +363,116 @@ const tools = {
   },
 };
 
+// ===== Web Search Tools (Perplexity) =====
+const webSearchTools = {
+  perplexity_search: {
+    description: "Search the web using Perplexity. Returns ranked search results with metadata. Best for finding current information, news, documentation.",
+    inputSchema: z.object({
+      query: z.string().min(1).describe("Search query"),
+    }),
+  },
+  perplexity_ask: {
+    description: "Ask a question with real-time web search using Perplexity sonar-pro model. Great for quick questions, factual lookups, and conversational research.",
+    inputSchema: z.object({
+      question: z.string().min(1).describe("Question to ask"),
+    }),
+  },
+  perplexity_research: {
+    description: "Deep, comprehensive research using Perplexity sonar-deep-research model. Use for thorough analysis, detailed reports, complex topics. Takes longer but provides exhaustive results.",
+    inputSchema: z.object({
+      topic: z.string().min(1).describe("Topic to research in depth"),
+      strip_thinking: z.boolean().optional().default(true).describe("Remove thinking tags to save tokens"),
+    }),
+  },
+  perplexity_reason: {
+    description: "Advanced reasoning and problem-solving using Perplexity sonar-reasoning-pro model. Perfect for complex analytical tasks, multi-step problems, logical analysis.",
+    inputSchema: z.object({
+      problem: z.string().min(1).describe("Problem or question requiring reasoning"),
+      strip_thinking: z.boolean().optional().default(true).describe("Remove thinking tags to save tokens"),
+    }),
+  },
+};
+
+/**
+ * Build the tools object based on toolsConfig
+ */
+function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
+  const enabledTools: Record<string, any> = {};
+
+  // Journal tools
+  if (toolsConfig.journal) {
+    Object.assign(enabledTools, {
+      journal_create_entry: tools.journal_create_entry,
+      journal_get_entry: tools.journal_get_entry,
+      journal_list_by_repository: tools.journal_list_by_repository,
+      journal_list_by_branch: tools.journal_list_by_branch,
+      journal_list_repositories: tools.journal_list_repositories,
+      journal_list_branches: tools.journal_list_branches,
+      journal_edit_entry: tools.journal_edit_entry,
+      journal_regenerate_entry: tools.journal_regenerate_entry,
+      journal_get_project_summary: tools.journal_get_project_summary,
+      journal_list_project_summaries: tools.journal_list_project_summaries,
+      journal_list_attachments: tools.journal_list_attachments,
+      journal_backup: tools.journal_backup,
+    });
+  }
+
+  // Linear tools
+  if (toolsConfig.linear) {
+    Object.assign(enabledTools, {
+      linear_get_viewer: tools.linear_get_viewer,
+      linear_list_issues: tools.linear_list_issues,
+      linear_create_issue: tools.linear_create_issue,
+      linear_update_issue: tools.linear_update_issue,
+      linear_list_projects: tools.linear_list_projects,
+      linear_update_project: tools.linear_update_project,
+    });
+  }
+
+  // Repository tools
+  if (toolsConfig.repository) {
+    Object.assign(enabledTools, {
+      repository_list_documents: tools.repository_list_documents,
+      repository_get_document: tools.repository_get_document,
+      repository_create_document: tools.repository_create_document,
+      repository_update_document: tools.repository_update_document,
+      repository_list_skills: tools.repository_list_skills,
+      repository_update_skill: tools.repository_update_skill,
+      repository_create_skill: tools.repository_create_skill,
+      repository_list_experience: tools.repository_list_experience,
+      repository_create_experience: tools.repository_create_experience,
+      repository_list_education: tools.repository_list_education,
+      repository_create_education: tools.repository_create_education,
+    });
+  }
+
+  // Media tools
+  if (toolsConfig.media) {
+    Object.assign(enabledTools, {
+      save_image: tools.save_image,
+      list_media: tools.list_media,
+      update_media: tools.update_media,
+    });
+  }
+
+  // Image generation tools (heavy)
+  if (toolsConfig.imageGeneration) {
+    Object.assign(enabledTools, {
+      replicate_generate_image: tools.replicate_generate_image,
+    });
+  }
+
+  // Web search tools (Perplexity)
+  if (toolsConfig.webSearch) {
+    Object.assign(enabledTools, webSearchTools);
+  }
+
+  return enabledTools;
+}
+
 export async function POST(req: Request) {
   try {
-    const { messages, soulConfig } = await req.json();
+    const { messages, soulConfig, toolsConfig } = await req.json();
 
     // Parse soul config from request, default to all sections enabled
     const config: SoulConfig = soulConfig ? {
@@ -353,8 +484,25 @@ export async function POST(req: Request) {
       journalEntries: soulConfig.journalEntries ?? true,
     } : DEFAULT_SOUL_CONFIG;
 
+    // Parse tools config from request
+    const enabledToolsConfig: ToolsConfig = toolsConfig ? {
+      journal: toolsConfig.journal ?? true,
+      repository: toolsConfig.repository ?? true,
+      linear: toolsConfig.linear ?? true,
+      media: toolsConfig.media ?? true,
+      imageGeneration: toolsConfig.imageGeneration ?? false,
+      webSearch: toolsConfig.webSearch ?? false,
+    } : DEFAULT_TOOLS_CONFIG;
+
     const model = getModel();
     const systemPrompt = getKronusSystemPrompt(config);
+    const enabledTools = buildTools(enabledToolsConfig);
+
+    // Log enabled tool categories
+    const enabledCategories = Object.entries(enabledToolsConfig)
+      .filter(([_, v]) => v)
+      .map(([k]) => k);
+    console.log(`[Chat] Tools enabled: ${enabledCategories.join(", ")} (${Object.keys(enabledTools).length} tools)`);
 
     // Convert UI messages to model format for proper streaming
     const modelMessages = convertToModelMessages(messages);
@@ -363,7 +511,7 @@ export async function POST(req: Request) {
       model,
       system: systemPrompt,
       messages: modelMessages,
-      tools: tools as any,
+      tools: enabledTools as any,
     });
 
     return result.toUIMessageStreamResponse();

@@ -6,9 +6,10 @@ export function middleware(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname === "/login";
   const isApiAuth = request.nextUrl.pathname.startsWith("/api/auth");
   const isMcpResources = request.nextUrl.pathname.startsWith("/api/mcp");
+  const isAttachmentDownload = request.nextUrl.pathname.match(/^\/api\/attachments\/\d+\/raw$/);
 
-  // Allow auth API and MCP resources (MCP has its own API key auth)
-  if (isApiAuth || isMcpResources) {
+  // Allow auth API, MCP resources, and attachment downloads (for MCP agents)
+  if (isApiAuth || isMcpResources || isAttachmentDownload) {
     return NextResponse.next();
   }
 
