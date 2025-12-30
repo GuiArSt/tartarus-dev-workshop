@@ -121,9 +121,21 @@ export function loadRepositoryForSoul(config: SoulConfig = DEFAULT_SOUL_CONFIG):
           const docType = (meta.type as string) || "writing";
           const lang = doc.language || "en";
 
+          // Date formatting: writtenDate (or legacy year) and updated_at
+          const writtenDate = (meta.writtenDate as string) || (meta.year as string) || null;
+          const addedDate = doc.createdAt ? new Date(doc.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+          const updatedDate = doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+
+          // Build date line
+          const dateParts: string[] = [];
+          if (writtenDate) dateParts.push(`Written: ${writtenDate}`);
+          if (addedDate) dateParts.push(`Added: ${addedDate}`);
+          if (updatedDate && updatedDate !== addedDate) dateParts.push(`Updated: ${updatedDate}`);
+          const dateLine = dateParts.length > 0 ? `**${dateParts.join(" | ")}**\n` : "";
+
           return `### ${doc.title}
 **Type:** ${docType} | **Lang:** ${lang}
-
+${dateLine}
 ${doc.content}`;
         });
 
@@ -286,8 +298,14 @@ ${eduSection.join("\n\n---\n\n")}`;
       if (entries.length > 0) {
         const entriesSection = entries.map((entry) => {
           const techs = entry.technologies || "N/A";
+          const commitDate = new Date(entry.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          const addedDate = entry.createdAt ? new Date(entry.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+          const dateStr = addedDate && addedDate !== commitDate
+            ? `Committed: ${commitDate} | Documented: ${addedDate}`
+            : `Date: ${commitDate}`;
+
           return `### ${entry.repository} - ${entry.commitHash.substring(0, 7)}
-**Date:** ${new Date(entry.date).toLocaleDateString()} | **Branch:** ${entry.branch}
+**${dateStr}** | **Branch:** ${entry.branch}
 **Author:** ${entry.codeAuthor || entry.author}
 
 **Why:** ${entry.why || "N/A"}
@@ -337,14 +355,33 @@ ${sections.join("\n\n" + "=".repeat(60) + "\n\n")}
 }
 
 /**
+ * Format today's date for system prompt
+ */
+function formatTodayDate(): string {
+  const now = new Date();
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  };
+  return now.toLocaleDateString("en-US", options);
+}
+
+/**
  * Get the system prompt for Kronus chat
  * Generated fresh based on soul config - NOT cached
  */
 export function getKronusSystemPrompt(config: SoulConfig = DEFAULT_SOUL_CONFIG): string {
   const soul = loadKronusSoul();
   const { content: repository, tokenEstimate } = loadRepositoryForSoul(config);
+  const todayDate = formatTodayDate();
 
   const systemPrompt = `${soul}
+
+## Current Context
+
+**Today is ${todayDate}.**
 
 ## Your Current Capabilities
 

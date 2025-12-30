@@ -15,6 +15,14 @@ interface DocumentRow {
   updated_at: string;
 }
 
+interface MediaAssetRow {
+  id: number;
+  filename: string;
+  mime_type: string;
+  description: string | null;
+  alt: string | null;
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -65,7 +73,29 @@ export const GET = withErrorHandler<{ slug: string }>(async (
   }
 
   console.log(`[Documents API] Found document: ${document.title}`);
-  return NextResponse.json(parseDocumentMetadata(document));
+
+  // Fetch attached media assets
+  const mediaAssets = db.prepare(`
+    SELECT id, filename, mime_type, description, alt
+    FROM media_assets
+    WHERE document_id = ?
+    ORDER BY created_at DESC
+  `).all(document.id) as MediaAssetRow[];
+
+  const parsedDoc = parseDocumentMetadata(document);
+
+  return NextResponse.json({
+    ...parsedDoc,
+    media_count: mediaAssets.length,
+    media_assets: mediaAssets.map(m => ({
+      id: m.id,
+      filename: m.filename,
+      mime_type: m.mime_type,
+      description: m.description,
+      alt: m.alt,
+      url: `/api/media/${m.id}/raw`,
+    })),
+  });
 });
 
 /**

@@ -139,6 +139,19 @@ const tools = {
       offset: z.number().optional().default(0),
     }),
   },
+  journal_upsert_project_summary: {
+    description: "Create or update the project summary for a repository",
+    inputSchema: z.object({
+      repository: z.string().min(1).describe("Repository name"),
+      git_url: z.string().url().describe("Git repository URL"),
+      summary: z.string().min(10).describe("High-level project summary"),
+      purpose: z.string().min(10).describe("Why this project exists"),
+      architecture: z.string().min(10).describe("Overall architecture"),
+      key_decisions: z.string().min(10).describe("Major decisions"),
+      technologies: z.string().min(3).describe("Comma-separated list of technologies"),
+      status: z.string().min(3).describe("Current project status"),
+    }),
+  },
   journal_list_attachments: {
     description: "List attachments for a journal entry",
     inputSchema: z.object({
@@ -241,6 +254,13 @@ const tools = {
       limit: z.number().optional().default(20).describe("Maximum number of results"),
     }),
   },
+  // ===== Media Get Tool =====
+  get_media: {
+    description: "Get a specific media asset by ID and display it inline. Use this to show an image in the chat.",
+    inputSchema: z.object({
+      id: z.number().describe("Media asset ID to fetch and display"),
+    }),
+  },
   // ===== Media Update Tool =====
   update_media: {
     description: "Update metadata for a saved media asset. Use this to add descriptions, tags, or link images to journal entries or documents.",
@@ -253,7 +273,7 @@ const tools = {
       document_id: z.number().optional().describe("Link to repository document by ID"),
     }),
   },
-  
+
   // ===== Repository Tools =====
   repository_list_documents: {
     description: "List documents from the Repository. Can filter by type (writing, prompt, note).",
@@ -361,6 +381,75 @@ const tools = {
       achievements: z.array(z.string()).optional().describe("Key achievements/honors"),
     }),
   },
+  repository_update_experience: {
+    description: "Update an existing work experience entry",
+    inputSchema: z.object({
+      id: z.string().describe("Experience ID to update"),
+      title: z.string().optional().describe("Updated job title"),
+      company: z.string().optional().describe("Updated company name"),
+      tagline: z.string().optional().describe("Updated tagline"),
+      achievements: z.array(z.string()).optional().describe("Updated achievements"),
+      dateStart: z.string().optional().describe("Updated start date (YYYY-MM)"),
+      dateEnd: z.string().nullable().optional().describe("Updated end date (YYYY-MM or null for current)"),
+    }),
+  },
+  repository_update_education: {
+    description: "Update an existing education entry",
+    inputSchema: z.object({
+      id: z.string().describe("Education ID to update"),
+      degree: z.string().optional().describe("Updated degree"),
+      field: z.string().optional().describe("Updated field of study"),
+      institution: z.string().optional().describe("Updated institution"),
+      tagline: z.string().optional().describe("Updated tagline"),
+      focusAreas: z.array(z.string()).optional().describe("Updated focus areas"),
+      achievements: z.array(z.string()).optional().describe("Updated achievements"),
+    }),
+  },
+  // ===== Portfolio Projects Tools =====
+  repository_list_portfolio_projects: {
+    description: "List portfolio projects",
+    inputSchema: z.object({
+      featured: z.boolean().optional().describe("Filter by featured status"),
+      status: z.string().optional().describe("Filter by status (active, completed, archived)"),
+    }),
+  },
+  repository_get_portfolio_project: {
+    description: "Get a specific portfolio project by ID",
+    inputSchema: z.object({
+      id: z.number().describe("Portfolio project ID"),
+    }),
+  },
+  repository_create_portfolio_project: {
+    description: "Create a new portfolio project",
+    inputSchema: z.object({
+      title: z.string().describe("Project title"),
+      category: z.string().describe("Project category (e.g. 'AI/ML', 'Web App', 'Mobile')"),
+      company: z.string().optional().describe("Company/client name"),
+      role: z.string().optional().describe("Your role in the project"),
+      status: z.string().default("active").describe("Project status (active, completed, archived)"),
+      featured: z.boolean().default(false).describe("Whether this is a featured project"),
+      technologies: z.array(z.string()).optional().describe("Technologies used"),
+      tags: z.array(z.string()).optional().describe("Tags for categorization"),
+      description: z.string().optional().describe("Project description (markdown)"),
+      image_url: z.string().optional().describe("URL of project image"),
+    }),
+  },
+  repository_update_portfolio_project: {
+    description: "Update an existing portfolio project",
+    inputSchema: z.object({
+      id: z.number().describe("Portfolio project ID to update"),
+      title: z.string().optional().describe("Updated title"),
+      category: z.string().optional().describe("Updated category"),
+      company: z.string().optional().describe("Updated company"),
+      role: z.string().optional().describe("Updated role"),
+      status: z.string().optional().describe("Updated status"),
+      featured: z.boolean().optional().describe("Updated featured status"),
+      technologies: z.array(z.string()).optional().describe("Updated technologies"),
+      tags: z.array(z.string()).optional().describe("Updated tags"),
+      description: z.string().optional().describe("Updated description"),
+      image_url: z.string().optional().describe("Updated image URL"),
+    }),
+  },
 };
 
 // ===== Web Search Tools (Perplexity) =====
@@ -412,6 +501,7 @@ function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
       journal_regenerate_entry: tools.journal_regenerate_entry,
       journal_get_project_summary: tools.journal_get_project_summary,
       journal_list_project_summaries: tools.journal_list_project_summaries,
+      journal_upsert_project_summary: tools.journal_upsert_project_summary,
       journal_list_attachments: tools.journal_list_attachments,
       journal_backup: tools.journal_backup,
     });
@@ -432,17 +522,28 @@ function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
   // Repository tools
   if (toolsConfig.repository) {
     Object.assign(enabledTools, {
+      // Documents (writings, prompts, notes)
       repository_list_documents: tools.repository_list_documents,
       repository_get_document: tools.repository_get_document,
       repository_create_document: tools.repository_create_document,
       repository_update_document: tools.repository_update_document,
+      // Skills
       repository_list_skills: tools.repository_list_skills,
       repository_update_skill: tools.repository_update_skill,
       repository_create_skill: tools.repository_create_skill,
+      // Work Experience
       repository_list_experience: tools.repository_list_experience,
       repository_create_experience: tools.repository_create_experience,
+      repository_update_experience: tools.repository_update_experience,
+      // Education
       repository_list_education: tools.repository_list_education,
       repository_create_education: tools.repository_create_education,
+      repository_update_education: tools.repository_update_education,
+      // Portfolio Projects
+      repository_list_portfolio_projects: tools.repository_list_portfolio_projects,
+      repository_get_portfolio_project: tools.repository_get_portfolio_project,
+      repository_create_portfolio_project: tools.repository_create_portfolio_project,
+      repository_update_portfolio_project: tools.repository_update_portfolio_project,
     });
   }
 
@@ -451,6 +552,7 @@ function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
     Object.assign(enabledTools, {
       save_image: tools.save_image,
       list_media: tools.list_media,
+      get_media: tools.get_media,
       update_media: tools.update_media,
     });
   }
@@ -497,12 +599,6 @@ export async function POST(req: Request) {
     const model = getModel();
     const systemPrompt = getKronusSystemPrompt(config);
     const enabledTools = buildTools(enabledToolsConfig);
-
-    // Log enabled tool categories
-    const enabledCategories = Object.entries(enabledToolsConfig)
-      .filter(([_, v]) => v)
-      .map(([k]) => k);
-    console.log(`[Chat] Tools enabled: ${enabledCategories.join(", ")} (${Object.keys(enabledTools).length} tools)`);
 
     // Convert UI messages to model format for proper streaming
     const modelMessages = convertToModelMessages(messages);

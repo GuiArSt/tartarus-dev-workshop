@@ -29,16 +29,21 @@ import {
   History,
   Plus,
   Trash2,
-  ImagePlus,
+  Paperclip,
   X,
   Search,
   ArrowUp,
   ArrowDown,
   Zap,
+  Square,
+  RefreshCw,
+  Pencil,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { SoulConfig, SoulConfigState, DEFAULT_CONFIG } from "./SoulConfig";
 import { FormatConfig, FormatConfigState, DEFAULT_FORMAT_CONFIG, KRONUS_FONTS, KRONUS_FONT_SIZES } from "./FormatConfig";
 import { ToolsConfig, ToolsConfigState, DEFAULT_CONFIG as DEFAULT_TOOLS_CONFIG } from "./ToolsConfig";
@@ -130,12 +135,26 @@ const markdownComponents = {
   td: ({ children }: any) => (
     <td className="border border-[var(--kronus-border)] px-2 py-1.5 text-[var(--kronus-ivory-dim)]">{children}</td>
   ),
+  // Images - render inline images from media assets
+  img: ({ src, alt }: any) => (
+    <span className="block my-3">
+      <img
+        src={src}
+        alt={alt || "Image"}
+        className="max-w-full h-auto rounded-lg border border-[var(--kronus-border)] shadow-lg"
+        style={{ maxHeight: "400px", objectFit: "contain" }}
+        loading="lazy"
+      />
+      {alt && <span className="block text-xs text-[var(--kronus-ivory-muted)] mt-1 italic">{alt}</span>}
+    </span>
+  ),
 };
 
 // Memoized markdown renderer for completed messages
+// remarkBreaks converts single line breaks to <br> for better list handling
 const MemoizedMarkdown = memo(function MemoizedMarkdown({ text }: { text: string }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
       {text}
     </ReactMarkdown>
   );
@@ -207,6 +226,10 @@ export function ChatInterface() {
   // Context compression state
   const [isCompressingContext, setIsCompressingContext] = useState(false);
 
+  // Edit user message state
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingMessageContent, setEditingMessageContent] = useState("");
+
   // Theme state - synced with Sidebar's localStorage
   const [kronusTheme, setKronusTheme] = useState<"dark" | "light">("dark");
 
@@ -227,18 +250,15 @@ export function ChatInterface() {
     return () => window.removeEventListener("theme-change", handleThemeChange as EventListener);
   }, []);
 
-  // Custom transport that includes soul config and tools config
+  // Custom transport - body is passed via sendMessage to avoid stale data issue
+  // See: https://ai-sdk.dev/docs/troubleshooting/use-chat-stale-body-data
   const chatTransport = useMemo(() => {
     return new DefaultChatTransport({
       api: "/api/chat",
-      body: {
-        soulConfig: lockedSoulConfig || soulConfig,
-        toolsConfig: lockedToolsConfig || toolsConfig,
-      },
     });
-  }, [lockedSoulConfig, soulConfig, lockedToolsConfig, toolsConfig]);
+  }, []);
 
-  const { messages, sendMessage, status, setMessages, addToolResult, error } = useChat({
+  const { messages, sendMessage, status, setMessages, addToolResult, error, stop } = useChat({
     transport: chatTransport,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
 
@@ -358,6 +378,28 @@ export function ChatInterface() {
             break;
           }
 
+          case "journal_upsert_project_summary": {
+            const res = await fetch(`/api/repositories/${encodeURIComponent(String(typedArgs.repository))}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                git_url: typedArgs.git_url,
+                summary: typedArgs.summary,
+                purpose: typedArgs.purpose,
+                architecture: typedArgs.architecture,
+                key_decisions: typedArgs.key_decisions,
+                technologies: typedArgs.technologies,
+                status: typedArgs.status,
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to upsert project summary");
+
+            output = `✅ Project summary for **${typedArgs.repository}** has been ${data.created ? "created" : "updated"}`;
+            break;
+          }
+
           case "journal_list_attachments": {
             const res = await fetch(`/api/entries/${typedArgs.commit_hash}`);
             const data = await res.json();
@@ -441,214 +483,10 @@ export function ChatInterface() {
             break;
           }
 
-          // ===== Document Tools =====
-          case "document_list": {
-            const params = new URLSearchParams();
-            if (typedArgs.type) params.set("type", String(typedArgs.type));
-            if (typedArgs.year) params.set("year", String(typedArgs.year));
-            if (typedArgs.search) params.set("search", String(typedArgs.search));
-            if (typedArgs.limit) params.set("limit", String(typedArgs.limit));
-            const res = await fetch(`/api/documents?${params}`);
-            const data = await res.json();
-            output = `Found ${data.total} documents:\n${JSON.stringify(data.documents, null, 2)}`;
-            break;
-          }
+          // NOTE: Old document_*, skill_*, experience_*, education_* tools removed
+          // All repository operations now use repository_* prefix handlers below
 
-          case "document_get": {
-            const res = await fetch(`/api/documents/${typedArgs.slug}`);
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Document not found");
-            output = `**${data.title}** (ID: ${data.id})\nType: ${data.type}\nSlug: ${data.slug}\n\n${data.content}`;
-            break;
-          }
-
-          case "document_create": {
-            const res = await fetch("/api/documents", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(typedArgs),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to create document");
-            output = `✅ Created document: ${data.title} (slug: ${data.slug})`;
-            break;
-          }
-
-          case "document_update": {
-            const { slug, ...updates } = typedArgs;
-            const res = await fetch(`/api/documents/${slug}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(updates),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to update document");
-            output = `✅ Updated document: ${data.title}`;
-            break;
-          }
-
-          // NOTE: document_delete removed - destructive actions are UI-only
-
-          // ===== CV Tools =====
-          case "skill_list": {
-            const res = await fetch("/api/cv/skills");
-            const data = await res.json();
-            output = `Found ${data.length} skills:\n${JSON.stringify(data, null, 2)}`;
-            break;
-          }
-
-          case "skill_get": {
-            const res = await fetch(`/api/cv/skills/${typedArgs.id}`);
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Skill not found");
-            output = JSON.stringify(data, null, 2);
-            break;
-          }
-
-          case "skill_generate": {
-            const res = await fetch("/api/cv/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type: "skill",
-                name: typedArgs.name,
-                description: typedArgs.description,
-                category: typedArgs.category,
-              }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to generate skill");
-            // Save the generated skill
-            const saveRes = await fetch("/api/cv/skills", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data.data),
-            });
-            if (!saveRes.ok) throw new Error("Failed to save generated skill");
-            output = `✅ Generated and saved skill: ${data.data.name} (magnitude ${data.data.magnitude}/4)`;
-            break;
-          }
-
-          case "skill_update": {
-            const { id, ...updates } = typedArgs;
-            const res = await fetch(`/api/cv/skills/${id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(updates),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to update skill");
-            output = `✅ Updated skill: ${data.name}`;
-            break;
-          }
-
-          case "experience_list": {
-            const res = await fetch("/api/cv/experience");
-            const data = await res.json();
-            output = `Found ${data.length} work experience entries:
-${JSON.stringify(data, null, 2)}`;
-            break;
-          }
-
-          case "experience_get": {
-            const res = await fetch(`/api/cv/experience/${typedArgs.id}`);
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Experience not found");
-            output = JSON.stringify(data, null, 2);
-            break;
-          }
-
-          case "experience_generate": {
-            const res = await fetch("/api/cv/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type: "experience",
-                company: typedArgs.company,
-                title: typedArgs.title,
-                description: typedArgs.description,
-              }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to generate experience");
-            // Save the generated experience
-            const saveRes = await fetch("/api/cv/experience", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data.data),
-            });
-            if (!saveRes.ok) throw new Error("Failed to save generated experience");
-            output = `✅ Generated and saved work experience: ${data.data.title} at ${data.data.company}`;
-            break;
-          }
-
-          case "experience_update": {
-            const { id, ...updates } = typedArgs;
-            const res = await fetch(`/api/cv/experience/${id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(updates),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to update experience");
-            output = `✅ Updated work experience: ${data.title} at ${data.company}`;
-            break;
-          }
-
-          case "education_list": {
-            const res = await fetch("/api/cv/education");
-            const data = await res.json();
-            output = `Found ${data.length} education entries:
-${JSON.stringify(data, null, 2)}`;
-            break;
-          }
-
-          case "education_get": {
-            const res = await fetch(`/api/cv/education/${typedArgs.id}`);
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Education not found");
-            output = JSON.stringify(data, null, 2);
-            break;
-          }
-
-          case "education_generate": {
-            const res = await fetch("/api/cv/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type: "education",
-                institution: typedArgs.institution,
-                degree: typedArgs.degree,
-                description: typedArgs.description,
-              }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to generate education");
-            // Save the generated education
-            const saveRes = await fetch("/api/cv/education", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data.data),
-            });
-            if (!saveRes.ok) throw new Error("Failed to save generated education");
-            output = `✅ Generated and saved education: ${data.data.degree} at ${data.data.institution}`;
-            break;
-          }
-
-          case "education_update": {
-            const { id, ...updates } = typedArgs;
-            const res = await fetch(`/api/cv/education/${id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(updates),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to update education");
-            output = `✅ Updated education: ${data.degree} at ${data.institution}`;
-            break;
-          }
-
-                    case "replicate_generate_image": {
+          case "replicate_generate_image": {
             const res = await fetch("/api/replicate/generate-image", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -761,22 +599,33 @@ Details: ${data.details}` : "";
             if (typedArgs.commit_hash) params.set("commit_hash", String(typedArgs.commit_hash));
             if (typedArgs.document_id) params.set("document_id", String(typedArgs.document_id));
             if (typedArgs.limit) params.set("limit", String(typedArgs.limit));
-            
+
             const res = await fetch(`/api/media?${params.toString()}`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to list media");
-            
+
             if (data.assets.length === 0) {
               output = "No media assets found.";
             } else {
-              const assetList = data.assets.map((a: any) => {
+              // Build output with inline images for each asset
+              let mediaOutput = `**Media Assets** (${data.total} found)\n\n`;
+
+              for (const a of data.assets) {
                 const links = [];
-                if (a.commit_hash) links.push(`J:${a.commit_hash.substring(0, 7)}`);
-                if (a.document_id) links.push(`D:#${a.document_id}`);
-                const linkStr = links.length > 0 ? ` [${links.join(", ")}]` : "";
-                return `• [${a.id}] ${a.filename}${linkStr} - ${a.description || "No description"}`;
-              }).join("\n");
-              output = `Found ${data.total} media asset(s):\n${assetList}`;
+                if (a.commit_hash) links.push(`Journal: ${a.commit_hash.substring(0, 7)}`);
+                if (a.document_id) links.push(`Document: #${a.document_id}`);
+                const linkStr = links.length > 0 ? ` | ${links.join(", ")}` : "";
+
+                const alt = a.alt || a.description || a.filename;
+                const imageUrl = `/api/media/${a.id}/raw`;
+
+                mediaOutput += `---\n`;
+                mediaOutput += `**${a.filename}** (ID: ${a.id})${linkStr}\n`;
+                if (a.description) mediaOutput += `${a.description}\n`;
+                mediaOutput += `\n![${alt}](${imageUrl})\n\n`;
+              }
+
+              output = mediaOutput;
             }
             break;
           }
@@ -805,6 +654,30 @@ Details: ${data.details}` : "";
             if (typedArgs.filename) updates.push("filename");
             
             output = `✅ Updated media asset #${typedArgs.id}\nModified: ${updates.join(", ") || "no changes"}`;
+            break;
+          }
+
+          case "get_media": {
+            const res = await fetch(`/api/media/${typedArgs.id}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Media not found");
+
+            const media = data;
+            const alt = media.alt || media.description || media.filename;
+            const imageUrl = `/api/media/${media.id}/raw`;
+
+            // Build output with metadata and inline image
+            let mediaOutput = `**${media.filename}** (ID: ${media.id})\n`;
+            if (media.description) mediaOutput += `Description: ${media.description}\n`;
+            if (media.prompt) mediaOutput += `Prompt: ${media.prompt}\n`;
+            if (media.model) mediaOutput += `Model: ${media.model}\n`;
+            if (media.tags && media.tags.length > 0) {
+              const tags = typeof media.tags === "string" ? JSON.parse(media.tags) : media.tags;
+              if (tags.length > 0) mediaOutput += `Tags: ${tags.join(", ")}\n`;
+            }
+            mediaOutput += `\n![${alt}](${imageUrl})`;
+
+            output = mediaOutput;
             break;
           }
 
@@ -841,7 +714,22 @@ Details: ${data.details}` : "";
             if (!res.ok) throw new Error(data.error || "Document not found");
 
             const doc = data.document || data;
-            output = `**${doc.title}** (ID: ${doc.id})\nType: ${doc.type}\nSlug: ${doc.slug}\n\n${doc.content}`;
+
+            // Build output with document content
+            let docOutput = `**${doc.title}** (ID: ${doc.id})\nType: ${doc.type}\nSlug: ${doc.slug}\n\n${doc.content}`;
+
+            // Include media attachments if any
+            if (doc.media_count > 0 && doc.media_assets) {
+              docOutput += `\n\n---\n**Attached Media (${doc.media_count}):**\n`;
+              for (const media of doc.media_assets) {
+                const alt = media.alt || media.description || media.filename;
+                docOutput += `\n- **${media.filename}** (ID: ${media.id})\n`;
+                if (media.description) docOutput += `  Description: ${media.description}\n`;
+                docOutput += `  ![${alt}](${media.url})\n`;
+              }
+            }
+
+            output = docOutput;
             break;
           }
 
@@ -1059,6 +947,131 @@ Details: ${data.details}` : "";
             break;
           }
 
+          case "repository_update_experience": {
+            const res = await fetch(`/api/cv/experience/${typedArgs.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: typedArgs.title,
+                company: typedArgs.company,
+                tagline: typedArgs.tagline,
+                achievements: typedArgs.achievements,
+                dateStart: typedArgs.dateStart,
+                dateEnd: typedArgs.dateEnd,
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to update experience");
+
+            output = `✅ Updated experience: ${data.title || typedArgs.id}`;
+            break;
+          }
+
+          case "repository_update_education": {
+            const res = await fetch(`/api/cv/education/${typedArgs.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                degree: typedArgs.degree,
+                field: typedArgs.field,
+                institution: typedArgs.institution,
+                tagline: typedArgs.tagline,
+                focusAreas: typedArgs.focusAreas,
+                achievements: typedArgs.achievements,
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to update education");
+
+            output = `✅ Updated education: ${data.degree || typedArgs.id}`;
+            break;
+          }
+
+          // ===== Portfolio Projects Tools =====
+          case "repository_list_portfolio_projects": {
+            const params = new URLSearchParams();
+            if (typedArgs.featured !== undefined) params.set("featured", String(typedArgs.featured));
+            if (typedArgs.status) params.set("status", String(typedArgs.status));
+
+            const res = await fetch(`/api/portfolio-projects?${params.toString()}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to list portfolio projects");
+
+            const projects = data.projects || data;
+            output = `📁 **Portfolio Projects** (${projects.length} found)\n\n${projects.map((p: any) =>
+              `- **${p.title}** (${p.category}) ${p.featured ? "⭐" : ""}\n  Status: ${p.status} | Technologies: ${(p.technologies || []).join(", ")}`
+            ).join("\n\n")}`;
+            break;
+          }
+
+          case "repository_get_portfolio_project": {
+            const res = await fetch(`/api/portfolio-projects/${typedArgs.id}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to get portfolio project");
+
+            output = `📁 **${data.title}**\n\n` +
+              `**Category:** ${data.category}\n` +
+              `**Status:** ${data.status} ${data.featured ? "⭐ Featured" : ""}\n` +
+              (data.company ? `**Company:** ${data.company}\n` : "") +
+              (data.role ? `**Role:** ${data.role}\n` : "") +
+              `**Technologies:** ${(data.technologies || []).join(", ")}\n` +
+              (data.tags?.length ? `**Tags:** ${data.tags.join(", ")}\n` : "") +
+              (data.description ? `\n---\n\n${data.description}` : "");
+            break;
+          }
+
+          case "repository_create_portfolio_project": {
+            const res = await fetch("/api/portfolio-projects", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: typedArgs.title,
+                category: typedArgs.category,
+                company: typedArgs.company,
+                role: typedArgs.role,
+                status: typedArgs.status || "active",
+                featured: typedArgs.featured || false,
+                technologies: typedArgs.technologies || [],
+                tags: typedArgs.tags || [],
+                description: typedArgs.description,
+                image_url: typedArgs.image_url,
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to create portfolio project");
+
+            output = `✅ Created portfolio project: **${typedArgs.title}** (${typedArgs.category})`;
+            break;
+          }
+
+          case "repository_update_portfolio_project": {
+            const res = await fetch(`/api/portfolio-projects/${typedArgs.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: typedArgs.title,
+                category: typedArgs.category,
+                company: typedArgs.company,
+                role: typedArgs.role,
+                status: typedArgs.status,
+                featured: typedArgs.featured,
+                technologies: typedArgs.technologies,
+                tags: typedArgs.tags,
+                description: typedArgs.description,
+                image_url: typedArgs.image_url,
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to update portfolio project");
+
+            output = `✅ Updated portfolio project: **${data.title || typedArgs.id}**`;
+            break;
+          }
+
           // ===== Perplexity Web Search Tools =====
           case "perplexity_search": {
             const res = await fetch("/api/perplexity", {
@@ -1177,8 +1190,17 @@ Details: ${data.details}` : "";
         loadConversations();
 
         // Send the prefill message after a brief delay to ensure state is cleared
+        // Pass config via sendMessage body to avoid stale data issue
         setTimeout(() => {
-          sendMessage({ text: prefill });
+          sendMessage(
+            { text: prefill },
+            {
+              body: {
+                soulConfig,
+                toolsConfig,
+              },
+            }
+          );
         }, 150);
         return;
       }
@@ -1328,22 +1350,23 @@ Details: ${data.details}` : "";
   // Track if prefill was sent (used by init effect)
   const [hasSentPrefill, setHasSentPrefill] = useState(false);
 
-  // Process and compress images
-  const processImages = useCallback(async (files: File[]) => {
+  // Process files (images get compressed, PDFs pass through)
+  const processFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
 
     setIsCompressing(true);
     const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    const pdfFiles = files.filter((f) => f.type === "application/pdf");
 
     try {
       const results: CompressionResult[] = [];
       const previews: string[] = [];
-      const processedBlobs: Blob[] = [];
+      const dataTransfer = new DataTransfer();
 
+      // Process images (compress them)
       for (const file of imageFiles) {
         const result = await compressImage(file);
         results.push(result);
-        processedBlobs.push(result.blob);
 
         // Generate preview from compressed blob
         const reader = new FileReader();
@@ -1352,39 +1375,53 @@ Details: ${data.details}` : "";
           reader.readAsDataURL(result.blob);
         });
         previews.push(await previewPromise);
+
+        // Add compressed file
+        const ext = result.format === "image/jpeg" ? ".jpg" : ".png";
+        const filename = file.name.replace(/\.[^.]+$/, "") + ext;
+        const compressedFile = new File([result.blob], filename, { type: result.format });
+        dataTransfer.items.add(compressedFile);
+      }
+
+      // Add PDFs (no compression needed, use placeholder preview)
+      for (const file of pdfFiles) {
+        previews.push(`pdf:${file.name}`); // Special marker for PDF preview
+        results.push({
+          blob: file,
+          originalSize: file.size,
+          compressedSize: file.size,
+          wasCompressed: false,
+          format: "application/pdf",
+          compressionRatio: 1,
+          method: "none"
+        });
+        dataTransfer.items.add(file);
       }
 
       setCompressionInfo(results);
       setImagePreviews(previews);
-
-      // Create a new FileList-like object from compressed blobs
-      const dataTransfer = new DataTransfer();
-      processedBlobs.forEach((blob, i) => {
-        const originalFile = imageFiles[i];
-        const ext = results[i].format === "image/jpeg" ? ".jpg" : ".png";
-        const filename = originalFile.name.replace(/\.[^.]+$/, "") + ext;
-        const compressedFile = new File([blob], filename, { type: results[i].format });
-        dataTransfer.items.add(compressedFile);
-      });
       setSelectedFiles(dataTransfer.files);
     } catch (error) {
-      console.error("Image compression failed:", error);
+      console.error("File processing failed:", error);
       // Fallback to original files
       const dataTransfer = new DataTransfer();
-      imageFiles.forEach((f) => dataTransfer.items.add(f));
-      setSelectedFiles(dataTransfer.files);
-
-      // Generate previews for original files
       const previews: string[] = [];
-      for (const file of imageFiles) {
-        const reader = new FileReader();
-        const previewPromise = new Promise<string>((resolve) => {
-          reader.onload = (e) => resolve(e.target?.result as string);
-          reader.readAsDataURL(file);
-        });
-        previews.push(await previewPromise);
+
+      for (const file of [...imageFiles, ...pdfFiles]) {
+        dataTransfer.items.add(file);
+        if (file.type.startsWith("image/")) {
+          const reader = new FileReader();
+          const previewPromise = new Promise<string>((resolve) => {
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
+          previews.push(await previewPromise);
+        } else {
+          previews.push(`pdf:${file.name}`);
+        }
       }
       setImagePreviews(previews);
+      setSelectedFiles(dataTransfer.files);
     } finally {
       setIsCompressing(false);
     }
@@ -1394,30 +1431,30 @@ Details: ${data.details}` : "";
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      processImages(Array.from(files));
+      processFiles(Array.from(files));
     }
-  }, [processImages]);
+  }, [processFiles]);
 
   // Handle paste event (Ctrl+V / Cmd+V with images)
   const handlePaste = useCallback((e: ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
-    const imageFiles: File[] = [];
+    const pasteFiles: File[] = [];
     for (const item of Array.from(items)) {
-      if (item.type.startsWith("image/")) {
+      if (item.type.startsWith("image/") || item.type === "application/pdf") {
         const file = item.getAsFile();
         if (file) {
-          imageFiles.push(file);
+          pasteFiles.push(file);
         }
       }
     }
 
-    if (imageFiles.length > 0) {
+    if (pasteFiles.length > 0) {
       e.preventDefault();
-      processImages(imageFiles);
+      processFiles(pasteFiles);
     }
-  }, [processImages]);
+  }, [processFiles]);
 
   // Handle drop event
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -1425,13 +1462,13 @@ Details: ${data.details}` : "";
     e.stopPropagation();
 
     const files = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith("image/")
+      f.type.startsWith("image/") || f.type === "application/pdf"
     );
 
     if (files.length > 0) {
-      processImages(files);
+      processFiles(files);
     }
-  }, [processImages]);
+  }, [processFiles]);
 
   // Handle drag over
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1486,14 +1523,124 @@ Details: ${data.details}` : "";
     }
 
     // Send message with optional files
-    sendMessage({
-      text: input || "What do you see in this image?",
-      files: selectedFiles,
-    });
+    // Pass config via sendMessage body to avoid stale data issue
+    const effectiveSoulConfig = lockedSoulConfig || soulConfig;
+    const effectiveToolsConfig = lockedToolsConfig || toolsConfig;
+    sendMessage(
+      {
+        text: input || "What do you see in this image?",
+        files: selectedFiles,
+      },
+      {
+        body: {
+          soulConfig: effectiveSoulConfig,
+          toolsConfig: effectiveToolsConfig,
+        },
+      }
+    );
 
     // Clear input and files
     setInput("");
     clearFiles();
+  };
+
+  // Handle editing a user message - removes all messages after it and re-sends
+  const handleEditMessage = (messageId: string) => {
+    const messageIndex = messages.findIndex((m) => m.id === messageId);
+    if (messageIndex === -1) return;
+
+    const message = messages[messageIndex];
+    // Get the text content from the message
+    const textContent = message.parts
+      ?.filter((p: any) => p.type === "text")
+      .map((p: any) => p.text)
+      .join("\n") || "";
+
+    setEditingMessageId(messageId);
+    setEditingMessageContent(textContent);
+  };
+
+  // Submit the edited message
+  const handleSubmitEdit = () => {
+    if (!editingMessageId || !editingMessageContent.trim()) return;
+
+    const messageIndex = messages.findIndex((m) => m.id === editingMessageId);
+    if (messageIndex === -1) return;
+
+    // Remove all messages from the edited one onwards
+    const newMessages = messages.slice(0, messageIndex);
+    setMessages(newMessages as any);
+
+    // Clear edit state
+    setEditingMessageId(null);
+    setEditingMessageContent("");
+
+    // Send the edited message
+    const effectiveSoulConfig = lockedSoulConfig || soulConfig;
+    const effectiveToolsConfig = lockedToolsConfig || toolsConfig;
+
+    // Small delay to allow state update
+    setTimeout(() => {
+      sendMessage(
+        { text: editingMessageContent },
+        {
+          body: {
+            soulConfig: effectiveSoulConfig,
+            toolsConfig: effectiveToolsConfig,
+          },
+        }
+      );
+    }, 50);
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingMessageContent("");
+  };
+
+  // Regenerate the last assistant response
+  const handleRegenerateResponse = () => {
+    if (messages.length < 2) return;
+    if (status === "streaming" || status === "submitted") return;
+
+    // Find the last user message
+    let lastUserMessageIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        lastUserMessageIndex = i;
+        break;
+      }
+    }
+
+    if (lastUserMessageIndex === -1) return;
+
+    // Get the user message content
+    const userMessage = messages[lastUserMessageIndex];
+    const textContent = userMessage.parts
+      ?.filter((p: any) => p.type === "text")
+      .map((p: any) => p.text)
+      .join("\n") || "";
+
+    // Remove all messages after and including the last user message
+    const newMessages = messages.slice(0, lastUserMessageIndex);
+    setMessages(newMessages as any);
+
+    // Re-send the user message
+    const effectiveSoulConfig = lockedSoulConfig || soulConfig;
+    const effectiveToolsConfig = lockedToolsConfig || toolsConfig;
+
+    setTimeout(() => {
+      sendMessage(
+        { text: textContent },
+        {
+          body: {
+            soulConfig: effectiveSoulConfig,
+            toolsConfig: effectiveToolsConfig,
+          },
+        }
+      );
+    }, 50);
   };
 
   // Convert DB format messages to AI SDK format (restores tool invocations)
@@ -1521,6 +1668,20 @@ Details: ${data.details}` : "";
       };
     });
   };
+
+  // Warn user before closing/refreshing tab during streaming
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (status === "streaming" || status === "submitted") {
+        e.preventDefault();
+        e.returnValue = "Kronus is still responding. Are you sure you want to leave?";
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [status]);
 
   // Auto-save conversation when assistant completes response
   useEffect(() => {
@@ -1915,21 +2076,21 @@ Details: ${data.details}` : "";
                     </p>
                     <p className="text-[var(--kronus-ivory-muted)] mt-2 leading-relaxed text-sm">
                       I can help you create and modify journal entries, explore your development history,
-                      access your repository of writings and skills, generate images, and manage Linear issues.
-                      What wisdom do you seek today?
+                      access your repository of writings and skills, and manage Linear issues.
+                      Configure my capabilities via <span className="text-[var(--kronus-purple)]">Tools</span> above.
                     </p>
                     <div className="mt-4 space-y-2 text-xs">
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        📜 <strong className="text-[var(--kronus-ivory)]">Journal:</strong> I'll manage entries automatically
+                        📜 <strong className="text-[var(--kronus-ivory)]">Journal:</strong> Create entries, explore history, manage attachments
                       </p>
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        🔗 <strong className="text-[var(--kronus-ivory)]">Linear:</strong> I'll show you a draft first and await your approval
+                        📚 <strong className="text-[var(--kronus-ivory)]">Repository:</strong> Writings, skills, experience, education
                       </p>
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        📚 <strong className="text-[var(--kronus-ivory)]">Repository:</strong> Access your writings, prompts, skills, and experience
+                        🔗 <strong className="text-[var(--kronus-ivory)]">Linear:</strong> Issues & projects (drafts require approval)
                       </p>
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        🎨 <strong className="text-[var(--kronus-ivory)]">Illustrations:</strong> Create images with FLUX.2 Pro
+                        🌐 <strong className="text-[var(--kronus-ivory)]">Multimodal:</strong> Web search, image generation (enable in Tools)
                       </p>
                     </div>
                   </div>
@@ -1958,42 +2119,80 @@ Details: ${data.details}` : "";
                   )}
                 >
                   {message.role === "user" ? (
-                    /* User message: simple horizontal layout */
-                    <div className="flex items-start gap-2.5">
+                    /* User message: simple horizontal layout with edit capability */
+                    <div className="group/user-msg flex items-start gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden user-avatar">
                         <User className="h-4 w-4 text-white" />
                       </div>
                       <div className="min-w-0 flex-1 overflow-wrap-anywhere break-words">
-                        <p className="mb-1.5 text-xs font-semibold text-[var(--kronus-gold)]">You</p>
-                        <div className="max-w-none break-words overflow-wrap-anywhere">
-                          {message.parts?.map((part, i) => {
-                            if (part.type === "file" && (part as any).mediaType?.startsWith("image/")) {
-                              return (
-                                <div key={i} className="mb-3">
-                                  <img
-                                    src={(part as any).url}
-                                    alt={(part as any).filename || "Attached image"}
-                                    className="max-w-full max-h-96 rounded-lg border border-[var(--kronus-border)] object-contain"
-                                  />
-                                </div>
-                              );
-                            }
-                            if (part.type === "text") {
-                              const isLastMessage = message.id === messages[messages.length - 1]?.id;
-                              const isStreaming = status === "streaming" && message.role === "assistant" && isLastMessage;
-                              if (isStreaming) {
-                                return <StreamingText key={i} text={part.text} />;
-                              }
-                              return <MemoizedMarkdown key={i} text={part.text} />;
-                            }
-                            return null;
-                          })}
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-xs font-semibold text-[var(--kronus-gold)]">You</p>
+                          {/* Edit button - visible on hover, hidden during streaming or when editing */}
+                          {editingMessageId !== message.id && status !== "streaming" && status !== "submitted" && (
+                            <button
+                              onClick={() => handleEditMessage(message.id)}
+                              className="opacity-0 group-hover/user-msg:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--kronus-surface)] text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-gold)]"
+                              title="Edit message"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
+                        {/* Edit mode UI */}
+                        {editingMessageId === message.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editingMessageContent}
+                              onChange={(e) => setEditingMessageContent(e.target.value)}
+                              className="min-h-[80px] bg-[var(--kronus-deep)] border-[var(--kronus-border)] text-[var(--kronus-ivory)] resize-y"
+                              autoFocus
+                            />
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                onClick={handleSubmitEdit}
+                                disabled={!editingMessageContent.trim()}
+                                className="bg-[var(--kronus-gold)] hover:bg-[var(--kronus-gold)]/80 text-[var(--kronus-deep)]"
+                              >
+                                <Send className="h-3 w-3 mr-1" />
+                                Send
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={handleCancelEdit}
+                                className="text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-ivory)]"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="max-w-none break-words overflow-wrap-anywhere">
+                            {message.parts?.map((part, i) => {
+                              if (part.type === "file" && (part as any).mediaType?.startsWith("image/")) {
+                                return (
+                                  <div key={i} className="mb-3">
+                                    <img
+                                      src={(part as any).url}
+                                      alt={(part as any).filename || "Attached image"}
+                                      className="max-w-full max-h-96 rounded-lg border border-[var(--kronus-border)] object-contain"
+                                    />
+                                  </div>
+                                );
+                              }
+                              if (part.type === "text") {
+                                return <MemoizedMarkdown key={i} text={part.text} />;
+                              }
+                              return null;
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
                     /* Kronus message: avatar + name on one row, content below */
-                    <div className="flex flex-col">
+                    <div className="group/kronus-msg flex flex-col">
                       {/* Header row: avatar centered with name */}
                       <div className="flex items-center gap-3 mb-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden kronus-avatar p-0">
@@ -2032,6 +2231,33 @@ Details: ${data.details}` : "";
                           return null;
                         })}
                       </div>
+                      {/* Regenerate button - only on last assistant message when not streaming */}
+                      {(() => {
+                        const isLastAssistantMessage = (() => {
+                          for (let j = messages.length - 1; j >= 0; j--) {
+                            if (messages[j].role === "assistant") {
+                              return messages[j].id === message.id;
+                            }
+                          }
+                          return false;
+                        })();
+                        const canRegenerate = isLastAssistantMessage && status !== "streaming" && status !== "submitted";
+
+                        if (!canRegenerate) return null;
+
+                        return (
+                          <div className="pl-6 mt-2 opacity-0 group-hover/kronus-msg:opacity-100 transition-opacity">
+                            <button
+                              onClick={handleRegenerateResponse}
+                              className="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-teal)] hover:bg-[var(--kronus-surface)] transition-colors"
+                              title="Regenerate response"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                              Regenerate
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -2188,21 +2414,24 @@ Details: ${data.details}` : "";
             })}
 
             {(status === "submitted" || status === "streaming") && (
-              <div className="kronus-message p-4">
-                <div className="flex flex-col items-center justify-center gap-3">
-                  <div className="kronus-avatar flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden p-0">
-                    <img src="/chronus-logo.png" alt="Kronus" className="h-full w-full object-cover" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="kronus-thinking">
-                      <span></span>
-                      <span></span>
-                      <span></span>
+              <div className="kronus-message p-6">
+                <div className="flex flex-col items-center justify-center gap-4">
+                  {/* Ouroboros loading animation */}
+                  <div className="relative">
+                    {/* Outer glow ring */}
+                    <div className="absolute inset-[-8px] rounded-full bg-gradient-to-r from-[var(--kronus-teal)]/20 via-[var(--kronus-gold)]/10 to-[var(--kronus-teal)]/20 blur-md animate-pulse" />
+                    {/* Rotating ouroboros */}
+                    <div className="relative h-16 w-16 animate-[spin_8s_linear_infinite]">
+                      <img
+                        src="/ouroboros.png"
+                        alt="Loading"
+                        className="h-full w-full object-contain opacity-80 drop-shadow-[0_0_8px_rgba(111,207,207,0.4)]"
+                      />
                     </div>
-                    <span className="text-[var(--kronus-ivory-muted)] text-sm italic">
-                      {status === "submitted" ? "Consulting the oracle..." : "Kronus is weaving wisdom..."}
-                    </span>
                   </div>
+                  <span className="text-[var(--kronus-ivory-muted)] text-sm italic tracking-wide">
+                    {status === "submitted" ? "Consulting the oracle..." : "Weaving wisdom..."}
+                  </span>
                 </div>
               </div>
             )}
@@ -2228,15 +2457,28 @@ Details: ${data.details}` : "";
                 <div className="flex flex-wrap gap-2">
                   {imagePreviews.map((preview, index) => {
                     const info = compressionInfo[index];
+                    const isPdf = preview.startsWith("pdf:");
+                    const pdfName = isPdf ? preview.replace("pdf:", "") : "";
                     const showCompressionBadge = info?.wasCompressed;
 
                     return (
                       <div key={index} className="relative group">
-                        <img
-                          src={preview}
-                          alt={`Preview ${index + 1}`}
-                          className="h-20 w-20 object-cover rounded-lg border-2 border-[var(--kronus-border)]"
-                        />
+                        {isPdf ? (
+                          /* PDF preview */
+                          <div className="h-16 px-3 flex items-center gap-2 rounded-lg border-2 border-[var(--kronus-border)] bg-[var(--kronus-surface)]">
+                            <FileText className="h-5 w-5 text-[var(--kronus-gold)]" />
+                            <span className="text-xs text-[var(--kronus-ivory-muted)] max-w-[100px] truncate">
+                              {pdfName}
+                            </span>
+                          </div>
+                        ) : (
+                          /* Image preview */
+                          <img
+                            src={preview}
+                            alt={`Preview ${index + 1}`}
+                            className="h-16 w-16 object-cover rounded-lg border-2 border-[var(--kronus-border)]"
+                          />
+                        )}
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
@@ -2244,8 +2486,8 @@ Details: ${data.details}` : "";
                         >
                           <X className="h-3 w-3" />
                         </button>
-                        {/* Compression badge */}
-                        {showCompressionBadge && (
+                        {/* Compression badge (images only) */}
+                        {showCompressionBadge && !isPdf && (
                           <div
                             className="absolute bottom-0 left-0 right-0 bg-black/70 text-[var(--kronus-teal)] text-[9px] px-1 py-0.5 rounded-b-lg text-center"
                             title={`Compressed: ${formatBytes(info.originalSize)} → ${formatBytes(info.compressedSize)} (${info.method})`}
@@ -2260,52 +2502,64 @@ Details: ${data.details}` : "";
               </div>
             )}
 
-            <div className="flex gap-3 items-end">
+            <div className="flex gap-3 items-center">
               {/* Hidden file input */}
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileSelect}
-                accept="image/*"
+                accept="image/*,.pdf,application/pdf"
                 multiple
                 className="hidden"
               />
 
-              {/* Image upload button */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="kronus-image-btn flex h-[60px] w-12 items-center justify-center rounded-lg border border-[var(--kronus-border)] bg-[var(--kronus-void)] text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-teal)] hover:border-[var(--kronus-teal)] transition-colors"
-                disabled={status === "submitted" || status === "streaming"}
-                title="Attach images"
-              >
-                <ImagePlus className="h-5 w-5" />
-              </button>
+              {/* Textarea with attach button inside */}
+              <div className="relative flex-1">
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={imagePreviews.length > 0 ? "Ask about the files..." : "Speak your query to the oracle..."}
+                  className="kronus-input max-h-[200px] min-h-[52px] resize-y overflow-y-auto pl-11 pr-4 py-3"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit(e);
+                    }
+                  }}
+                  disabled={status === "submitted" || status === "streaming" || isCompressing}
+                />
+                {/* Attach button (inside textarea, left side) */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-md text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-teal)] transition-colors disabled:opacity-40"
+                  disabled={status === "submitted" || status === "streaming"}
+                  title="Attach files (images, PDFs)"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </button>
+              </div>
 
-              <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={imagePreviews.length > 0 ? "Ask about the image(s)..." : "Speak your query to the oracle... (paste/drop images here)"}
-                className="kronus-input max-h-[200px] min-h-[60px] resize-none px-4 py-3"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e);
-                  }
-                }}
-                disabled={status === "submitted" || status === "streaming" || isCompressing}
-              />
-              <button
-                type="submit"
-                className="kronus-send-btn"
-                disabled={(!input.trim() && !selectedFiles) || status === "submitted" || status === "streaming" || isCompressing}
-              >
-                {(status === "submitted" || status === "streaming") ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
+              {/* Send / Stop button (centered to textarea) */}
+              {(status === "submitted" || status === "streaming") ? (
+                <button
+                  type="button"
+                  onClick={() => stop()}
+                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-[var(--kronus-error)]/20 text-[var(--kronus-error)] hover:bg-[var(--kronus-error)]/30 border border-[var(--kronus-error)]/30 transition-all shadow-lg shadow-[var(--kronus-error)]/10"
+                  title="Stop generating"
+                >
+                  <Square className="h-5 w-5 fill-current" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-[var(--kronus-teal)] text-[var(--kronus-deep)] hover:bg-[var(--kronus-teal)]/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-[var(--kronus-teal)]/20 hover:shadow-[var(--kronus-teal)]/40"
+                  disabled={(!input.trim() && !selectedFiles) || isCompressing}
+                  title="Send message"
+                >
                   <Send className="h-5 w-5" />
-                )}
-              </button>
+                </button>
+              )}
             </div>
           </form>
         </div>

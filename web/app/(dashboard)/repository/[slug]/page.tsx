@@ -56,6 +56,35 @@ interface DocumentType {
   sortOrder: number;
 }
 
+/**
+ * Format a written date for display
+ * Accepts: "2024", "2024-03", "2024-03-15", or full ISO date
+ * Returns: "2024", "March 2024", "March 15, 2024"
+ */
+function formatWrittenDate(dateStr: string): string {
+  if (!dateStr) return "";
+
+  // Just a year (e.g., "2024")
+  if (/^\d{4}$/.test(dateStr)) {
+    return dateStr;
+  }
+
+  // Year-month (e.g., "2024-03")
+  if (/^\d{4}-\d{2}$/.test(dateStr)) {
+    const [year, month] = dateStr.split("-");
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
+  // Full date (e.g., "2024-03-15" or ISO)
+  const date = new Date(dateStr);
+  if (!isNaN(date.getTime())) {
+    return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  }
+
+  return dateStr;
+}
+
 export default function DocumentDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -73,7 +102,7 @@ export default function DocumentDetailPage() {
   const [editedType, setEditedType] = useState("");
   const [editedPrimaryType, setEditedPrimaryType] = useState<"writing" | "prompt" | "note">("writing");
   const [editedAlsoShownIn, setEditedAlsoShownIn] = useState<string[]>([]);
-  const [editedYear, setEditedYear] = useState("");
+  const [editedWrittenDate, setEditedWrittenDate] = useState("");
   const [newTag, setNewTag] = useState("");
 
   // Media attachments
@@ -192,7 +221,8 @@ export default function DocumentDetailPage() {
     setEditedType(doc.metadata?.type || "");
     setEditedPrimaryType(doc.type);
     setEditedAlsoShownIn(doc.metadata?.alsoShownIn || []);
-    setEditedYear(doc.metadata?.year || "");
+    // Support both new writtenDate and legacy year field
+    setEditedWrittenDate(doc.metadata?.writtenDate || doc.metadata?.year || "");
   };
 
   const handleSave = async () => {
@@ -210,7 +240,8 @@ export default function DocumentDetailPage() {
             ...document.metadata,
             tags: editedTags,
             type: editedType || null,
-            year: editedYear || null,
+            writtenDate: editedWrittenDate || null,
+            year: undefined, // Remove legacy field
             alsoShownIn: editedAlsoShownIn.length > 0 ? editedAlsoShownIn : undefined,
           },
         }),
@@ -359,8 +390,17 @@ export default function DocumentDetailPage() {
                 ) : (
                   <CardTitle className="text-[var(--tartarus-ivory)]">{document.title}</CardTitle>
                 )}
-                <div className="text-[var(--tartarus-ivory-muted)] text-sm shrink-0">
-                  Updated: {new Date(document.updated_at).toLocaleDateString()}
+                <div className="text-sm shrink-0 flex flex-col items-end gap-0.5">
+                  {/* Written date - when the piece was originally created (gold) */}
+                  {(document.metadata?.writtenDate || document.metadata?.year) && (
+                    <span className="text-[var(--tartarus-gold)]">
+                      Written: {formatWrittenDate(document.metadata?.writtenDate || document.metadata?.year)}
+                    </span>
+                  )}
+                  {/* Added date - when it was added to the system (muted) */}
+                  <span className="text-[var(--tartarus-ivory-faded)] text-xs">
+                    Added: {new Date(document.created_at).toLocaleDateString()}
+                  </span>
                 </div>
               </div>
 
@@ -399,17 +439,17 @@ export default function DocumentDetailPage() {
                         </p>
                       </div>
 
-                      {/* Year Written */}
+                      {/* Written Date */}
                       <div>
-                        <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Year Written</Label>
+                        <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Date Written</Label>
                         <Input
-                          value={editedYear}
-                          onChange={(e) => setEditedYear(e.target.value)}
-                          placeholder="e.g. 2024"
+                          value={editedWrittenDate}
+                          onChange={(e) => setEditedWrittenDate(e.target.value)}
+                          placeholder="2024, 2024-03, or 2024-03-15"
                           className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                         />
                         <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
-                          When this piece was originally written
+                          When originally written (year, year-month, or full date)
                         </p>
                       </div>
                     </div>

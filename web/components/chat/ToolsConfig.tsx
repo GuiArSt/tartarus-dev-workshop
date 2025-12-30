@@ -96,7 +96,8 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
   const [open, setOpen] = useState(false);
 
   const toggleCategory = (category: keyof ToolsConfigState) => {
-    onChange({ ...config, [category]: !config[category] });
+    const newConfig = { ...config, [category]: !config[category] };
+    onChange(newConfig);
   };
 
   const enableAll = () => {
@@ -239,7 +240,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
               );
             })}
 
-            {/* Heavy Tools */}
+            {/* Multimodal Capabilities */}
             <div
               style={{
                 fontSize: "11px",
@@ -249,7 +250,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                 marginTop: "12px",
               }}
             >
-              Heavy (API Required)
+              Multimodal Capabilities
             </div>
 
             {(["imageGeneration", "webSearch"] as const).map((key) => {
@@ -296,21 +297,6 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                 {enabledToolCount}
               </span>
             </div>
-            {hasHeavyTools && (
-              <p
-                style={{
-                  fontSize: "12px",
-                  color: COLORS.purple,
-                  marginTop: "8px",
-                  padding: "8px",
-                  backgroundColor: "rgba(155, 89, 182, 0.1)",
-                  borderRadius: "6px",
-                  borderLeft: `3px solid ${COLORS.purple}`,
-                }}
-              >
-                Heavy tools enabled. Ensure API keys are configured.
-              </p>
-            )}
           </div>
         </div>
       </PopoverContent>

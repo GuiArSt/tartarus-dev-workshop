@@ -34,6 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 // PATCH - Update conversation
+// Note: Also handles sendBeacon requests which send as text/plain
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     initConversationsTable();
@@ -44,7 +45,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     }
 
-    const { title, messages } = await request.json();
+    // Handle both JSON and text/plain (from sendBeacon)
+    const contentType = request.headers.get("content-type") || "";
+    let body: { title?: string; messages?: any[] };
+
+    if (contentType.includes("text/plain")) {
+      const text = await request.text();
+      body = JSON.parse(text);
+    } else {
+      body = await request.json();
+    }
+
+    const { title, messages } = body;
 
     if (!title || !messages) {
       return NextResponse.json({ error: "title and messages are required" }, { status: 400 });

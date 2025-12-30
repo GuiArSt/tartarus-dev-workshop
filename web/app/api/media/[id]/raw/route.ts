@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDatabase } from "@/lib/db";
 
-interface MediaAsset {
+interface MediaRow {
   id: number;
-  data: string;
-  mime_type: string;
   filename: string;
+  mime_type: string;
+  data: string; // base64
+  file_size: number;
 }
 
 /**
  * GET /api/media/[id]/raw
- * Serve the raw image data as a response
+ * Serve the raw image data for a media asset
+ * This allows images to be embedded in markdown: ![alt](/api/media/123/raw)
  */
 export async function GET(
   request: NextRequest,
@@ -18,40 +20,43 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const db = getDatabase();
+    const mediaId = parseInt(id);
 
-    const asset = db
-      .prepare("SELECT id, data, mime_type, filename FROM media_assets WHERE id = ?")
-      .get(id) as MediaAsset | undefined;
-
-    if (!asset) {
-      return NextResponse.json({ error: "Media asset not found" }, { status: 404 });
+    if (isNaN(mediaId)) {
+      return NextResponse.json({ error: "Invalid media ID" }, { status: 400 });
     }
 
-    if (!asset.data) {
-      return NextResponse.json(
-        { error: "No data available for this asset" },
-        { status: 404 }
-      );
+    const db = getDatabase();
+    const media = db.prepare(`
+      SELECT id, filename, mime_type, data, file_size
+      FROM media_assets
+      WHERE id = ?
+    `).get(mediaId) as MediaRow | undefined;
+
+    if (!media) {
+      return NextResponse.json({ error: "Media not found" }, { status: 404 });
+    }
+
+    if (!media.data) {
+      return NextResponse.json({ error: "Media has no data" }, { status: 404 });
     }
 
     // Convert base64 to buffer
-    const buffer = Buffer.from(asset.data, "base64");
+    const buffer = Buffer.from(media.data, "base64");
 
     // Return the image with proper headers
     return new NextResponse(buffer, {
-      status: 200,
       headers: {
-        "Content-Type": asset.mime_type,
+        "Content-Type": media.mime_type || "image/png",
         "Content-Length": buffer.length.toString(),
-        "Content-Disposition": `inline; filename="${asset.filename}"`,
         "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Disposition": `inline; filename="${media.filename}"`,
       },
     });
   } catch (error: any) {
-    console.error("Get raw media error:", error);
+    console.error("Error serving media:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to get media" },
+      { error: error.message || "Failed to serve media" },
       { status: 500 }
     );
   }

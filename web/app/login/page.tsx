@@ -62,6 +62,7 @@ export default function LoginPage() {
                   fill
                   className="object-cover"
                   priority
+                  unoptimized
                 />
               </div>
             </div>
