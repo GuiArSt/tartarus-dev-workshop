@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Check,
   CheckCircle2,
   AlertCircle,
   Wrench,
@@ -39,8 +40,11 @@ import {
   RefreshCw,
   Pencil,
   FileText,
+  GitCompare,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateShort } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -48,6 +52,14 @@ import { SoulConfig, SoulConfigState, DEFAULT_CONFIG } from "./SoulConfig";
 import { FormatConfig, FormatConfigState, DEFAULT_FORMAT_CONFIG, KRONUS_FONTS, KRONUS_FONT_SIZES } from "./FormatConfig";
 import { ToolsConfig, ToolsConfigState, DEFAULT_CONFIG as DEFAULT_TOOLS_CONFIG } from "./ToolsConfig";
 import { compressImage, formatBytes, CompressionResult } from "@/lib/image-compression";
+import {
+  requiresConfirmation,
+  getToolActionDescription,
+  formatToolArgsForDisplay,
+  formatArgsForDiffView,
+  type PendingToolAction,
+} from "@/lib/ai/write-tools";
+import { computeSmartDiff, type DiffResult } from "@/lib/diff";
 
 // Memoized markdown components - inherit font size from container
 // Clear hierarchy: H1 > H2 > H3 with distinct visual treatment
@@ -150,9 +162,109 @@ const markdownComponents = {
   ),
 };
 
+// Detect any XML-like tags that Kronus might use for persona/creative formatting
+// Matches patterns like <Tag Name>content</Tag Name>, <TAG: SUBTITLE>content</TAG: SUBTITLE>, etc.
+// Allows letters, numbers, spaces, colons, underscores, hyphens in tag names
+const XML_TAG_REGEX = /<([A-Z][A-Za-z0-9 _:\-]*?)>([\s\S]*?)<\/\1>/g;
+
+// Color palette for dynamically detected tags - cycles through these
+const TAG_COLORS = [
+  { color: "var(--kronus-gold)", bg: "rgba(212, 175, 55, 0.1)" },
+  { color: "var(--kronus-teal)", bg: "rgba(0, 128, 128, 0.1)" },
+  { color: "var(--kronus-ivory-muted)", bg: "rgba(30, 30, 35, 0.5)" },
+  { color: "#a78bfa", bg: "rgba(167, 139, 250, 0.1)" }, // Purple
+  { color: "#f472b6", bg: "rgba(244, 114, 182, 0.1)" }, // Pink
+];
+
+// Get consistent color for a tag name (same tag always gets same color)
+function getTagColor(tagName: string): { color: string; bg: string } {
+  let hash = 0;
+  for (let i = 0; i < tagName.length; i++) {
+    hash = ((hash << 5) - hash) + tagName.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
+// Transform any XML-like persona tags into styled blocks
+function processKronusTags(text: string): React.ReactNode[] {
+  const elements: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let keyIndex = 0;
+  let match;
+
+  // Reset regex lastIndex
+  XML_TAG_REGEX.lastIndex = 0;
+
+  while ((match = XML_TAG_REGEX.exec(text)) !== null) {
+    const [fullMatch, tagName, content] = match;
+    const { color, bg } = getTagColor(tagName);
+
+    // Add text before this tag
+    if (match.index > lastIndex) {
+      const beforeText = text.slice(lastIndex, match.index);
+      if (beforeText.trim()) {
+        elements.push(
+          <ReactMarkdown key={`md-${keyIndex++}`} remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+            {beforeText}
+          </ReactMarkdown>
+        );
+      }
+    }
+
+    // Add the styled tag block
+    elements.push(
+      <div
+        key={`tag-${keyIndex++}`}
+        className="my-4 p-4 rounded-lg border-l-4"
+        style={{ borderColor: color, backgroundColor: bg }}
+      >
+        <div className="flex items-center gap-2 mb-2 text-sm font-semibold uppercase tracking-wide" style={{ color }}>
+          <span className="opacity-70">✦</span>
+          <span>{tagName}</span>
+        </div>
+        <div className="text-[var(--kronus-ivory-dim)] italic">
+          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+            {content.trim()}
+          </ReactMarkdown>
+        </div>
+      </div>
+    );
+
+    lastIndex = match.index + fullMatch.length;
+  }
+
+  // Add remaining text after last tag
+  if (lastIndex < text.length) {
+    const afterText = text.slice(lastIndex);
+    if (afterText.trim()) {
+      elements.push(
+        <ReactMarkdown key={`md-${keyIndex++}`} remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+          {afterText}
+        </ReactMarkdown>
+      );
+    }
+  }
+
+  return elements.length > 0 ? elements : [
+    <ReactMarkdown key="fallback" remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+      {text}
+    </ReactMarkdown>
+  ];
+}
+
 // Memoized markdown renderer for completed messages
 // remarkBreaks converts single line breaks to <br> for better list handling
+// Also processes Kronus persona tags like <Creative Discord>, <THE GLITCH>, etc.
 const MemoizedMarkdown = memo(function MemoizedMarkdown({ text }: { text: string }) {
+  // Check if text contains any XML-like tags (capitalized tag names)
+  const hasXmlTags = XML_TAG_REGEX.test(text);
+  XML_TAG_REGEX.lastIndex = 0; // Reset after test
+
+  if (hasXmlTags) {
+    return <div className="kronus-content">{processKronusTags(text)}</div>;
+  }
+
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
       {text}
@@ -165,14 +277,92 @@ const StreamingText = memo(function StreamingText({ text }: { text: string }) {
   return <div className="whitespace-pre-wrap text-[var(--kronus-ivory-dim)]">{text}</div>;
 });
 
+// Detect if text contains a confirmation request pattern
+function detectConfirmationRequest(text: string): { isConfirmation: boolean; proposedChanges?: string } {
+  // Look for patterns like "Accept these changes?", "Confirm?", "Should I..."
+  const confirmPatterns = [
+    /\*\*Accept (?:these changes|this change)\?\*\*/i,
+    /\*\*(?:Ready to |Should I )(?:create|update|save|edit|modify)\??\*\*/i,
+    /(?:confirm|approve|proceed)\?\s*$/i,
+    /\[Yes\/No\]/i,
+  ];
+
+  const isConfirmation = confirmPatterns.some(pattern => pattern.test(text));
+
+  // Extract the proposed changes section if present
+  let proposedChanges: string | undefined;
+  const changesMatch = text.match(/📝\s*\*\*Proposed Changes[^*]*\*\*[:\s]*([\s\S]*?)(?:\*\*Accept|$)/i);
+  if (changesMatch) {
+    proposedChanges = changesMatch[1].trim();
+  }
+
+  return { isConfirmation, proposedChanges };
+}
+
+// Confirmation buttons component
+const ConfirmationButtons = memo(function ConfirmationButtons({
+  onConfirm,
+  onReject,
+  onReview,
+  proposedChanges,
+  disabled,
+}: {
+  onConfirm: () => void;
+  onReject: () => void;
+  onReview?: () => void;
+  proposedChanges?: string;
+  disabled?: boolean;
+}) {
+  const [showDetails, setShowDetails] = useState(false);
+
+  return (
+    <div className="mt-4 p-3 rounded-lg bg-[var(--kronus-surface)] border border-[var(--kronus-border)]">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onConfirm}
+          disabled={disabled}
+          className="px-4 py-2 rounded-lg bg-[var(--kronus-teal)] text-white font-medium hover:bg-[var(--kronus-teal)]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+        >
+          <Check className="h-4 w-4" />
+          Yes, proceed
+        </button>
+        <button
+          onClick={onReject}
+          disabled={disabled}
+          className="px-4 py-2 rounded-lg bg-[var(--kronus-error)]/20 text-[var(--kronus-error)] font-medium hover:bg-[var(--kronus-error)]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+        >
+          <X className="h-4 w-4" />
+          No, cancel
+        </button>
+        {proposedChanges && (
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="px-4 py-2 rounded-lg bg-[var(--kronus-gold)]/20 text-[var(--kronus-gold)] font-medium hover:bg-[var(--kronus-gold)]/30 transition-colors flex items-center gap-2"
+          >
+            {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {showDetails ? "Hide details" : "Review changes"}
+          </button>
+        )}
+      </div>
+      {showDetails && proposedChanges && (
+        <div className="mt-3 p-3 rounded bg-[var(--kronus-deep)] border border-[var(--kronus-border)] text-sm">
+          <pre className="whitespace-pre-wrap text-[var(--kronus-ivory-dim)] font-mono">{proposedChanges}</pre>
+        </div>
+      )}
+    </div>
+  );
+});
+
 interface ToolState {
   isLoading: boolean;
   completed?: boolean;
   error?: string;
   result?: string;
+  output?: string;
   images?: string[];
   model?: string;
   prompt?: string;
+  pendingConfirmation?: boolean;
 }
 
 interface SavedConversation {
@@ -230,6 +420,14 @@ export function ChatInterface() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageContent, setEditingMessageContent] = useState("");
 
+  // Pending tool confirmation state - for write tools that require approval
+  const [pendingToolAction, setPendingToolAction] = useState<{
+    action: PendingToolAction;
+    toolCallId: string;
+    resolve: (result: string) => void;
+  } | null>(null);
+  const [showDiffView, setShowDiffView] = useState(false);
+
   // Theme state - synced with Sidebar's localStorage
   const [kronusTheme, setKronusTheme] = useState<"dark" | "light">("dark");
 
@@ -266,9 +464,54 @@ export function ChatInterface() {
       const { toolName, input, toolCallId } = toolCall;
       const typedArgs = input as Record<string, unknown>;
 
+      // === WRITE TOOL CONFIRMATION ===
+      // Check if this tool requires user confirmation before execution
+      if (requiresConfirmation(toolName)) {
+        // Set loading state with "pending confirmation" indicator
+        setToolStates((prev) => ({
+          ...prev,
+          [toolCallId]: { isLoading: true, pendingConfirmation: true },
+        }));
+
+        // Create a promise that will be resolved when the user confirms/rejects
+        const confirmationResult = await new Promise<string>((resolve) => {
+          const action: PendingToolAction = {
+            id: `${toolName}-${Date.now()}`,
+            toolName,
+            args: typedArgs as Record<string, any>,
+            description: getToolActionDescription(toolName, typedArgs as Record<string, any>),
+            formattedArgs: formatToolArgsForDisplay(toolName, typedArgs as Record<string, any>),
+            timestamp: Date.now(),
+          };
+
+          setPendingToolAction({
+            action,
+            toolCallId,
+            resolve,
+          });
+        });
+
+        // If rejected, add the rejection as tool result and return early
+        if (confirmationResult.startsWith("REJECTED:")) {
+          setToolStates((prev) => ({
+            ...prev,
+            [toolCallId]: { isLoading: false, completed: true, output: confirmationResult },
+          }));
+          addToolResult({
+            tool: toolName,
+            toolCallId,
+            output: confirmationResult,
+          });
+          return; // Exit early - don't execute the tool
+        }
+
+        // User confirmed - continue with normal tool execution
+        // (falls through to the switch statement below)
+      }
+
       setToolStates((prev) => ({
         ...prev,
-        [toolCallId]: { isLoading: true },
+        [toolCallId]: { isLoading: true, pendingConfirmation: false },
       }));
 
       let output = "Tool execution completed";
@@ -1911,7 +2154,7 @@ Details: ${data.details}` : "";
                     <div className="min-w-0 flex-1 overflow-wrap-anywhere break-words">
                       <p className="truncate text-sm font-medium">{conv.title}</p>
                       <p className="text-muted-foreground text-xs">
-                        {new Date(conv.updated_at).toLocaleDateString()}
+                        {formatDateShort(conv.updated_at)}
                       </p>
                     </div>
                     <Button
@@ -2258,6 +2501,55 @@ Details: ${data.details}` : "";
                           </div>
                         );
                       })()}
+                      {/* Confirmation buttons for write operations */}
+                      {(() => {
+                        // Only show on last assistant message when not streaming
+                        const isLastAssistantMessage = (() => {
+                          for (let j = messages.length - 1; j >= 0; j--) {
+                            if (messages[j].role === "assistant") {
+                              return messages[j].id === message.id;
+                            }
+                          }
+                          return false;
+                        })();
+                        if (!isLastAssistantMessage || status === "streaming" || status === "submitted") return null;
+
+                        // Get text content from message
+                        const textContent = message.parts
+                          ?.filter((p: any) => p.type === "text")
+                          .map((p: any) => p.text)
+                          .join("\n") || "";
+
+                        const { isConfirmation, proposedChanges } = detectConfirmationRequest(textContent);
+                        if (!isConfirmation) return null;
+
+                        return (
+                          <div className="pl-6">
+                            <ConfirmationButtons
+                              onConfirm={() => {
+                                // Send "yes" as user response - include config in body
+                                const effectiveSoulConfig = lockedSoulConfig || soulConfig;
+                                const effectiveToolsConfig = lockedToolsConfig || toolsConfig;
+                                sendMessage(
+                                  { text: "Yes, proceed with the changes." },
+                                  { body: { soulConfig: effectiveSoulConfig, toolsConfig: effectiveToolsConfig } }
+                                );
+                              }}
+                              onReject={() => {
+                                // Send "no" as user response
+                                const effectiveSoulConfig = lockedSoulConfig || soulConfig;
+                                const effectiveToolsConfig = lockedToolsConfig || toolsConfig;
+                                sendMessage(
+                                  { text: "No, cancel. Do not make the changes." },
+                                  { body: { soulConfig: effectiveSoulConfig, toolsConfig: effectiveToolsConfig } }
+                                );
+                              }}
+                              proposedChanges={proposedChanges}
+                              disabled={status === "streaming" || status === "submitted"}
+                            />
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -2282,7 +2574,9 @@ Details: ${data.details}` : "";
                           onClick={() => toggleToolExpanded(toolCallId)}
                           className="flex w-full items-center gap-2 text-left"
                         >
-                          {state?.isLoading ? (
+                          {state?.pendingConfirmation ? (
+                            <AlertCircle className="h-4 w-4 text-[var(--kronus-gold)] animate-pulse" />
+                          ) : state?.isLoading ? (
                             <Loader2 className="text-primary h-4 w-4 animate-spin" />
                           ) : state?.error ? (
                             <AlertCircle className="text-destructive h-4 w-4" />
@@ -2292,14 +2586,24 @@ Details: ${data.details}` : "";
                             <Wrench className="text-muted-foreground h-4 w-4" />
                           )}
                           <span className="flex-1 font-mono text-sm">{toolName}</span>
-                          <Badge variant="outline" className="text-xs bg-[var(--kronus-surface)] border-[var(--kronus-border)] text-[var(--kronus-ivory-muted)]">
-                            {state?.isLoading
-                              ? "Running..."
-                              : state?.error
-                                ? "Error"
-                                : state?.completed
-                                  ? "Done"
-                                  : "Pending"}
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-xs",
+                              state?.pendingConfirmation
+                                ? "bg-[var(--kronus-gold)]/10 border-[var(--kronus-gold)] text-[var(--kronus-gold)]"
+                                : "bg-[var(--kronus-surface)] border-[var(--kronus-border)] text-[var(--kronus-ivory-muted)]"
+                            )}
+                          >
+                            {state?.pendingConfirmation
+                              ? "Awaiting confirmation..."
+                              : state?.isLoading
+                                ? "Running..."
+                                : state?.error
+                                  ? "Error"
+                                  : state?.completed
+                                    ? "Done"
+                                    : "Pending"}
                           </Badge>
                           {isExpanded ? (
                             <ChevronDown className="h-4 w-4" />
@@ -2445,6 +2749,33 @@ Details: ${data.details}` : "";
           onDragOver={handleDragOver}
         >
           <form onSubmit={handleSubmit} className="mx-auto max-w-3xl">
+            {/* Error Banner */}
+            {error && (
+              <div className="mb-3 p-3 rounded-lg bg-[var(--kronus-error)]/10 border border-[var(--kronus-error)]/30 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-[var(--kronus-error)] shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--kronus-error)]">
+                    Request Failed
+                  </p>
+                  <p className="text-xs text-[var(--kronus-ivory-muted)] mt-1 break-words">
+                    {error.message || "An unknown error occurred"}
+                  </p>
+                  {error.message?.includes("too long") && (
+                    <p className="text-xs text-[var(--kronus-gold)] mt-2">
+                      Tip: Try disabling some Soul Config sections or compress the conversation history.
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="text-xs text-[var(--kronus-teal)] hover:underline shrink-0"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
             {/* Image Previews with compression info */}
             {(imagePreviews.length > 0 || isCompressing) && (
               <div className="mb-3">
@@ -2564,6 +2895,133 @@ Details: ${data.details}` : "";
           </form>
         </div>
       </div>
+
+      {/* Tool Confirmation Dialog */}
+      <Dialog
+        open={pendingToolAction !== null}
+        onOpenChange={(open) => {
+          if (!open && pendingToolAction) {
+            // User closed dialog = rejection
+            pendingToolAction.resolve("REJECTED: User cancelled the action");
+            setPendingToolAction(null);
+            setShowDiffView(false);
+          }
+        }}
+      >
+        <DialogContent className={cn(
+          "bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] transition-all duration-200",
+          showDiffView ? "max-w-4xl" : "max-w-2xl"
+        )}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-[var(--kronus-gold)]">
+                <AlertCircle className="h-5 w-5" />
+                Confirm Action
+              </span>
+              {/* Diff view toggle */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDiffView(!showDiffView)}
+                className={cn(
+                  "h-8 px-3 gap-2 text-xs",
+                  showDiffView
+                    ? "bg-[var(--kronus-teal)]/20 text-[var(--kronus-teal)] border border-[var(--kronus-teal)]/30"
+                    : "text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-ivory)] hover:bg-[var(--tartarus-bg)]"
+                )}
+              >
+                <GitCompare className="h-3.5 w-3.5" />
+                {showDiffView ? "Hide Diff" : "Show Diff"}
+                {showDiffView ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+
+          {pendingToolAction && (
+            <div className="py-4 space-y-4">
+              {/* Action description */}
+              <div className="p-3 rounded-lg bg-[var(--tartarus-bg)] border border-[var(--tartarus-border)]">
+                <p className="text-sm font-medium text-[var(--kronus-ivory)]">
+                  {pendingToolAction.action.description}
+                </p>
+                <p className="text-xs text-[var(--kronus-ivory-muted)] mt-1">
+                  Tool: <code className="text-[var(--kronus-teal)]">{pendingToolAction.action.toolName}</code>
+                </p>
+              </div>
+
+              {/* Diff view - expandable */}
+              {showDiffView ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-[var(--kronus-ivory-muted)] uppercase tracking-wide flex items-center gap-2">
+                    <GitCompare className="h-3 w-3" />
+                    Changes Preview
+                  </p>
+                  <div className="max-h-[400px] overflow-y-auto rounded-lg bg-[var(--tartarus-bg)] border border-[var(--tartarus-border)]">
+                    <pre className="p-4 text-xs font-mono text-[var(--kronus-ivory)] whitespace-pre-wrap leading-relaxed">
+                      {formatArgsForDiffView(pendingToolAction.action.toolName, pendingToolAction.action.args)}
+                    </pre>
+                  </div>
+                </div>
+              ) : (
+                /* Compact parameters view */
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-[var(--kronus-ivory-muted)] uppercase tracking-wide">
+                    Parameters
+                  </p>
+                  <div className="max-h-[200px] overflow-y-auto rounded-lg bg-[var(--tartarus-bg)] border border-[var(--tartarus-border)] p-3">
+                    <dl className="space-y-2 text-sm">
+                      {Object.entries(pendingToolAction.action.formattedArgs).map(([key, value]) => (
+                        <div key={key} className="grid grid-cols-[120px_1fr] gap-2">
+                          <dt className="text-[var(--kronus-ivory-muted)] font-mono text-xs">{key}:</dt>
+                          <dd className="text-[var(--kronus-ivory)] break-words whitespace-pre-wrap font-mono text-xs">
+                            {value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                </div>
+              )}
+
+              {/* Warning */}
+              <p className="text-xs text-[var(--kronus-gold)] flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                This action will modify your data. Please review before confirming.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (pendingToolAction) {
+                  pendingToolAction.resolve("REJECTED: User rejected the action");
+                  setPendingToolAction(null);
+                  setShowDiffView(false);
+                }
+              }}
+              className="border-[var(--tartarus-error)] text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error)]/10"
+            >
+              <X className="mr-2 h-4 w-4" />
+              Reject
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingToolAction) {
+                  pendingToolAction.resolve("CONFIRMED");
+                  setPendingToolAction(null);
+                  setShowDiffView(false);
+                }
+              }}
+              className="bg-[var(--kronus-teal)] hover:bg-[var(--kronus-teal)]/90 text-white"
+            >
+              <Check className="mr-2 h-4 w-4" />
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Save Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>

@@ -6,79 +6,130 @@ import {
   skills,
   workExperience,
   education,
+  journalEntries,
 } from "@/lib/db/drizzle";
-import { eq, count } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
+
+/**
+ * Estimate token count from text (rough: ~4 chars per token for English)
+ */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
 
 /**
  * GET /api/kronus/stats
- * Returns counts for each repository section for the Soul Config UI
+ * Returns counts AND actual token estimates for each repository section
+ * Used by Soul Config UI to show accurate context usage
  */
 export async function GET() {
   try {
     const db = getDrizzleDb();
 
-    // Count writings (documents with type='writing')
-    const writingsResult = db
-      .select({ count: count() })
+    // ===== WRITINGS =====
+    const writings = db
+      .select()
       .from(documents)
       .where(eq(documents.type, "writing"))
-      .get();
+      .all();
 
-    // Count portfolio projects
-    const projectsResult = db
-      .select({ count: count() })
+    let writingsTokens = 0;
+    for (const doc of writings) {
+      // Estimate based on actual content structure used in kronus.ts
+      const content = `### ${doc.title}\n**Type:** writing | **Lang:** ${doc.language || "en"}\n${doc.content}`;
+      writingsTokens += estimateTokens(content);
+    }
+
+    // ===== PORTFOLIO PROJECTS =====
+    const projects = db
+      .select()
       .from(portfolioProjects)
-      .get();
+      .all();
 
-    // Count skills
-    const skillsResult = db
-      .select({ count: count() })
-      .from(skills)
-      .get();
+    let projectsTokens = 0;
+    for (const p of projects) {
+      const techs = JSON.parse(p.technologies || "[]").join(", ");
+      const content = `### ${p.title}\n**Category:** ${p.category} | **Company:** ${p.company || "Personal"} | **Status:** ${p.status}\n**Role:** ${p.role || "N/A"}\n**Technologies:** ${techs}\n${p.description || p.excerpt || ""}`;
+      projectsTokens += estimateTokens(content);
+    }
 
-    // Count work experience
-    const experienceResult = db
-      .select({ count: count() })
+    // ===== SKILLS =====
+    const allSkills = db.select().from(skills).all();
+
+    let skillsTokens = 0;
+    for (const s of allSkills) {
+      const level = s.magnitude === 4 ? "Expert" : s.magnitude === 3 ? "Professional" : s.magnitude === 2 ? "Apprentice" : "Beginner";
+      const content = `- **${s.name}** (${level}): ${s.description}`;
+      skillsTokens += estimateTokens(content);
+    }
+
+    // ===== WORK EXPERIENCE =====
+    const experience = db
+      .select()
       .from(workExperience)
-      .get();
+      .all();
 
-    // Count education
-    const educationResult = db
-      .select({ count: count() })
-      .from(education)
-      .get();
+    let experienceTokens = 0;
+    for (const job of experience) {
+      const achievements = JSON.parse(job.achievements || "[]");
+      const achievementsList = achievements
+        .slice(0, 3)
+        .map((a: any) => `- ${typeof a === "string" ? a : a.description}`)
+        .join("\n");
+      const content = `### ${job.title} @ ${job.company}\n**Period:** ${job.dateStart} → ${job.dateEnd || "Present"} | **Location:** ${job.location}\n${job.tagline}\n${achievementsList}`;
+      experienceTokens += estimateTokens(content);
+    }
 
-    // Rough token estimate (based on current data patterns)
-    const writingsCount = writingsResult?.count || 0;
-    const projectsCount = projectsResult?.count || 0;
-    const skillsCount = skillsResult?.count || 0;
-    const experienceCount = experienceResult?.count || 0;
-    const educationCount = educationResult?.count || 0;
+    // ===== EDUCATION =====
+    const edu = db.select().from(education).all();
 
-    // Token estimates per item (rough averages)
-    const tokenEstimates = {
-      writingsPerItem: 1400,
-      projectsPerItem: 230,
-      skillsPerItem: 45,
-      experiencePerItem: 190,
-      educationPerItem: 170,
-      base: 6000, // Soul.xml + tool definitions
-    };
+    let educationTokens = 0;
+    for (const e of edu) {
+      const focusAreas = JSON.parse(e.focusAreas || "[]").join(", ");
+      const content = `### ${e.degree} in ${e.field}\n**Institution:** ${e.institution} | **Period:** ${e.dateStart} → ${e.dateEnd}\n${e.tagline}\n${focusAreas}`;
+      educationTokens += estimateTokens(content);
+    }
+
+    // ===== JOURNAL ENTRIES =====
+    const entries = db
+      .select()
+      .from(journalEntries)
+      .orderBy(desc(journalEntries.date))
+      .limit(30) // Match the limit in kronus.ts
+      .all();
+
+    let journalTokens = 0;
+    for (const entry of entries) {
+      const content = `### ${entry.repository} - ${entry.commitHash.substring(0, 7)}\n**Branch:** ${entry.branch}\n**Author:** ${entry.codeAuthor || entry.author}\n**Why:** ${entry.why || "N/A"}\n**What Changed:** ${entry.whatChanged || "N/A"}\n**Decisions:** ${entry.decisions || "N/A"}\n**Technologies:** ${entry.technologies || "N/A"}`;
+      journalTokens += estimateTokens(content);
+    }
+
+    // Base overhead: Soul.xml + tool definitions + section headers
+    const baseTokens = 6000;
 
     const totalTokens =
-      tokenEstimates.base +
-      writingsCount * tokenEstimates.writingsPerItem +
-      projectsCount * tokenEstimates.projectsPerItem +
-      skillsCount * tokenEstimates.skillsPerItem +
-      experienceCount * tokenEstimates.experiencePerItem +
-      educationCount * tokenEstimates.educationPerItem;
+      baseTokens +
+      writingsTokens +
+      projectsTokens +
+      skillsTokens +
+      experienceTokens +
+      educationTokens +
+      journalTokens;
 
     return NextResponse.json({
-      writings: writingsCount,
-      portfolioProjects: projectsCount,
-      skills: skillsCount,
-      workExperience: experienceCount,
-      education: educationCount,
+      writings: writings.length,
+      writingsTokens,
+      portfolioProjects: projects.length,
+      portfolioProjectsTokens: projectsTokens,
+      skills: allSkills.length,
+      skillsTokens,
+      workExperience: experience.length,
+      workExperienceTokens: experienceTokens,
+      education: edu.length,
+      educationTokens,
+      journalEntries: entries.length,
+      journalEntriesTokens: journalTokens,
+      baseTokens,
       totalTokens,
     });
   } catch (error: any) {
