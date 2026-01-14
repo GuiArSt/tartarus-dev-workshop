@@ -35,7 +35,7 @@ export const AIOutputSchema = z.object({
 // Project summary schema: Overview of the entire repository
 export const ProjectSummaryInputSchema = z.object({
   repository: z.string().min(1).describe('Repository/project name'),
-  git_url: z.string().url().describe('Git repository URL (required for verification)'),
+  git_url: z.string().url().optional().describe('Git repository URL (optional - for linking to source)'),
   summary: z.string().min(10).describe('High-level project summary'),
   purpose: z.string().min(10).describe('Why this project exists'),
   architecture: z.string().min(10).describe('Overall architecture and structure'),
@@ -104,13 +104,13 @@ export interface JournalEntryInsert {
 export interface ProjectSummary {
   id: number;
   repository: string;
-  git_url: string;
-  summary: string;
-  purpose: string;
-  architecture: string;
-  key_decisions: string;
-  technologies: string;
-  status: string;
+  git_url: string | null;
+  summary: string | null;
+  purpose: string | null;
+  architecture: string | null;
+  key_decisions: string | null;
+  technologies: string | null;
+  status: string | null;
   updated_at: string;
   // Journal entry statistics for this repository
   entry_count?: number; // Number of journal entries
@@ -137,13 +137,13 @@ export interface ProjectSummary {
 
 export interface ProjectSummaryInsert {
   repository: string;
-  git_url: string;
-  summary: string;
-  purpose: string;
-  architecture: string;
-  key_decisions: string;
-  technologies: string;
-  status: string;
+  git_url?: string | null;
+  summary?: string | null;
+  purpose?: string | null;
+  architecture?: string | null;
+  key_decisions?: string | null;
+  technologies?: string | null;
+  status?: string | null;
   linear_project_id?: string | null;
   linear_issue_id?: string | null;
   // Living Project Summary (Entry 0) - Enhanced fields

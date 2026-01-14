@@ -216,22 +216,23 @@ Respond with valid JSON matching the schema.`;
     }
 
     // Select model based on configured provider
-    // Models are hardcoded: claude-opus-4-5, gpt-5.1, gemini-3.0
+    // AI SDK 6.0: Use provider functions (they read API keys from env)
     let model;
     let modelName: string;
-    
+
     switch (config.aiProvider) {
       case 'anthropic':
-        model = anthropic('claude-opus-4-5');
-        modelName = 'Claude Opus 4.5';
+        // Claude Haiku 4.5 - fast, capable, cost-effective for journal entries
+        model = anthropic('claude-haiku-4-5');
+        modelName = 'Claude Haiku 4.5';
         break;
       case 'openai':
-        model = openai('gpt-5.1');
-        modelName = 'GPT 5.1';
+        model = openai('gpt-5');
+        modelName = 'GPT 5';
         break;
       case 'google':
-        model = google('gemini-3.0');
-        modelName = 'Gemini 3.0';
+        model = google('gemini-3-flash');
+        modelName = 'Gemini 3 Flash';
         break;
       default:
         throw new Error(`Unsupported AI provider: ${config.aiProvider}`);
@@ -239,15 +240,16 @@ Respond with valid JSON matching the schema.`;
 
     logger.debug(`Generating journal entry for ${input.commit_hash} using ${modelName}`);
 
-    const result = await generateObject({
-      model: model as any, // Type assertion needed due to SDK version compatibility
+    // AI SDK 6.0 pattern: generateObject with Zod schema
+    const { object } = await generateObject({
+      model,
       schema: AIOutputSchema,
       prompt: systemPrompt,
       temperature: 0.7,
     });
 
     logger.success(`Generated journal entry for ${input.commit_hash} using ${modelName}`);
-    
+
     // Restore original environment variables
     if (originalAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
     else delete process.env.ANTHROPIC_API_KEY;
@@ -255,8 +257,8 @@ Respond with valid JSON matching the schema.`;
     else delete process.env.OPENAI_API_KEY;
     if (originalGoogleKey !== undefined) process.env.GOOGLE_API_KEY = originalGoogleKey;
     else delete process.env.GOOGLE_API_KEY;
-    
-    return result.object;
+
+    return object;
   } catch (error) {
     // Restore original environment variables on error
     if (originalAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = originalAnthropicKey;

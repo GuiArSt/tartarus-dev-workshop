@@ -24,10 +24,18 @@ export class UnifiedMCPServer {
   private config: UnifiedConfig;
 
   constructor() {
-    this.server = new McpServer({
-      name: 'developer-journal-mcp',
-      version: '2.0.0',
-    });
+    this.server = new McpServer(
+      {
+        name: 'developer-journal-mcp',
+        version: '2.0.0',
+      },
+      {
+        capabilities: {
+          resources: {},
+          prompts: {},
+        },
+      }
+    );
 
     this.config = loadConfig();
   }
@@ -43,7 +51,7 @@ export class UnifiedMCPServer {
       logger.warn('No journal configuration found. Set JOURNAL_DB_PATH or ANTHROPIC_API_KEY.');
     }
 
-    logger.success('Developer Journal MCP Server initialized (10 tools)');
+    logger.success('Developer Journal MCP Server initialized (11 tools, 2 resources, 3 prompts)');
   }
 
   async connect() {

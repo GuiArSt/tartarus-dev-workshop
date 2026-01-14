@@ -1,12 +1,15 @@
 /**
  * Normalize Report - Entry 0 (Living Project Summary)
  *
- * Uses AI SDK 6.0 pattern with generateText + Output.object()
- * Model: Sonnet 4.5 - Smart normalization with native structured outputs
+ * Uses AI SDK 6.0 generateText with Output.object() for structured outputs
+ * (generateObject is deprecated in AI SDK 6.0)
+ * Model: Claude Haiku 4.5 / GPT 5 / Gemini 3 Flash - based on config
  * Temperature: 0.7 - Creative pattern recognition (schema enforces structure)
  */
 
 import { anthropic } from '@ai-sdk/anthropic';
+import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { generateText, Output } from 'ai';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,28 +21,35 @@ import type { ProjectSummary, JournalEntry } from '../types.js';
 import type { JournalConfig } from '../../../shared/types.js';
 
 /**
- * Zod schema for Entry 0 sections - what Sonnet 4.5 generates
+ * Zod schema for Entry 0 sections - what the AI generates
+ *
+ * All fields are REQUIRED non-nullable strings to avoid "too many conditional branches" error.
+ * (AI SDK converts nullable to anyOf which has limit of 8 branches)
+ *
+ * AI returns empty string "" for sections with no meaningful updates.
+ * The merge function filters out empty strings.
  */
 export const SummaryUpdateSchema = z.object({
-  // Core sections (existing)
-  summary: z.string().nullable().describe('High-level project overview'),
-  purpose: z.string().nullable().describe('Why this project exists'),
-  architecture: z.string().nullable().describe('Overall structure and organization'),
-  key_decisions: z.string().nullable().describe('Major architectural decisions'),
-  technologies: z.string().nullable().describe('Core technologies used'),
-  status: z.string().nullable().describe('Current project status'),
-  // Living Project Summary - Enhanced fields
-  file_structure: z.string().nullable().describe('Git-style file tree with summaries'),
-  tech_stack: z.string().nullable().describe('Frameworks, libraries, versions (indicative)'),
-  frontend: z.string().nullable().describe('FE patterns, components, state management'),
-  backend: z.string().nullable().describe('BE routes, middleware, auth patterns'),
-  database_info: z.string().nullable().describe('Schema, ORM patterns, migrations'),
-  services: z.string().nullable().describe('External APIs, integrations'),
-  custom_tooling: z.string().nullable().describe('Project-specific utilities'),
-  data_flow: z.string().nullable().describe('How data is processed'),
-  patterns: z.string().nullable().describe('Naming conventions, code style'),
-  commands: z.string().nullable().describe('Dev, deploy, make commands'),
-  extended_notes: z.string().nullable().describe('Gotchas, TODOs, historical context'),
+  // Core sections
+  summary: z.string().describe('High-level project overview. Return empty string if no updates.'),
+  purpose: z.string().describe('Why this project exists. Return empty string if no updates.'),
+  architecture: z.string().describe('Overall structure and organization. Return empty string if no updates.'),
+  key_decisions: z.string().describe('Major architectural decisions. Return empty string if no updates.'),
+  technologies: z.string().describe('Core technologies used. Return empty string if no updates.'),
+  status: z.string().describe('Current project status. Return empty string if no updates.'),
+
+  // Living Project Summary - Detailed separate fields
+  file_structure: z.string().describe('Git-style file tree with brief file summaries. Return empty string if no updates.'),
+  tech_stack: z.string().describe('Frameworks, libraries, versions (indicative). Return empty string if no updates.'),
+  frontend: z.string().describe('Frontend patterns, components, state management, UI libraries. Return empty string if no updates.'),
+  backend: z.string().describe('Backend routes, middleware, server actions, auth patterns. Return empty string if no updates.'),
+  database_info: z.string().describe('Database schema, ORM patterns, migrations approach. Return empty string if no updates.'),
+  services: z.string().describe('External APIs and how they are integrated. Return empty string if no updates.'),
+  custom_tooling: z.string().describe('Project-specific utilities, helpers, wrappers. Return empty string if no updates.'),
+  data_flow: z.string().describe('How data moves through the system. Return empty string if no updates.'),
+  patterns: z.string().describe('Naming conventions, file organization, code style. Return empty string if no updates.'),
+  commands: z.string().describe('Dev commands, deploy scripts, make targets. Return empty string if no updates.'),
+  extended_notes: z.string().describe('Gotchas, TODOs, historical context, anything else. Return empty string if no updates.'),
 });
 
 export type SummaryUpdate = z.infer<typeof SummaryUpdateSchema>;
@@ -150,8 +160,8 @@ function formatExistingSummary(summary: ProjectSummary | null): string {
 /**
  * Normalize a chaotic report into structured Entry 0 sections
  *
- * Uses AI SDK 6.0 pattern: generateText + Output.object() with Zod schema
- * Sonnet 4.5 has native structured outputs (outputFormat mode)
+ * Uses AI SDK 6.0 pattern: generateObject with Zod schema
+ * Claude Sonnet 4 has native structured outputs
  */
 export async function normalizeReport(
   rawReport: string,
@@ -173,15 +183,12 @@ ${formatExistingSummary(existingSummary)}
 ## Recent Journal Entries (for additional context)
 ${formatEntriesForContext(recentEntries)}
 
-## Chaotic Report to Normalize
-${rawReport}
-
 ## Instructions
 
 1. **Extract structured information** from the chaotic report
 2. **Preserve existing accurate information** - only update sections with meaningful new info
 3. **Merge intelligently** - don't overwrite good existing content with worse new content
-4. **Return null for sections** that have no updates or where existing content is better
+4. **Return empty string "" for sections** that have no updates or where existing content is better
 
 ### Section Guidelines
 
@@ -212,38 +219,100 @@ src/
 
 Be thorough but concise. This is reference documentation for engineers.`;
 
-  // Set API key for Anthropic
-  const originalKey = process.env.ANTHROPIC_API_KEY;
+  // Set API key based on configured provider
+  const originalAnthropicKey = process.env.ANTHROPIC_API_KEY;
+  const originalOpenAIKey = process.env.OPENAI_API_KEY;
+  const originalGoogleKey = process.env.GOOGLE_API_KEY;
 
   try {
-    process.env.ANTHROPIC_API_KEY = config.aiApiKey;
+    // Set the API key for the configured provider
+    switch (config.aiProvider) {
+      case 'anthropic':
+        process.env.ANTHROPIC_API_KEY = config.aiApiKey;
+        break;
+      case 'openai':
+        process.env.OPENAI_API_KEY = config.aiApiKey;
+        break;
+      case 'google':
+        process.env.GOOGLE_API_KEY = config.aiApiKey;
+        break;
+    }
 
-    logger.debug(`Normalizing report for Entry 0 using Sonnet 4.5`);
+    // Select model based on configured provider
+    let model;
+    let modelName: string;
 
-    // AI SDK 6.0 pattern: generateText with Output.object
-    // Sonnet 4.5 (claude-sonnet-4-5-20250929) has native structured outputs
-    const { experimental_output } = await generateText({
-      model: anthropic('claude-sonnet-4-5-20250929'),
-      experimental_output: Output.object({
+    switch (config.aiProvider) {
+      case 'anthropic':
+        model = anthropic('claude-haiku-4-5');
+        modelName = 'Claude Haiku 4.5';
+        break;
+      case 'openai':
+        model = openai('gpt-5');
+        modelName = 'GPT 5';
+        break;
+      case 'google':
+        model = google('gemini-3-flash');
+        modelName = 'Gemini 3 Flash';
+        break;
+      default:
+        throw new Error(`Unsupported AI provider: ${config.aiProvider}`);
+    }
+
+    logger.info(`Normalizing report for Entry 0 using ${modelName}`);
+    logger.info(`System prompt length: ${systemPrompt.length} chars`);
+    logger.info(`Raw report length: ${rawReport.length} chars`);
+    logger.info(`API key present: ${!!config.aiApiKey}`);
+    logger.info(`Provider: ${config.aiProvider}`);
+    logger.info(`About to call generateText with Output.object()...`);
+
+    // AI SDK 6.0 pattern: generateText with Output.object() (generateObject is deprecated)
+    const result = await generateText({
+      model,
+      output: Output.object({
         schema: SummaryUpdateSchema,
       }),
-      prompt: systemPrompt,
-      temperature: 0.7, // Creative extraction, schema enforces structure
+      prompt: `${systemPrompt}
+
+## Chaotic Report to Normalize
+
+${rawReport}
+
+Extract the structured Entry 0 sections from this report. Return empty string "" for any section that has no meaningful updates.`,
+      temperature: 0.7,
     });
 
+    const object = result.output;
+
+    if (!object) {
+      logger.error(`No structured output generated. Raw text: ${result.text?.substring(0, 500)}`);
+      throw new Error('No structured output generated from AI model');
+    }
+
+    logger.debug(`generateText completed, output present: ${!!object}`);
     logger.success(`Normalized report into Entry 0 structure`);
 
-    // Restore original API key
-    if (originalKey !== undefined) process.env.ANTHROPIC_API_KEY = originalKey;
+    // Restore original API keys
+    if (originalAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
     else delete process.env.ANTHROPIC_API_KEY;
+    if (originalOpenAIKey !== undefined) process.env.OPENAI_API_KEY = originalOpenAIKey;
+    else delete process.env.OPENAI_API_KEY;
+    if (originalGoogleKey !== undefined) process.env.GOOGLE_API_KEY = originalGoogleKey;
+    else delete process.env.GOOGLE_API_KEY;
 
-    return experimental_output as SummaryUpdate;
-  } catch (error) {
-    // Restore original API key on error
-    if (originalKey !== undefined) process.env.ANTHROPIC_API_KEY = originalKey;
+    return object;
+  } catch (error: any) {
+    // Restore original API keys on error
+    if (originalAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
     else delete process.env.ANTHROPIC_API_KEY;
+    if (originalOpenAIKey !== undefined) process.env.OPENAI_API_KEY = originalOpenAIKey;
+    else delete process.env.OPENAI_API_KEY;
+    if (originalGoogleKey !== undefined) process.env.GOOGLE_API_KEY = originalGoogleKey;
+    else delete process.env.GOOGLE_API_KEY;
 
+    // Log full error details for debugging
     logger.error('Failed to normalize report:', error);
+
     throw new Error(
       `Entry 0 normalization failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
@@ -252,7 +321,7 @@ Be thorough but concise. This is reference documentation for engineers.`;
 
 /**
  * Merge normalized updates with existing summary
- * Only updates fields that have non-null values in the update
+ * Only updates fields that have non-empty string values (AI returns "" for no updates)
  */
 export function mergeSummaryUpdates(
   existing: ProjectSummary | null,
@@ -260,26 +329,30 @@ export function mergeSummaryUpdates(
 ): Partial<ProjectSummary> {
   const merged: Partial<ProjectSummary> = {};
 
-  // Core fields
-  if (updates.summary !== null) merged.summary = updates.summary;
-  if (updates.purpose !== null) merged.purpose = updates.purpose;
-  if (updates.architecture !== null) merged.architecture = updates.architecture;
-  if (updates.key_decisions !== null) merged.key_decisions = updates.key_decisions;
-  if (updates.technologies !== null) merged.technologies = updates.technologies;
-  if (updates.status !== null) merged.status = updates.status;
+  // Helper to check if a string has meaningful content (non-empty after trim)
+  const hasContent = (s: string | undefined | null): boolean =>
+    s !== undefined && s !== null && s.trim().length > 0;
 
-  // Living Project Summary fields
-  if (updates.file_structure !== null) merged.file_structure = updates.file_structure;
-  if (updates.tech_stack !== null) merged.tech_stack = updates.tech_stack;
-  if (updates.frontend !== null) merged.frontend = updates.frontend;
-  if (updates.backend !== null) merged.backend = updates.backend;
-  if (updates.database_info !== null) merged.database_info = updates.database_info;
-  if (updates.services !== null) merged.services = updates.services;
-  if (updates.custom_tooling !== null) merged.custom_tooling = updates.custom_tooling;
-  if (updates.data_flow !== null) merged.data_flow = updates.data_flow;
-  if (updates.patterns !== null) merged.patterns = updates.patterns;
-  if (updates.commands !== null) merged.commands = updates.commands;
-  if (updates.extended_notes !== null) merged.extended_notes = updates.extended_notes;
+  // Core fields - only update if non-empty
+  if (hasContent(updates.summary)) merged.summary = updates.summary;
+  if (hasContent(updates.purpose)) merged.purpose = updates.purpose;
+  if (hasContent(updates.architecture)) merged.architecture = updates.architecture;
+  if (hasContent(updates.key_decisions)) merged.key_decisions = updates.key_decisions;
+  if (hasContent(updates.technologies)) merged.technologies = updates.technologies;
+  if (hasContent(updates.status)) merged.status = updates.status;
+
+  // Living Project Summary fields - each maps directly to database column
+  if (hasContent(updates.file_structure)) merged.file_structure = updates.file_structure;
+  if (hasContent(updates.tech_stack)) merged.tech_stack = updates.tech_stack;
+  if (hasContent(updates.frontend)) merged.frontend = updates.frontend;
+  if (hasContent(updates.backend)) merged.backend = updates.backend;
+  if (hasContent(updates.database_info)) merged.database_info = updates.database_info;
+  if (hasContent(updates.services)) merged.services = updates.services;
+  if (hasContent(updates.custom_tooling)) merged.custom_tooling = updates.custom_tooling;
+  if (hasContent(updates.data_flow)) merged.data_flow = updates.data_flow;
+  if (hasContent(updates.patterns)) merged.patterns = updates.patterns;
+  if (hasContent(updates.commands)) merged.commands = updates.commands;
+  if (hasContent(updates.extended_notes)) merged.extended_notes = updates.extended_notes;
 
   return merged;
 }

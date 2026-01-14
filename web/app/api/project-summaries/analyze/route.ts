@@ -132,9 +132,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   if (!existingSummary) {
     // Auto-create a project summary for repositories that only have journal entries
+    // Note: git_url is nullable, summary is initialized with placeholder text
     db.prepare(`
-      INSERT INTO project_summaries (repository, summary, updated_at)
-      VALUES (?, 'Auto-generated summary - pending analysis.', datetime('now'))
+      INSERT INTO project_summaries (repository, git_url, summary, purpose, architecture, key_decisions, technologies, status, updated_at)
+      VALUES (?, NULL, 'Auto-generated summary - pending analysis.', '', '', '', '', 'active', datetime('now'))
     `).run(repository);
 
     existingSummary = db
@@ -204,17 +205,21 @@ Be thorough but concise. This is reference documentation for engineers.`;
 
   let updates: SummaryUpdate;
   try {
-    // Call Sonnet 4.5 for analysis
+    // Call Sonnet 4.5 for analysis - AI SDK 6.0 pattern
     const result = await generateText({
       model: anthropic('claude-sonnet-4-5-20250929'),
-      experimental_output: Output.object({
+      output: Output.object({
         schema: SummaryUpdateSchema,
       }),
       prompt: systemPrompt,
       temperature: 0.7,
     });
 
-    updates = result.experimental_output as SummaryUpdate;
+    if (!result.output) {
+      throw new Error('No structured output generated from AI model');
+    }
+
+    updates = result.output as SummaryUpdate;
 
     // End span with token usage from result
     endSpan(aiSpanId, {

@@ -1,4 +1,4 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -974,4 +974,189 @@ Be as detailed or messy as needed - Kronus will structure it.`,
   );
 
   logger.success('Journal tools registered (11 tools)');
+
+  // ============================================
+  // MCP Resources - Expose journal data as resources
+  // AI SDK 6.0 feature: Resources provide read-only data access
+  // ============================================
+
+  // Resource: List of all repositories
+  server.registerResource(
+    'repositories',
+    'journal://repositories',
+    {
+      description: 'List of all repositories with journal entries',
+      mimeType: 'application/json',
+    },
+    async () => {
+      const repositories = listRepositories();
+      return {
+        contents: [{
+          uri: 'journal://repositories',
+          mimeType: 'application/json',
+          text: JSON.stringify(repositories, null, 2),
+        }],
+      };
+    }
+  );
+
+  // Resource Template: Project summary by repository
+  server.registerResource(
+    'project-summary',
+    new ResourceTemplate('journal://summary/{repository}', { list: undefined }),
+    {
+      description: 'Get Entry 0 (Living Project Summary) for a repository',
+      mimeType: 'application/json',
+    },
+    async (uri, { repository }) => {
+      const summary = getProjectSummary(repository as string);
+      if (!summary) {
+        return {
+          contents: [{
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify({ error: `No project summary found for ${repository}` }),
+          }],
+        };
+      }
+      return {
+        contents: [{
+          uri: uri.href,
+          mimeType: 'application/json',
+          text: JSON.stringify(summary, null, 2),
+        }],
+      };
+    }
+  );
+
+  logger.success('Journal resources registered (2 resources)');
+
+  // ============================================
+  // MCP Prompts - Reusable prompt templates
+  // AI SDK 6.0 feature: User-controlled prompts for common operations
+  // ============================================
+
+  // Prompt: Create journal entry
+  server.registerPrompt(
+    'create-entry',
+    {
+      title: 'Create Journal Entry',
+      description: 'Generate a journal entry prompt for documenting a git commit',
+      argsSchema: {
+        commit_hash: z.string().describe('The git commit SHA'),
+        repository: z.string().describe('Repository name'),
+        branch: z.string().default('main').describe('Git branch name'),
+      },
+    },
+    async ({ commit_hash, repository, branch }) => {
+      return {
+        messages: [{
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Create a developer journal entry for this commit:
+
+Repository: ${repository}
+Branch: ${branch}
+Commit: ${commit_hash}
+
+Please analyze the commit and provide a detailed report including:
+1. Why these changes were made (motivation)
+2. What specifically changed (technical details)
+3. Key decisions made and their reasoning
+4. Technologies used
+
+Use the journal_create_entry tool with your analysis.`,
+          },
+        }],
+      };
+    }
+  );
+
+  // Prompt: Update Entry 0 summary
+  server.registerPrompt(
+    'update-summary',
+    {
+      title: 'Update Project Summary',
+      description: 'Submit a report to update Entry 0 (Living Project Summary)',
+      argsSchema: {
+        repository: z.string().describe('Repository name'),
+      },
+    },
+    async ({ repository }) => {
+      const summary = getProjectSummary(repository);
+      const existingContext = summary
+        ? `\nCurrent Entry 0 has: ${summary.summary ? 'summary' : ''} ${summary.tech_stack ? 'tech_stack' : ''} ${summary.file_structure ? 'file_structure' : ''}...`
+        : '\nNo existing Entry 0 found - this will create a new one.';
+
+      return {
+        messages: [{
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Update the Living Project Summary (Entry 0) for: ${repository}
+${existingContext}
+
+Please provide a chaotic report with any of the following you've discovered:
+- File structure and organization
+- Tech stack (frameworks, libraries, versions)
+- Frontend/backend patterns
+- Database schema and ORM patterns
+- External services and integrations
+- Development commands
+- Gotchas and notes
+
+Use the journal_submit_summary_report tool with your findings.`,
+          },
+        }],
+      };
+    }
+  );
+
+  // Prompt: Explore repository
+  server.registerPrompt(
+    'explore-repo',
+    {
+      title: 'Explore Repository',
+      description: 'Get started exploring a repository\'s journal history',
+      argsSchema: {
+        repository: z.string().describe('Repository name'),
+      },
+    },
+    async ({ repository }) => {
+      const summary = getProjectSummary(repository);
+      const entries = getEntriesByRepositoryPaginated(repository, 5, 0, false);
+
+      let context = `Repository: ${repository}\n`;
+      if (summary) {
+        context += `\nEntry 0 Summary: ${summary.summary || 'Not set'}\n`;
+        context += `Technologies: ${summary.technologies || 'Not set'}\n`;
+        context += `Status: ${summary.status || 'Not set'}\n`;
+      }
+      if (entries.length > 0) {
+        context += `\nRecent entries: ${entries.length}\n`;
+        context += entries.map(e => `- ${e.commit_hash.substring(0, 7)}: ${e.why?.substring(0, 50)}...`).join('\n');
+      }
+
+      return {
+        messages: [{
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Help me understand the ${repository} project.
+
+${context}
+
+What would you like to know? I can:
+1. Show recent journal entries (journal_list_by_repository)
+2. Get the full project summary (journal_get_project_summary)
+3. List branches with activity (journal_list_branches)
+4. Search for specific commits (journal_get_entry)`,
+          },
+        }],
+      };
+    }
+  );
+
+  logger.success('Journal prompts registered (3 prompts)');
 }

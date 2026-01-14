@@ -714,8 +714,22 @@ export async function POST(req: Request) {
     const systemPrompt = await getKronusSystemPrompt(config);
     const enabledTools = buildTools(enabledToolsConfig);
 
+    // Sanitize messages - remove control characters that can cause issues
+    // (e.g., <ctrl46> from Delete key, other non-printable characters)
+    const sanitizedMessages = messages.map((msg: any) => {
+      if (typeof msg.content === 'string') {
+        // Remove control character tags like <ctrl46>, <ctrl0>, etc.
+        // and actual control characters (ASCII 0-31 except newline/tab)
+        const sanitized = msg.content
+          .replace(/<ctrl\d+>/gi, '') // Remove <ctrlNN> tags
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars except \n \t \r
+        return { ...msg, content: sanitized };
+      }
+      return msg;
+    });
+
     // Convert UI messages to model format for proper streaming (async in AI SDK 6)
-    let modelMessages = await convertToModelMessages(messages);
+    let modelMessages = await convertToModelMessages(sanitizedMessages);
 
     // Gemini 3 Pro requires thoughtSignature for multi-turn tool calling
     // When signatures aren't preserved in message conversion, inject dummy signature

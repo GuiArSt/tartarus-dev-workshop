@@ -97,13 +97,13 @@ const createSchema = (handle: Database.Database) => {
     CREATE TABLE IF NOT EXISTS project_summaries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       repository TEXT UNIQUE NOT NULL,
-      git_url TEXT NOT NULL,
-      summary TEXT NOT NULL,
-      purpose TEXT NOT NULL,
-      architecture TEXT NOT NULL,
-      key_decisions TEXT NOT NULL,
-      technologies TEXT NOT NULL,
-      status TEXT NOT NULL,
+      git_url TEXT,
+      summary TEXT,
+      purpose TEXT,
+      architecture TEXT,
+      key_decisions TEXT,
+      technologies TEXT,
+      status TEXT,
       linear_project_id TEXT,
       linear_issue_id TEXT,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -124,6 +124,51 @@ const createSchema = (handle: Database.Database) => {
     );
   `);
   
+  // Migration: Fix project_summaries NOT NULL constraints on existing databases
+  // SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+  try {
+    // Check if we need to migrate (check if git_url has NOT NULL constraint)
+    const tableInfo = handle.prepare("PRAGMA table_info(project_summaries)").all() as Array<{ name: string; notnull: number }>;
+    const gitUrlColumn = tableInfo.find(col => col.name === 'git_url');
+
+    if (gitUrlColumn && gitUrlColumn.notnull === 1) {
+      logger.info('Migrating project_summaries to make columns nullable...');
+
+      // Create new table with nullable columns
+      handle.exec(`
+        CREATE TABLE IF NOT EXISTS project_summaries_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          repository TEXT UNIQUE NOT NULL,
+          git_url TEXT,
+          summary TEXT,
+          purpose TEXT,
+          architecture TEXT,
+          key_decisions TEXT,
+          technologies TEXT,
+          status TEXT,
+          linear_project_id TEXT,
+          linear_issue_id TEXT,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      // Copy data from old table
+      handle.exec(`
+        INSERT INTO project_summaries_new (id, repository, git_url, summary, purpose, architecture, key_decisions, technologies, status, linear_project_id, linear_issue_id, updated_at)
+        SELECT id, repository, git_url, summary, purpose, architecture, key_decisions, technologies, status, linear_project_id, linear_issue_id, updated_at
+        FROM project_summaries;
+      `);
+
+      // Drop old table and rename new one
+      handle.exec(`DROP TABLE project_summaries;`);
+      handle.exec(`ALTER TABLE project_summaries_new RENAME TO project_summaries;`);
+
+      logger.success('Successfully migrated project_summaries table');
+    }
+  } catch (error: any) {
+    logger.warn('Could not migrate project_summaries (may already be correct):', error.message);
+  }
+
   // Migrate existing tables: add description column if it doesn't exist
   try {
     handle.exec(`ALTER TABLE entry_attachments ADD COLUMN description TEXT;`);
