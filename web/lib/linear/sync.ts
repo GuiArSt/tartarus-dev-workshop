@@ -1,13 +1,45 @@
 /**
  * Linear Sync - Cache Linear data locally
- * 
+ *
  * Fetches Projects and Issues from Linear API and stores them in the database.
  * Preserves historical data even if items are deleted in Linear.
+ * Generates AI summaries for new items via /api/ai/summarize endpoint.
  */
 
 import { getDrizzleDb, linearProjects, linearIssues } from "@/lib/db/drizzle";
 import { eq } from "drizzle-orm";
 import { listProjects, listIssues } from "./client";
+
+/**
+ * Generate a summary for Linear content using the AI summarize endpoint
+ */
+async function generateSummary(
+  type: "linear_issue" | "linear_project",
+  content: string,
+  title: string
+): Promise<string | null> {
+  try {
+    // Get base URL from environment or use default
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    const response = await fetch(`${baseUrl}/api/ai/summarize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, content, title }),
+    });
+
+    if (!response.ok) {
+      console.warn(`Summary generation failed for ${type}: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.summary || null;
+  } catch (error) {
+    console.warn(`Summary generation error for ${type}:`, error);
+    return null;
+  }
+}
 
 export interface SyncResult {
   projects: {
@@ -30,8 +62,8 @@ export interface SyncResult {
 export async function syncLinearProjects(includeCompleted: boolean = false): Promise<SyncResult["projects"]> {
   const db = getDrizzleDb();
   
-  // Fetch from Linear API
-  const result = await listProjects({ showAll: true }); // Get all projects, we'll filter locally
+  // Fetch from Linear API - only YOUR projects (uses LINEAR_USER_ID)
+  const result = await listProjects(); // Filters to projects you're a member of
   const apiProjects = result.projects || [];
   
   // Filter by completion if needed
@@ -85,9 +117,20 @@ export async function syncLinearProjects(includeCompleted: boolean = false): Pro
         .where(eq(linearProjects.id, project.id));
       updated++;
     } else {
-      // Create new
+      // Create new - generate summary for new projects
+      const contentForSummary = [
+        project.description,
+        project.content,
+      ].filter(Boolean).join("\n\n");
+
+      let summary: string | null = null;
+      if (contentForSummary.length > 20) {
+        summary = await generateSummary("linear_project", contentForSummary, project.name);
+      }
+
       await db.insert(linearProjects).values({
         ...projectData,
+        summary,
         createdAt: new Date().toISOString(),
       });
       created++;
@@ -121,8 +164,8 @@ export async function syncLinearProjects(includeCompleted: boolean = false): Pro
 export async function syncLinearIssues(includeCompleted: boolean = false): Promise<SyncResult["issues"]> {
   const db = getDrizzleDb();
   
-  // Fetch from Linear API (get more to ensure we capture everything)
-  const result = await listIssues({ showAll: true, limit: 250 });
+  // Fetch from Linear API - only YOUR issues (uses LINEAR_USER_ID)
+  const result = await listIssues({ limit: 250 });
   const apiIssues = result.issues || [];
   
   // Filter by completion if needed
@@ -183,9 +226,15 @@ export async function syncLinearIssues(includeCompleted: boolean = false): Promi
         .where(eq(linearIssues.id, issue.id));
       updated++;
     } else {
-      // Create new
+      // Create new - generate summary for new issues
+      let summary: string | null = null;
+      if (issue.description && issue.description.length > 20) {
+        summary = await generateSummary("linear_issue", issue.description, issue.title);
+      }
+
       await db.insert(linearIssues).values({
         ...issueData,
+        summary,
         createdAt: new Date().toISOString(),
       });
       created++;

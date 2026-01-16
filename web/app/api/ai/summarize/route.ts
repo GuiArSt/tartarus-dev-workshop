@@ -1,0 +1,123 @@
+/**
+ * AI Summarize Endpoint - Generate dense 3-sentence summaries for Kronus indexing
+ *
+ * Uses AI SDK 6.0 generateText with Output.object() for structured outputs
+ * Model: Claude Haiku 4.5 (fast, cheap)
+ */
+
+import { generateText, Output } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
+import { z } from "zod";
+import { NextResponse } from "next/server";
+
+/**
+ * Input schema for summary generation
+ */
+const SummarizeInputSchema = z.object({
+  type: z.enum([
+    "journal_entry",
+    "project_summary",
+    "document",
+    "linear_issue",
+    "linear_project",
+    "attachment",
+    "media",
+  ]).describe("Type of content being summarized"),
+  content: z.string().min(1).describe("The full content to summarize"),
+  title: z.string().optional().describe("Optional title for context"),
+  metadata: z.record(z.string(), z.any()).optional().describe("Additional context (file type, mime, etc.)"),
+});
+
+/**
+ * Output schema - just the summary
+ */
+const SummaryOutputSchema = z.object({
+  summary: z.string().describe("3-sentence dense summary for AI retrieval indexing"),
+});
+
+/**
+ * Generate a precise 3-sentence summary for indexing purposes
+ */
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+
+    // Validate input
+    const input = SummarizeInputSchema.parse(body);
+
+    // Use Claude Haiku 4.5 for fast, cost-effective summarization
+    const model = anthropic("claude-haiku-4-5-20251001");
+
+    // Build context string from metadata if available
+    let metadataContext = "";
+    if (input.metadata) {
+      const metaEntries = Object.entries(input.metadata)
+        .filter(([_, v]) => v !== null && v !== undefined)
+        .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+        .join("\n");
+      if (metaEntries) {
+        metadataContext = `\nMetadata:\n${metaEntries}`;
+      }
+    }
+
+    // AI SDK 6.0 pattern: generateText with Output.object()
+    const result = await generateText({
+      model,
+      output: Output.object({ schema: SummaryOutputSchema }),
+      system: `You are a precise summarization engine for the Developer Journal system.
+Your task is to generate dense, information-rich 3-sentence summaries for AI retrieval indexing.
+
+## Summary Structure
+- Sentence 1: What it is and its primary purpose
+- Sentence 2: Key details, components, or changes
+- Sentence 3: Current status, impact, or notable aspects
+
+## Guidelines
+- Be DENSE with information - pack maximum meaning into minimum words
+- NO fluff, NO filler phrases, NO vague descriptions
+- Use specific technical terms when relevant
+- Include key identifiers (file names, versions, IDs) when present
+- This is for AI retrieval - precision and recall matter most
+
+## Type-Specific Guidance
+- journal_entry: Focus on what changed, why, and impact
+- project_summary: Focus on purpose, architecture, and current state
+- document: Focus on topic, key points, and intended use
+- linear_issue: Focus on problem, status, and assignee/priority
+- linear_project: Focus on goals, progress, and timeline
+- attachment/media: Focus on what it shows/contains and its context`,
+      prompt: `Generate a 3-sentence summary for this ${input.type}:
+
+${input.title ? `Title: ${input.title}` : ""}${metadataContext}
+
+Content:
+${input.content}`,
+    });
+
+    const parsed = result.output;
+
+    if (!parsed || !parsed.summary) {
+      throw new Error("AI generation returned no summary");
+    }
+
+    return NextResponse.json({
+      summary: parsed.summary,
+      type: input.type,
+    });
+  } catch (error: any) {
+    console.error("Summarization error:", error);
+
+    // Handle Zod validation errors
+    if (error.name === "ZodError") {
+      return NextResponse.json(
+        { error: "Invalid input", details: error.errors },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: error.message || "Failed to generate summary" },
+      { status: 500 }
+    );
+  }
+}

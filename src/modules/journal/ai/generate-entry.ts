@@ -160,6 +160,7 @@ This journal captures:
 4. **Technologies** - Technologies, frameworks, or tools discussed/used
 5. **Kronus Wisdom** - (Optional) A brief poem, lesson, or philosophical reflection on this commit's essence
 6. **Files Changed** - (STRONGLY REQUESTED) List of files that were created, modified, deleted, or renamed
+7. **Summary** - (MANDATORY) Dense 3-sentence summary for AI retrieval indexing
 
 ## Formatting Guidelines
 
@@ -200,6 +201,14 @@ Analyze the agent report${newContext ? ' and new context' : ''} and extract the 
 - If a file was renamed, include old_path
 - This is critical for tracking what changed - always extract this when file paths are mentioned
 - Set to null only if no file paths are mentioned at all
+
+**For summary (MANDATORY):**
+- Generate a precise 3-sentence summary for AI retrieval indexing
+- Sentence 1: What changed and the primary motivation
+- Sentence 2: Key technical details, components, or files affected
+- Sentence 3: Current status, impact, or notable aspects
+- Be DENSE with information - pack maximum meaning into minimum words
+- NO fluff, NO filler phrases - this is for AI indexing, precision matters
 
 Respond with valid JSON matching the schema.`;
 

@@ -30,6 +30,7 @@ export const AIOutputSchema = z.object({
   technologies: z.string().min(3).describe('Technologies/frameworks discussed'),
   kronus_wisdom: z.string().nullable().optional().describe('Poem, lesson, or wisdom from Kronus'),
   files_changed: z.array(FileChangeSchema).nullable().optional().describe('STRONGLY REQUESTED: List of files that were created, modified, deleted, or renamed. Extract from the agent report.'),
+  summary: z.string().min(10).describe('MANDATORY: Dense 3-sentence summary for indexing. Sentence 1: What changed and why. Sentence 2: Key technical details. Sentence 3: Impact or status.'),
 });
 
 // Project summary schema: Overview of the entire repository
@@ -84,6 +85,8 @@ export interface JournalEntry {
   created_at: string;
   // File change tracking (JSON array stored as TEXT)
   files_changed?: FileChange[] | null;
+  // AI-generated 3-sentence summary for indexing
+  summary?: string | null;
 }
 
 export interface JournalEntryInsert {
@@ -99,6 +102,7 @@ export interface JournalEntryInsert {
   kronus_wisdom: string | null;
   raw_agent_report: string;
   files_changed?: FileChange[] | null;
+  summary?: string | null;
 }
 
 export interface ProjectSummary {

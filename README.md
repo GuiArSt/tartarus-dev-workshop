@@ -4,78 +4,192 @@ A dual-interface platform (MCP server + web app) that transforms git commits int
 
 ## What This Is
 
-1. **MCP Server** - Tools for AI agents (Claude, Cursor, etc.) to create and query journal entries
-2. **Tartarus Web App** - Dark-themed dashboard for browsing, chatting with Kronus, and managing your journal
+1. **MCP Server** - Tools and resources for AI agents (Claude, Cursor, etc.) to read and create journal entries
+2. **Tartarus Web App** - Dark-themed dashboard for browsing, editing, chatting with Kronus, and managing your journal
 
 ### Key Features
 
-- **Structured journal entries** from commits via MCP
+- **Structured journal entries** linked to git commits
+- **Entry 0 (Living Project Summary)** - Evolving project documentation
 - **Kronus Chat** - AI conversations powered by Gemini 3 Pro (1M context) or Claude Sonnet 4.5
 - **Atropos Spellchecker** - AI text correction with diff view
-- **Project summaries** - High-level architecture documentation
 - **Attachments** - Images, diagrams, PDFs linked to entries
-- **Linear integration** - Link entries to Linear issues
+- **Repository documents** - Writings, prompts, notes
+- **Linear integration** - Cached Linear projects and issues
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐
+│   AI Agents     │     │    Humans       │
+│ (Claude, etc.)  │     │                 │
+└────────┬────────┘     └────────┬────────┘
+         │                       │
+         ▼                       ▼
+┌─────────────────┐     ┌─────────────────┐
+│   MCP Server    │     │  Tartarus Web   │
+│                 │     │     App         │
+│ • 12 tools      │     │                 │
+│ • 18 resources  │     │ • Browse/Edit   │
+│ • 3 prompts     │     │ • Kronus chat   │
+│                 │     │ • Attachments   │
+└────────┬────────┘     └────────┬────────┘
+         │                       │
+         └───────────┬───────────┘
+                     ▼
+            ┌─────────────────┐
+            │   SQLite DB     │
+            │  (journal.db)   │
+            └─────────────────┘
+```
 
 ## Quick Start
 
 ### Option 1: Docker (Recommended)
 
 ```bash
-# Copy environment file and add your API keys
 cp .env.example .env
-# Edit .env with your GOOGLE_GENERATIVE_AI_API_KEY or ANTHROPIC_API_KEY
+# Edit .env with your API keys
 
-# Run
 docker compose up -d
-
 # Access at http://localhost:3777
 ```
 
 ### Option 2: Local Development
 
 ```bash
-# Install and build MCP server
-npm install
-npm run build
+# MCP server
+npm install && npm run build
 
-# Install and run web app
-cd web
-npm install
-
-# Set environment variables
-export JOURNAL_DB_PATH="/path/to/Developer Journal Workspace/data/journal.db"
+# Web app
+cd web && npm install
+export JOURNAL_DB_PATH="/path/to/data/journal.db"
 export GOOGLE_GENERATIVE_AI_API_KEY="your-key"
-
 npm run dev
 # Access at http://localhost:3000
 ```
+
+## MCP Server Overview
+
+The MCP server follows a clear pattern: **Resources for read-only access, Tools for writes and complex queries**.
+
+### Tools (12 total)
+
+**Journal Write Operations (3):**
+| Tool | Description |
+|------|-------------|
+| `journal_create_entry` | Create journal entry for a git commit |
+| `journal_create_project_summary` | Create Entry 0 (initial) |
+| `journal_submit_summary_report` | Update Entry 0 with new observations |
+
+**Journal Query Operations (4):**
+| Tool | Description |
+|------|-------------|
+| `journal_list_by_repository` | List entries with pagination |
+| `journal_list_by_branch` | List entries by branch with pagination |
+| `journal_list_project_summaries` | List all Entry 0 summaries |
+| `journal_list_media_library` | Query unified media assets |
+
+**Repository Query Operations (5):**
+| Tool | Description |
+|------|-------------|
+| `repository_search_documents` | Search documents with filters |
+| `repository_list_skills` | List CV skills by category |
+| `repository_list_experience` | List work experience |
+| `repository_list_education` | List education history |
+| `repository_list_portfolio_projects` | List portfolio projects |
+
+### Resources (18 total)
+
+**Journal Resources (7):**
+| URI | Description |
+|-----|-------------|
+| `journal://repositories` | List all repositories |
+| `journal://summary/{repository}` | Get Entry 0 for a repo |
+| `journal://entry/{commit_hash}` | Get journal entry |
+| `journal://branches/{repository}` | List branches |
+| `journal://attachments/{commit_hash}` | List entry attachments |
+| `journal://attachment/{id}` | Get attachment metadata |
+
+**Repository Resources (3):**
+| URI | Description |
+|-----|-------------|
+| `repository://document/{slug_or_id}` | Get document content |
+| `repository://documents/{type}` | List documents by type |
+| `repository://portfolio-project/{id}` | Get portfolio project |
+
+**Linear Cache Resources (5):**
+| URI | Description |
+|-----|-------------|
+| `linear://cache/stats` | Cache statistics |
+| `linear://projects` | List cached projects |
+| `linear://project/{id}` | Get project details |
+| `linear://issues` | List cached issues |
+| `linear://issue/{identifier}` | Get issue details |
+
+**CV Resources (3):**
+| URI | Description |
+|-----|-------------|
+| `repository://cv/skills` | Technical skills |
+| `repository://cv/experience` | Work history |
+| `repository://cv/education` | Education history |
+
+### Prompts (3)
+
+- `create-entry` - Generate journal entry prompt
+- `update-summary` - Update Entry 0 prompt
+- `review-project` - Review project state
+
+## Key Concepts
+
+### Entry 0 (Living Project Summary)
+
+A persistent, evolving knowledge base for each project containing:
+- `summary`, `purpose`, `architecture`, `key_decisions`
+- `file_structure`, `tech_stack`, `frontend`, `backend`
+- `database_info`, `services`, `custom_tooling`
+- `data_flow`, `patterns`, `commands`, `extended_notes`
+
+### Database Hierarchy
+
+```
+Repository (e.g., "my-project")
+  └── Branch (e.g., "main")
+      └── Entry (commit_hash: "abc1234")
+          ├── why, what_changed, decisions
+          ├── technologies, kronus_wisdom
+          └── files_changed: [...]
+```
+
+### Document Types
+
+Documents have two-level categorization:
+- **Primary Type**: `writing`, `prompt`, `note`
+- **Tags**: Additional labels in `metadata.tags`
 
 ## Configuration
 
 ### Environment Variables
 
-Create `.env` in project root:
-
 ```bash
 # AI Provider (at least one required)
-GOOGLE_GENERATIVE_AI_API_KEY=your-key  # Preferred - Gemini 3 Pro (1M context)
-ANTHROPIC_API_KEY=your-key              # Fallback - Claude Sonnet 4.5 (200K context)
+GOOGLE_GENERATIVE_AI_API_KEY=your-key  # Gemini 3 Pro (1M context)
+ANTHROPIC_API_KEY=your-key              # Claude Sonnet 4.5 (200K context)
 
-# Database (optional - defaults to ./data/journal.db)
-JOURNAL_DB_PATH=/path/to/journal.db
+# Database
+JOURNAL_DB_PATH=/path/to/journal.db     # Optional, defaults to ./data/journal.db
 
-# Soul.xml (optional - defaults to ./Soul.xml)
-SOUL_XML_PATH=/path/to/Soul.xml
+# Web App URL (for MCP → Tartarus API calls)
+TARTARUS_URL=http://localhost:3000
 
-# Optional integrations
+# Optional
 LINEAR_API_KEY=lin_api_...
-PERPLEXITY_API_KEY=pplx-...
+MCP_API_KEY=your-mcp-key                # For authenticated MCP requests
 ```
 
 ### MCP Client Setup
 
-Add to your MCP client config (Claude Desktop, Cursor, etc.):
-
+**Claude Desktop / Cursor / VS Code:**
 ```json
 {
   "mcpServers": {
@@ -87,40 +201,11 @@ Add to your MCP client config (Claude Desktop, Cursor, etc.):
 }
 ```
 
-## AI Models
-
-The web app uses this priority:
-1. **Gemini 3 Pro** (`gemini-3-pro-preview`) - 1M token context, default
-2. **Claude Sonnet 4.5** (`claude-sonnet-4-5-20250929`) - 200K context, fallback
-3. **GPT-4o** - Fallback if no Google/Anthropic keys
-
-Override with `GOOGLE_MODEL` or `ANTHROPIC_MODEL` env vars.
-
-## Project Structure
-
-```
-Developer Journal Workspace/
-├── data/                 # Database (journal.db)
-├── dist/                 # Built MCP server
-├── src/                  # MCP server source
-├── web/                  # Tartarus Next.js app
-├── Soul.xml              # Kronus persona definition
-├── docker-compose.yml    # Docker setup
-└── .env                  # Your API keys
-```
-
-## MCP Tools (10)
-
-- `journal_create_entry` - Create entry with AI analysis
-- `journal_get_entry` - Get entry by commit hash
-- `journal_list_by_repository` - List entries for a repo
-- `journal_list_by_branch` - List entries for a branch
-- `journal_list_repositories` - List all repos
-- `journal_list_branches` - List branches for a repo
-- `journal_get_project_summary` - Get project summary
-- `journal_list_project_summaries` - List all summaries
-- `journal_list_attachments` - List entry attachments
-- `journal_get_attachment` - Get attachment data
+Platform-specific config locations:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+- **Cursor**: `~/.cursor/mcp.json`
 
 ## Development
 
@@ -135,8 +220,8 @@ npm run dev        # Dev server on :3000
 npm run build      # Production build
 
 # Docker
-docker compose up -d --build    # Build and run
-docker compose logs -f tartarus # View logs
+docker compose up -d --build
+docker compose logs -f tartarus
 ```
 
 ## License

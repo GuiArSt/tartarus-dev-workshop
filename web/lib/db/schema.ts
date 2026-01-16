@@ -98,6 +98,7 @@ export const documents = sqliteTable("documents", {
   content: text("content").notNull(),
   language: text("language").default("en"),
   metadata: text("metadata").default("{}"),
+  summary: text("summary"), // AI-generated 3-sentence summary for indexing
   createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
   updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
 });
@@ -458,6 +459,7 @@ export const linearProjects = sqliteTable("linear_projects", {
   leadName: text("lead_name"), // Name of project lead (cached for context)
   teamIds: text("team_ids").default("[]"), // JSON array of team IDs
   memberIds: text("member_ids").default("[]"), // JSON array of member user IDs
+  summary: text("summary"), // AI-generated 3-sentence summary for indexing
   // Metadata
   syncedAt: text("synced_at").default("CURRENT_TIMESTAMP"), // Last sync time
   deletedAt: text("deleted_at"), // If deleted in Linear, when we detected it
@@ -487,6 +489,7 @@ export const linearIssues = sqliteTable("linear_issues", {
   projectId: text("project_id"), // Project ID if linked
   projectName: text("project_name"), // Project name (cached for context)
   parentId: text("parent_id"), // Parent issue ID for sub-issues
+  summary: text("summary"), // AI-generated 3-sentence summary for indexing
   // Metadata
   syncedAt: text("synced_at").default("CURRENT_TIMESTAMP"), // Last sync time
   deletedAt: text("deleted_at"), // If deleted in Linear, when we detected it

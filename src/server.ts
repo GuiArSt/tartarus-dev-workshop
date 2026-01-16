@@ -7,6 +7,7 @@ import type { UnifiedConfig } from './shared/types.js';
 // Module imports
 import { initDatabase } from './modules/journal/db/database.js';
 import { registerJournalTools } from './modules/journal/tools.js';
+import { registerKronusTools } from './modules/kronus/index.js';
 
 /**
  * Developer Journal MCP Server
@@ -47,11 +48,14 @@ export class UnifiedMCPServer {
     if (this.config.journal) {
       initDatabase(this.config.journal.dbPath);
       registerJournalTools(this.server, this.config.journal);
+
+      // Register Kronus agent tools (requires journal config for AI)
+      registerKronusTools(this.server, this.config.journal);
     } else {
       logger.warn('No journal configuration found. Set JOURNAL_DB_PATH or ANTHROPIC_API_KEY.');
     }
 
-    logger.success('Developer Journal MCP Server initialized (12 tools, 18 resources, 3 prompts)');
+    logger.success('Developer Journal MCP Server initialized (13 tools, 18 resources, 3 prompts)');
   }
 
   async connect() {

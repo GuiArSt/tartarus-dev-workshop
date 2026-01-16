@@ -2026,36 +2026,31 @@ Returns projects with titles, categories, technologies, and metrics.`,
     }
   );
 
-  // Resource: List Linear issues (cached)
+  // Resource: List Linear issues (cached) - YOUR tickets only (filtered by LINEAR_USER_ID during sync)
   server.registerResource(
     'linear-issues',
     'linear://issues',
     {
-      description: 'List all cached Linear issues (historical buffer - includes deleted issues). Rich descriptions and context preserved for AI.',
+      description: 'List your cached Linear issues (synced via Tartarus). Summary view - use linear://issues/{identifier} for full details.',
       mimeType: 'application/json',
     },
     async (uri) => {
       try {
-        const { issues, total } = listLinearIssues({ includeDeleted: true, limit: 100 });
+        const { issues, total } = listLinearIssues({ includeDeleted: false, limit: 100 });
         return {
           contents: [{
             uri: uri.href,
             mimeType: 'application/json',
             text: JSON.stringify({
               total,
-              note: 'Historical buffer - includes deleted issues (is_deleted=true)',
+              note: 'Your tickets only. Sync via Tartarus to update.',
               issues: issues.map(i => ({
-                id: i.id,
                 identifier: i.identifier,
                 title: i.title,
-                description: i.description?.substring(0, 500) + (i.description && i.description.length > 500 ? '...' : ''),
-                state_name: i.state_name,
-                assignee_name: i.assignee_name,
-                project_name: i.project_name,
-                url: i.url,
+                state: i.state_name,
+                project: i.project_name,
                 priority: i.priority,
-                is_deleted: i.is_deleted,
-                synced_at: i.synced_at,
+                url: i.url,
               })),
             }, null, 2),
           }],

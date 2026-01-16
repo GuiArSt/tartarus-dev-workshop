@@ -298,6 +298,25 @@ const createSchema = (handle: Database.Database) => {
     }
   }
 
+  // Migration: Add summary columns to all tables for Kronus indexing
+  const summaryMigrations = [
+    { table: 'journal_entries', column: 'summary TEXT' },
+    { table: 'linear_projects', column: 'summary TEXT' },
+    { table: 'linear_issues', column: 'summary TEXT' },
+    { table: 'entry_attachments', column: 'summary TEXT' },
+  ];
+
+  for (const { table, column } of summaryMigrations) {
+    try {
+      handle.exec(`ALTER TABLE ${table} ADD COLUMN ${column};`);
+      logger.debug(`Added summary column to ${table}`);
+    } catch (error: any) {
+      if (!error.message?.includes('duplicate column')) {
+        logger.warn(`Could not add summary to ${table} (may already exist):`, error.message);
+      }
+    }
+  }
+
   handle.exec(`CREATE INDEX IF NOT EXISTS idx_repository ON journal_entries(repository);`);
   handle.exec(`CREATE INDEX IF NOT EXISTS idx_branch ON journal_entries(repository, branch);`);
   handle.exec(`CREATE INDEX IF NOT EXISTS idx_commit ON journal_entries(commit_hash);`);
@@ -367,6 +386,8 @@ const mapRow = (row: any): JournalEntry => ({
   created_at: row.created_at,
   // Parse files_changed JSON if present
   files_changed: row.files_changed ? JSON.parse(row.files_changed) : null,
+  // AI-generated summary for Kronus indexing
+  summary: row.summary ?? null,
 });
 
 export const insertJournalEntry = (entry: JournalEntryInsert): number => {
@@ -387,15 +408,16 @@ export const insertJournalEntry = (entry: JournalEntryInsert): number => {
     kronus_wisdom: entry.kronus_wisdom ?? null,
     raw_agent_report: entry.raw_agent_report,
     files_changed: entry.files_changed ? JSON.stringify(entry.files_changed) : null,
+    summary: entry.summary ?? null,
   };
 
   const insertStmt = db.prepare(`
     INSERT INTO journal_entries (
       commit_hash, repository, branch, author, date, why, what_changed,
-      decisions, technologies, kronus_wisdom, raw_agent_report, files_changed
+      decisions, technologies, kronus_wisdom, raw_agent_report, files_changed, summary
     ) VALUES (
       @commit_hash, @repository, @branch, @author, @date, @why, @what_changed,
-      @decisions, @technologies, @kronus_wisdom, @raw_agent_report, @files_changed
+      @decisions, @technologies, @kronus_wisdom, @raw_agent_report, @files_changed, @summary
     );
   `);
 
@@ -1463,6 +1485,7 @@ export interface LinearProject {
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
+  summary: string | null;
 }
 
 export interface LinearIssue {
@@ -1486,6 +1509,7 @@ export interface LinearIssue {
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
+  summary: string | null;
 }
 
 const mapLinearProjectRow = (row: any): LinearProject => ({
@@ -1506,6 +1530,7 @@ const mapLinearProjectRow = (row: any): LinearProject => ({
   is_deleted: row.is_deleted === 1,
   created_at: row.created_at,
   updated_at: row.updated_at,
+  summary: row.summary,
 });
 
 const mapLinearIssueRow = (row: any): LinearIssue => ({
@@ -1529,6 +1554,7 @@ const mapLinearIssueRow = (row: any): LinearIssue => ({
   is_deleted: row.is_deleted === 1,
   created_at: row.created_at,
   updated_at: row.updated_at,
+  summary: row.summary,
 });
 
 /**
@@ -1645,7 +1671,7 @@ export const listLinearIssues = (
   const rows = db.prepare(`
     SELECT * FROM linear_issues
     ${whereClause}
-    ORDER BY is_deleted ASC, identifier ASC
+    ORDER BY is_deleted ASC, identifier DESC
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset);
 
