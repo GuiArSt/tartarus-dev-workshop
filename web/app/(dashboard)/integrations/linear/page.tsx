@@ -68,6 +68,7 @@ interface LinearIssue {
     name: string;
   };
   url: string;
+  summary?: string; // AI-generated summary from local DB
 }
 
 interface LinearProject {
@@ -83,6 +84,7 @@ interface LinearProject {
     id: string;
     name: string;
   };
+  summary?: string; // AI-generated summary from local DB
 }
 
 interface LinearViewer {
@@ -392,6 +394,12 @@ export default function LinearPage() {
                             </span>
                           </div>
                           <h3 className="font-medium text-[var(--tartarus-ivory)]">{issue.title}</h3>
+                          {/* AI-generated summary */}
+                          {issue.summary && (
+                            <p className="text-xs text-[var(--tartarus-ivory-muted)] mt-1 line-clamp-2 italic">
+                              {issue.summary}
+                            </p>
+                          )}
                           <div className="text-[var(--tartarus-ivory-faded)] mt-2 flex items-center gap-3 text-xs">
                             <span className="flex items-center gap-1">
                               <Building2 className="h-3 w-3" />
@@ -518,6 +526,12 @@ export default function LinearPage() {
                         <CardDescription className="line-clamp-2 text-[var(--tartarus-ivory-muted)]">
                           {project.description}
                         </CardDescription>
+                      )}
+                      {/* AI-generated summary */}
+                      {project.summary && (
+                        <p className="text-xs text-[var(--tartarus-ivory-muted)] mt-1 line-clamp-2 italic">
+                          {project.summary}
+                        </p>
                       )}
                     </CardHeader>
                     <CardContent>

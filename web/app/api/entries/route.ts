@@ -82,6 +82,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     decisions: entry.decisions,
     technologies: entry.technologies,
     kronus_wisdom: entry.kronusWisdom,
+    summary: entry.summary,
     raw_agent_report: entry.rawAgentReport,
     created_at: entry.createdAt,
     attachment_count: attachmentCounts.get(entry.commitHash) || 0,

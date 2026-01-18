@@ -2710,7 +2710,7 @@ Details: ${data.details}` : "";
                           ) : state?.error ? (
                             <AlertCircle className="text-destructive h-4 w-4" />
                           ) : state?.completed ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <CheckCircle2 className="h-4 w-4 text-[var(--tartarus-success)]" />
                           ) : (
                             <Wrench className="text-muted-foreground h-4 w-4" />
                           )}
@@ -2800,7 +2800,7 @@ Details: ${data.details}` : "";
                                               alert(`❌ Error: ${err.message}`);
                                             }
                                           }}
-                                          className="bg-green-600/80 hover:bg-green-600 text-white text-xs px-2 py-1 rounded"
+                                          className="bg-[var(--tartarus-success)] hover:bg-[var(--tartarus-success)]/80 text-white text-xs px-2 py-1 rounded"
                                         >
                                           💾 Save
                                         </button>
@@ -2829,7 +2829,7 @@ Details: ${data.details}` : "";
                                   className={cn(
                                     "max-h-48 overflow-auto rounded p-2 text-xs border",
                                     state?.error
-                                      ? "bg-red-900/20 border-red-900/50 text-red-300"
+                                      ? "bg-[var(--tartarus-error-soft)] border-[var(--tartarus-error)]/50 text-[var(--tartarus-error)]"
                                       : "bg-[var(--kronus-void)] border-[var(--kronus-border)] text-[var(--kronus-ivory-dim)]"
                                   )}
                                 >
@@ -2942,7 +2942,7 @@ Details: ${data.details}` : "";
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-[var(--tartarus-error)] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <X className="h-3 w-3" />
                         </button>

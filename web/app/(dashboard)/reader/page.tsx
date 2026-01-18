@@ -73,6 +73,7 @@ interface JournalEntry {
   decisions: string;
   technologies: string;
   kronus_wisdom: string | null;
+  summary: string | null;
   created_at: string;
   attachment_count: number;
 }
@@ -653,9 +654,16 @@ What changes would you like to make? You can update any field using the journal_
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-sm text-[var(--tartarus-ivory)] mt-1 line-clamp-2">
-                                    {entry.why.replace(/[#*`]/g, "").substring(0, 150)}...
-                                  </p>
+                                  {/* Index summary - AI-generated for Kronus */}
+                                  {entry.summary ? (
+                                    <p className="text-sm text-[var(--tartarus-ivory)] mt-1 line-clamp-2 italic">
+                                      {entry.summary}
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-[var(--tartarus-ivory)] mt-1 line-clamp-2">
+                                      {entry.why.replace(/[#*`]/g, "").substring(0, 150)}...
+                                    </p>
+                                  )}
                                   {entry.kronus_wisdom && (
                                     <div className="flex items-center gap-1 mt-1 text-xs text-[var(--tartarus-teal)]">
                                       <Sparkles className="h-3 w-3" />
@@ -829,9 +837,16 @@ function TimelineEntries({
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-[var(--tartarus-ivory-muted)] mt-2 line-clamp-2">
-                      {entry.why.replace(/[#*`]/g, "").substring(0, 200)}...
-                    </p>
+                    {/* Index summary - AI-generated for Kronus */}
+                    {entry.summary ? (
+                      <p className="text-sm text-[var(--tartarus-ivory-muted)] mt-2 line-clamp-2 italic">
+                        {entry.summary}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-[var(--tartarus-ivory-muted)] mt-2 line-clamp-2">
+                        {entry.why.replace(/[#*`]/g, "").substring(0, 200)}...
+                      </p>
+                    )}
                     {entry.kronus_wisdom && (
                       <div className="flex items-center gap-1 mt-2 text-xs text-[var(--tartarus-teal)]">
                         <Sparkles className="h-3 w-3" />

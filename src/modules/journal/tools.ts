@@ -116,13 +116,14 @@ const MAX_SAFE_BYTES = 9000; // Conservative limit (10 KiB - buffer)
  * Format entry for display, optionally excluding large fields
  */
 function formatEntrySummary(entry: any, includeRawReport: boolean = false): any {
-  const summary: any = {
+  const formatted: any = {
     id: entry.id,
     commit_hash: entry.commit_hash,
     repository: entry.repository,
     branch: entry.branch,
     author: entry.author,
     date: entry.date,
+    summary: entry.summary, // AI-generated 3-sentence summary for indexing
     why: entry.why,
     what_changed: entry.what_changed,
     decisions: entry.decisions,
@@ -133,14 +134,14 @@ function formatEntrySummary(entry: any, includeRawReport: boolean = false): any 
   };
 
   if (includeRawReport) {
-    summary.raw_agent_report = entry.raw_agent_report;
+    formatted.raw_agent_report = entry.raw_agent_report;
   } else {
-    summary.raw_agent_report_truncated = entry.raw_agent_report
+    formatted.raw_agent_report_truncated = entry.raw_agent_report
       ? `[${entry.raw_agent_report.length} chars - use include_raw_report=true to see full]`
       : null;
   }
 
-  return summary;
+  return formatted;
 }
 
 /**
@@ -1055,15 +1056,24 @@ Returns a paginated index with download URLs that models can fetch directly, avo
   const mcpApiKey = journalConfig.mcpApiKey;
 
   // Helper to fetch from Tartarus API
-  async function fetchTartarus<T>(endpoint: string): Promise<T> {
+  async function fetchTartarus<T>(
+    endpoint: string,
+    options?: {
+      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+      headers?: Record<string, string>;
+      body?: string | object;
+    }
+  ): Promise<T> {
     if (!tartarusUrl) {
       throw new Error('TARTARUS_URL not configured. Set this env var to enable repository access.');
     }
     const url = `${tartarusUrl}${endpoint}`;
-    logger.info(`Fetching from Tartarus: ${url}`);
+    const method = options?.method || 'GET';
+    logger.info(`${method} ${url}`);
 
     const headers: Record<string, string> = {
       'Accept': 'application/json',
+      ...(options?.headers || {}),
     };
 
     // Add MCP API key for authentication if configured
@@ -1071,7 +1081,22 @@ Returns a paginated index with download URLs that models can fetch directly, avo
       headers['X-MCP-API-Key'] = mcpApiKey;
     }
 
-    const response = await fetch(url, { headers });
+    // Handle body
+    let body: string | undefined;
+    if (options?.body) {
+      if (typeof options.body === 'string') {
+        body = options.body;
+      } else {
+        body = JSON.stringify(options.body);
+        headers['Content-Type'] = 'application/json';
+      }
+    }
+
+    const response = await fetch(url, {
+      method,
+      headers,
+      body,
+    });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
@@ -1159,7 +1184,8 @@ Requires TARTARUS_URL to be configured.`,
           type: doc.type,
           title: doc.title,
           language: doc.language,
-          excerpt: doc.content?.substring(0, 200) + (doc.content?.length > 200 ? '...' : ''),
+          summary: doc.summary, // AI-generated summary for indexing
+          excerpt: doc.summary || (doc.content?.substring(0, 200) + (doc.content?.length > 200 ? '...' : '')),
           created_at: doc.createdAt,
           updated_at: doc.updatedAt,
         }));
@@ -1413,7 +1439,342 @@ Returns projects with titles, categories, technologies, and metrics.`,
 
   // Tool 20 removed - use resource repository://portfolio-project/{id} instead
 
-  logger.success('Journal tools registered (7 tools) + Repository tools (5 tools via Tartarus API)');
+  // Fetch current metadata values for schema description (sync before tool registration)
+  let currentTagsDescription = 'Tags are free-form strings for categorization.';
+  let currentTypesDescription = 'Optional secondary category (different from primary type field).';
+  let currentAlsoShownInDescription = 'Array of document types to show this document in multiple tabs.';
+  
+  try {
+    if (tartarusUrl) {
+      const metadataResponse = await fetchTartarus<{ 
+        tags: string[]; 
+        types: string[];
+        alsoShownIn: string[];
+        counts: { tags: number; types: number; alsoShownIn: number };
+      }>('/api/documents/metadata');
+      
+      if (metadataResponse.tags && metadataResponse.tags.length > 0) {
+        currentTagsDescription = `Current tags in use: ${metadataResponse.tags.join(', ')}. Use these for consistency, or add new ones as needed.`;
+      }
+      
+      if (metadataResponse.types && metadataResponse.types.length > 0) {
+        currentTypesDescription = `Current metadata types in use: ${metadataResponse.types.join(', ')}. This is a secondary category field (different from the primary type: writing/prompt/note).`;
+      }
+      
+      if (metadataResponse.alsoShownIn && metadataResponse.alsoShownIn.length > 0) {
+        currentAlsoShownInDescription = `Array of document types to show this document in multiple tabs. Current values in use: ${metadataResponse.alsoShownIn.join(', ')}. Must be valid document types: "writing", "prompt", or "note".`;
+      }
+    }
+  } catch (error) {
+    logger.warn('Failed to fetch metadata for schema description:', error);
+    // Fall back to default descriptions
+  }
+
+  // Tool 21: repository_create_document
+  server.registerTool(
+    'repository_create_document',
+    {
+      title: 'Create Repository Document',
+      description: `Upload and save a document (writing, prompt, or note) to the Tartarus repository database.
+
+## Document Types (Required)
+- **writing**: Creative works, essays, poems, philosophical pieces, fiction
+- **prompt**: System prompts, AI contexts, templates, instructions for AI
+- **note**: Quick notes, reference material, snippets
+
+## Required Fields
+- **title**: Document title
+- **content**: Document content
+- **type**: One of "writing", "prompt", or "note" (default: "writing")
+
+## Optional Fields
+- **slug**: URL-friendly slug (auto-generated from title if not provided)
+- **language**: Language code (default: "en")
+- **tags**: Array of strings for categorization
+- **metadataType**: Secondary category (metadata.type) - free-form string for additional categorization beyond primary type
+- **writtenDate**: Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15" (year, year-month, or full date)
+
+## Tags
+${currentTagsDescription}
+
+## Metadata Structure
+Documents have a two-level categorization system:
+- **Primary Type** (required): `type` field - must be "writing", "prompt", or "note"
+- **Secondary Category** (optional): `metadata.type` field - free-form string for additional categorization
+- **Tags** (optional): `metadata.tags` array - array of strings for flexible categorization
+- **Written Date** (optional): `metadata.writtenDate` - when document was originally written (normalized format)
+
+## Secondary Category (metadata.type)
+${currentTypesDescription}
+
+## Written Date
+Use `writtenDate` field for when the document was originally written. Format: "2024" (year), "2024-03" (year-month), or "2024-03-15" (full date). Legacy `year` field is automatically migrated to `writtenDate`.
+
+## AI Summary Generation
+**IMPORTANT**: This tool automatically generates an AI summary for Kronus indexing after creating the document.
+The summary is a dense 3-sentence description used by Kronus for quick retrieval without reading full content.
+This happens automatically - no additional step needed.
+
+## Slug Generation
+If \`slug\` is not provided, it will be auto-generated from the title (lowercase, alphanumeric with dashes).
+
+## Example Usage
+- Save a poem: \`{ type: "writing", title: "My Poem", content: "...", tags: ["poem", "philosophy"] }\`
+- Save a prompt: \`{ type: "prompt", title: "System Prompt", content: "...", tags: ["prompt", "ai"] }\`
+- Save a note: \`{ type: "note", title: "Quick Note", content: "...", tags: ["reference"] }\`
+- Multi-tab document: \`{ type: "writing", title: "...", content: "...", alsoShownIn: ["writing", "prompt"] }\`
+
+Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
+      inputSchema: {
+        title: z.string().min(1).describe('Document title (required)'),
+        content: z.string().min(1).describe('Document content (required)'),
+        type: z.enum(['writing', 'prompt', 'note']).default('writing').describe('Primary document type (default: writing)'),
+        slug: z.string().optional().describe('URL-friendly slug (auto-generated from title if not provided)'),
+        language: z.string().optional().default('en').describe('Language code (default: en)'),
+        tags: z.array(z.string()).optional().default([]).describe('Array of tags for categorization'),
+        metadataType: z.string().optional().describe('Secondary category (metadata.type) - free-form string for additional categorization beyond primary type'),
+        writtenDate: z.string().optional().describe('Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15" (year, year-month, or full date)'),
+      },
+    },
+    async ({ title, content, type, slug, language, tags, metadataType, writtenDate }) => {
+      try {
+        // Build metadata object from simplified fields
+        const metadata: Record<string, unknown> = {};
+        if (tags && tags.length > 0) {
+          metadata.tags = tags;
+        }
+        if (metadataType && metadataType.trim().length > 0) {
+          metadata.type = metadataType.trim();
+        }
+        if (writtenDate && writtenDate.trim().length > 0) {
+          metadata.writtenDate = writtenDate.trim();
+        }
+
+        const payload = {
+          title,
+          content,
+          type: type || 'writing',
+          language: language || 'en',
+          metadata,
+        };
+
+        // Add slug if provided
+        if (slug) {
+          (payload as any).slug = slug;
+        }
+
+        const response = await fetchTartarus<{
+          id: number;
+          slug: string;
+          type: string;
+          title: string;
+          content: string;
+          language: string;
+          metadata: Record<string, unknown>;
+          summary: string | null;
+          created_at: string;
+          updated_at: string;
+        }>('/api/documents', {
+          method: 'POST',
+          body: payload,
+        });
+
+        // Automatically generate AI summary for Kronus indexing
+        let summaryGenerated = false;
+        let summary: string | null = null;
+        if (response.id && content.length > 20) {
+          try {
+              const summaryResponse = await fetchTartarus<{ summary: string; type: string }>('/api/ai/summarize', {
+              method: 'POST',
+              body: {
+                type: 'document',
+                content: content,
+                title: title,
+                metadata: {
+                  tags: tags || [],
+                  type: metadataType || undefined,
+                  writtenDate: writtenDate || undefined,
+                },
+              },
+            });
+
+            if (summaryResponse.summary) {
+              summary = summaryResponse.summary;
+              // Update document with summary via PUT endpoint
+              await fetchTartarus(`/api/documents/${response.slug}`, {
+                method: 'PUT',
+                body: {
+                  summary: summary,
+                  // Preserve existing metadata
+                  metadata: {
+                    tags: tags || [],
+                    type: metadataType || undefined,
+                    writtenDate: writtenDate || undefined,
+                  },
+                },
+              });
+              summaryGenerated = true;
+            }
+          } catch (summaryError) {
+            logger.warn('Failed to generate summary for document:', summaryError);
+            // Don't fail the whole operation if summary generation fails
+          }
+        }
+
+        const responseText: any = {
+          id: response.id,
+          slug: response.slug,
+          type: response.type,
+          title: response.title,
+          language: response.language,
+          created_at: response.created_at,
+          url: `${tartarusUrl}/repository/${response.slug}`,
+        };
+
+        if (summaryGenerated && summary) {
+          responseText.summary = summary;
+          responseText.summary_note = 'AI summary generated for Kronus indexing';
+        } else if (!summaryGenerated) {
+          responseText.summary_note = 'Summary generation skipped (content too short or generation failed)';
+        }
+
+        const text = `✅ Document created successfully\n\n${JSON.stringify(responseText, null, 2)}`;
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: truncateOutput(text),
+            },
+          ],
+        };
+      } catch (error) {
+        throw toMcpError(error);
+      }
+    }
+  );
+
+  // Tool 22: repository_upload_media
+  server.registerTool(
+    'repository_upload_media',
+    {
+      title: 'Upload Media Asset',
+      description: `Upload an image or media file to the Tartarus repository database.
+
+## Upload Methods
+1. **From URL**: Provide \`url\` parameter - file will be downloaded and stored
+2. **From Base64**: Provide \`data\` parameter (base64-encoded file)
+
+## Destinations
+- **repository**: Linked to a document (requires \`document_id\`)
+- **journal**: Linked to a journal entry (requires \`commit_hash\`)
+- **media**: Standalone media asset (default)
+- **portfolio**: Linked to a portfolio project (requires \`portfolio_project_id\`)
+
+## Linking Media
+- Link to document: Set \`document_id\` and \`destination: "repository"\`
+- Link to journal entry: Set \`commit_hash\` and \`destination: "journal"\`
+- Link to portfolio: Set \`portfolio_project_id\` and \`destination: "portfolio"\`
+
+## Metadata
+- **description**: Human-readable description
+- **alt**: Alt text for accessibility (images)
+- **tags**: Array of tags for categorization
+- **prompt**: AI generation prompt (if AI-generated)
+- **model**: AI model used (if AI-generated)
+
+## Example Usage
+- Upload image from URL: \`{ filename: "image.png", url: "https://...", destination: "media" }\`
+- Upload base64 image: \`{ filename: "image.png", data: "base64...", destination: "repository", document_id: 123 }\`
+- Link to journal entry: \`{ filename: "screenshot.png", url: "...", destination: "journal", commit_hash: "abc1234" }\`
+
+Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
+      inputSchema: {
+        filename: z.string().min(1).describe('Filename (e.g., "image.png", "diagram.svg")'),
+        url: z.string().url().optional().describe('URL to download file from (either url or data required)'),
+        data: z.string().optional().describe('Base64-encoded file data (either url or data required)'),
+        description: z.string().optional().describe('Human-readable description'),
+        alt: z.string().optional().describe('Alt text for accessibility (images)'),
+        tags: z.array(z.string()).optional().default([]).describe('Array of tags for categorization'),
+        prompt: z.string().optional().describe('AI generation prompt (if AI-generated)'),
+        model: z.string().optional().describe('AI model used (if AI-generated)'),
+        destination: z.enum(['journal', 'repository', 'media', 'portfolio']).default('media').describe('Where this media belongs'),
+        commit_hash: z.string().optional().describe('Link to journal entry (for destination: journal)'),
+        document_id: z.number().optional().describe('Link to document (for destination: repository)'),
+        portfolio_project_id: z.string().optional().describe('Link to portfolio project (for destination: portfolio)'),
+      },
+    },
+    async ({ filename, url, data, description, alt, tags, prompt, model, destination, commit_hash, document_id, portfolio_project_id }) => {
+      try {
+        // Validate that either url or data is provided
+        if (!url && !data) {
+          throw new Error('Either url or data must be provided');
+        }
+
+        const payload: any = {
+          filename,
+          destination: destination || 'media',
+          tags: tags || [],
+        };
+
+        if (url) {
+          payload.url = url;
+        } else if (data) {
+          payload.data = data;
+        }
+
+        if (description) payload.description = description;
+        if (alt) payload.alt = alt;
+        if (prompt) payload.prompt = prompt;
+        if (model) payload.model = model;
+        if (commit_hash) payload.commit_hash = commit_hash;
+        if (document_id) payload.document_id = document_id;
+        if (portfolio_project_id) payload.portfolio_project_id = portfolio_project_id;
+
+        const response = await fetchTartarus<{
+          id: number;
+          filename: string;
+          mime_type: string;
+          file_size: number;
+          destination: string;
+          commit_hash?: string;
+          document_id?: number;
+          portfolio_project_id?: string;
+          created_at: string;
+          message: string;
+        }>('/api/media', {
+          method: 'POST',
+          body: payload,
+        });
+
+        const text = `✅ Media uploaded successfully\n\n${JSON.stringify({
+          id: response.id,
+          filename: response.filename,
+          mime_type: response.mime_type,
+          file_size: response.file_size,
+          destination: response.destination,
+          commit_hash: response.commit_hash,
+          document_id: response.document_id,
+          portfolio_project_id: response.portfolio_project_id,
+          created_at: response.created_at,
+          download_url: `${tartarusUrl}/api/media/${response.id}/raw`,
+        }, null, 2)}`;
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: truncateOutput(text),
+            },
+          ],
+        };
+      } catch (error) {
+        throw toMcpError(error);
+      }
+    }
+  );
+
+  logger.success('Journal tools registered (7 tools) + Repository tools (7 tools via Tartarus API)');
 
   // ============================================
   // MCP Resources - Expose journal data as resources
@@ -1792,6 +2153,46 @@ Returns projects with titles, categories, technologies, and metrics.`,
     }
   );
 
+  // Resource: Get all tags
+  server.registerResource(
+    'repository-tags',
+    'repository://tags',
+    {
+      description: 'Get all unique tags currently used in repository documents. Returns a sorted list of all tags for easy reference when creating new documents.',
+      mimeType: 'application/json',
+    },
+    async (uri) => {
+      try {
+        const response = await fetchTartarusForResource<{
+          tags: string[];
+          count: number;
+        }>('/api/documents/tags');
+        
+        return {
+          contents: [{
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify({
+              tags: response.tags,
+              count: response.count,
+              note: 'Use these tags when creating documents to maintain consistency',
+            }, null, 2),
+          }],
+        };
+      } catch (error) {
+        return {
+          contents: [{
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify({ 
+              error: `Failed to fetch tags: ${error instanceof Error ? error.message : 'Unknown error'}` 
+            }),
+          }],
+        };
+      }
+    }
+  );
+
   // Resource Template: List documents by type
   server.registerResource(
     'repository-documents-by-type',
@@ -1847,7 +2248,8 @@ Returns projects with titles, categories, technologies, and metrics.`,
                 type: doc.type,
                 title: doc.title,
                 language: doc.language,
-                excerpt: doc.content?.substring(0, 200) + (doc.content?.length > 200 ? '...' : ''),
+                summary: doc.summary, // AI-generated summary for indexing
+                excerpt: doc.summary || (doc.content?.substring(0, 200) + (doc.content?.length > 200 ? '...' : '')),
                 created_at: doc.createdAt,
                 updated_at: doc.updatedAt,
               })),
@@ -1968,9 +2370,10 @@ Returns projects with titles, categories, technologies, and metrics.`,
                 state: p.state,
                 progress: p.progress,
                 url: p.url,
-                lead_name: p.lead_name,
-                is_deleted: p.is_deleted,
-                synced_at: p.synced_at,
+                leadName: p.leadName,
+                isDeleted: p.isDeleted,
+                syncedAt: p.syncedAt,
+                summary: p.summary, // AI-generated summary for indexing
               })),
             }, null, 2),
           }],
@@ -2036,7 +2439,7 @@ Returns projects with titles, categories, technologies, and metrics.`,
     },
     async (uri) => {
       try {
-        const { issues, total } = listLinearIssues({ includeDeleted: false, limit: 100 });
+        const { issues, total } = listLinearIssues({ includeDeleted: false, limit: 250 });
         return {
           contents: [{
             uri: uri.href,
@@ -2047,10 +2450,11 @@ Returns projects with titles, categories, technologies, and metrics.`,
               issues: issues.map(i => ({
                 identifier: i.identifier,
                 title: i.title,
-                state: i.state_name,
-                project: i.project_name,
+                state: i.stateName,
+                project: i.projectName,
                 priority: i.priority,
                 url: i.url,
+                summary: i.summary, // AI-generated summary for indexing
               })),
             }, null, 2),
           }],

@@ -173,7 +173,7 @@ export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { sk
                 <button
                   type="button"
                   onClick={() => removeTag(tag)}
-                  className="ml-1 hover:text-red-600 focus:outline-none"
+                  className="ml-1 hover:text-[var(--tartarus-error)] focus:outline-none"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -518,7 +518,7 @@ export function PortfolioProjectEditForm({
                 <button
                   type="button"
                   onClick={() => removeTech(tech)}
-                  className="ml-1 hover:text-red-600 focus:outline-none"
+                  className="ml-1 hover:text-[var(--tartarus-error)] focus:outline-none"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -562,7 +562,7 @@ export function PortfolioProjectEditForm({
                 <button
                   type="button"
                   onClick={() => removeTag(tag)}
-                  className="ml-1 hover:text-red-600 focus:outline-none"
+                  className="ml-1 hover:text-[var(--tartarus-error)] focus:outline-none"
                 >
                   <X className="h-3 w-3" />
                 </button>

@@ -35,16 +35,16 @@ export interface SoulConfig {
 }
 
 export const DEFAULT_SOUL_CONFIG: SoulConfig = {
-  writings: true,
-  portfolioProjects: true,
-  skills: true,
-  workExperience: true,
-  education: true,
-  journalEntries: true,
-  // Linear context - enabled by default
-  linearProjects: true,
-  linearIssues: true,
-  linearIncludeCompleted: false, // Only active items by default
+  writings: true,           // Only writings by default - the soul's creative voice
+  portfolioProjects: false, // Can be enabled via Soul Config
+  skills: false,            // Can be enabled via Soul Config
+  workExperience: false,    // Can be enabled via Soul Config
+  education: false,         // Can be enabled via Soul Config
+  journalEntries: false,    // Can be enabled via Soul Config
+  // Linear context - disabled by default
+  linearProjects: false,    // Can be enabled via Soul Config
+  linearIssues: false,      // Can be enabled via Soul Config
+  linearIncludeCompleted: false, // Only active items when enabled
 };
 
 /**

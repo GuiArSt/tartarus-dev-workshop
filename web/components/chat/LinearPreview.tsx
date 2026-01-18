@@ -13,19 +13,21 @@ import {
   FileText,
 } from "lucide-react";
 
-// Linear-style colors
+// Tartarus-themed colors for Linear previews
 const COLORS = {
-  bg: "#1a1a2e",
-  surface: "#16213e",
-  border: "#2a2a4a",
-  text: "#e8e6e3",
-  muted: "#888",
-  purple: "#8b5cf6",
-  blue: "#3b82f6",
-  green: "#22c55e",
-  yellow: "#eab308",
-  orange: "#f97316",
-  red: "#ef4444",
+  bg: "var(--tartarus-surface)",
+  surface: "var(--tartarus-deep)",
+  border: "var(--tartarus-border)",
+  text: "var(--tartarus-ivory)",
+  muted: "var(--tartarus-ivory-muted)",
+  // Using Tartarus palette instead of Linear purple
+  accent: "var(--tartarus-teal)",
+  accentDim: "var(--tartarus-teal-dim)",
+  blue: "var(--tartarus-teal)",
+  green: "var(--tartarus-success)",
+  yellow: "var(--tartarus-warning)",
+  orange: "var(--tartarus-warning)",
+  red: "var(--tartarus-error)",
 };
 
 // Priority colors and labels (Linear style)
@@ -85,26 +87,26 @@ const linearMarkdownComponents = {
   li: ({ children }: any) => <li className="text-white/70">{children}</li>,
   code: ({ inline, children }: any) =>
     inline ? (
-      <code className="px-1.5 py-0.5 rounded bg-white/10 text-purple-300 font-mono text-sm">
+      <code className="px-1.5 py-0.5 rounded bg-[var(--tartarus-elevated)] text-[var(--tartarus-teal)] font-mono text-sm">
         {children}
       </code>
     ) : (
-      <code className="block p-3 rounded bg-black/30 text-white/80 font-mono text-sm overflow-x-auto">
+      <code className="block p-3 rounded bg-[var(--tartarus-void)] text-[var(--tartarus-ivory-dim)] font-mono text-sm overflow-x-auto">
         {children}
       </code>
     ),
   pre: ({ children }: any) => (
-    <pre className="my-3 rounded-lg bg-black/30 overflow-x-auto">{children}</pre>
+    <pre className="my-3 rounded-lg bg-[var(--tartarus-void)] overflow-x-auto">{children}</pre>
   ),
   blockquote: ({ children }: any) => (
-    <blockquote className="my-3 pl-4 border-l-2 border-purple-500/50 text-white/60 italic">
+    <blockquote className="my-3 pl-4 border-l-2 border-[var(--tartarus-teal-dim)] text-[var(--tartarus-ivory-muted)] italic">
       {children}
     </blockquote>
   ),
   a: ({ href, children }: any) => (
     <a
       href={href}
-      className="text-purple-400 hover:text-purple-300 underline underline-offset-2"
+      className="text-[var(--tartarus-teal)] hover:text-[var(--tartarus-gold)] underline underline-offset-2"
       target="_blank"
       rel="noopener noreferrer"
     >
@@ -161,8 +163,8 @@ export const LinearIssuePreview = memo(function LinearIssuePreview({
         className="px-4 py-3 flex items-center gap-3"
         style={{ backgroundColor: COLORS.surface, borderBottom: `1px solid ${COLORS.border}` }}
       >
-        <div className="w-6 h-6 rounded flex items-center justify-center bg-purple-500/20">
-          <AlertCircle className="w-4 h-4 text-purple-400" />
+        <div className="w-6 h-6 rounded flex items-center justify-center bg-[var(--tartarus-teal-soft)]">
+          <AlertCircle className="w-4 h-4 text-[var(--tartarus-teal)]" />
         </div>
         <span className="text-xs font-medium text-white/40 uppercase tracking-wide">
           New Issue Preview
@@ -195,7 +197,7 @@ export const LinearIssuePreview = memo(function LinearIssuePreview({
 
           {/* Project */}
           {projectId && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-blue-500/10 text-blue-400">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
               <FileText className="w-3.5 h-3.5" />
               <span className="font-mono text-xs">{projectId.substring(0, 8)}...</span>
             </div>
@@ -253,8 +255,8 @@ export const LinearProjectPreview = memo(function LinearProjectPreview({
         className="px-4 py-3 flex items-center gap-3"
         style={{ backgroundColor: COLORS.surface, borderBottom: `1px solid ${COLORS.border}` }}
       >
-        <div className="w-6 h-6 rounded flex items-center justify-center bg-blue-500/20">
-          <FolderKanban className="w-4 h-4 text-blue-400" />
+        <div className="w-6 h-6 rounded flex items-center justify-center bg-[var(--tartarus-teal-soft)]">
+          <FolderKanban className="w-4 h-4 text-[var(--tartarus-teal)]" />
         </div>
         <span className="text-xs font-medium text-white/40 uppercase tracking-wide">
           New Project Preview
@@ -286,7 +288,7 @@ export const LinearProjectPreview = memo(function LinearProjectPreview({
 
           {/* Start date */}
           {startDate && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-500/10 text-green-400">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--tartarus-success-soft)] text-[var(--tartarus-success)]">
               <Calendar className="w-3.5 h-3.5" />
               <span>Start: {startDate}</span>
             </div>
@@ -294,7 +296,7 @@ export const LinearProjectPreview = memo(function LinearProjectPreview({
 
           {/* Target date */}
           {targetDate && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-orange-500/10 text-orange-400">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--tartarus-warning-soft)] text-[var(--tartarus-warning)]">
               <Flag className="w-3.5 h-3.5" />
               <span>Target: {targetDate}</span>
             </div>

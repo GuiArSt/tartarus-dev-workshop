@@ -34,9 +34,17 @@ function slugify(text: string): string {
 
 function parseDocumentMetadata(doc: DocumentRow): Omit<DocumentRow, 'metadata'> & { metadata: Record<string, unknown> } {
   try {
+    const metadata = JSON.parse(doc.metadata || "{}") as Record<string, unknown>;
+    
+    // Normalize: migrate legacy 'year' field to 'writtenDate' if needed
+    if (metadata.year && !metadata.writtenDate) {
+      metadata.writtenDate = metadata.year;
+      delete metadata.year;
+    }
+    
     return {
       ...doc,
-      metadata: JSON.parse(doc.metadata || "{}") as Record<string, unknown>,
+      metadata,
     };
   } catch {
     return {
@@ -110,11 +118,12 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
   const { slug } = await params;
   const db = getDatabase();
   const body = await request.json();
-  const { title, content, type, metadata } = body as {
+  const { title, content, type, metadata, summary } = body as {
     title?: string;
     content?: string;
     type?: "writing" | "prompt" | "note";
     metadata?: Record<string, unknown>;
+    summary?: string | null;
   };
 
   const isNumericId = /^\d+$/.test(slug);
@@ -124,7 +133,7 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
   }
 
   const updates: string[] = [];
-  const values: (string | number)[] = [];
+  const values: (string | number | null)[] = [];
 
   if (title !== undefined) {
     updates.push("title = ?");
@@ -153,8 +162,23 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
   }
 
   if (metadata !== undefined) {
+    // Normalize: migrate legacy 'year' field to 'writtenDate' if needed
+    const normalizedMetadata = { ...metadata };
+    if (normalizedMetadata.year && !normalizedMetadata.writtenDate) {
+      normalizedMetadata.writtenDate = normalizedMetadata.year;
+      delete normalizedMetadata.year;
+    } else if (normalizedMetadata.year) {
+      // If both exist, prefer writtenDate and remove year
+      delete normalizedMetadata.year;
+    }
+    
     updates.push("metadata = ?");
-    values.push(JSON.stringify(metadata));
+    values.push(JSON.stringify(normalizedMetadata));
+  }
+
+  if (summary !== undefined) {
+    updates.push("summary = ?");
+    values.push(summary);
   }
 
   updates.push("updated_at = CURRENT_TIMESTAMP");

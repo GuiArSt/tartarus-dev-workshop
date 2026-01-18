@@ -95,7 +95,7 @@ export type DocumentQueryParams = z.infer<typeof documentQuerySchema>;
  */
 export const createDocumentSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes"),
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes").optional(),
   type: z.enum(["writing", "prompt", "note"]).default("writing"),
   content: z.string().min(1, "Content is required"),
   language: z.string().default("en"),

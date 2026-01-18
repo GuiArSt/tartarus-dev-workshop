@@ -8,13 +8,23 @@
  */
 
 import { anthropic } from '@ai-sdk/anthropic';
-import { generateText } from 'ai';
+import { generateText, tool } from 'ai';
+import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
 import { logger } from '../../shared/logger.js';
 import type { JournalConfig } from '../../shared/types.js';
+import {
+  startTrace,
+  startSpan,
+  endSpan,
+  endTrace,
+  storeKronusChat,
+  calculateCost,
+  getCurrentTraceId,
+} from '../../shared/observability.js';
 import type {
   KronusAskInput,
   KronusResponse,
@@ -32,6 +42,10 @@ import {
   getAttachmentMetadataByCommit,
   listLinearProjects,
   listLinearIssues,
+  getEntryByCommit,
+  getProjectSummary,
+  getLinearIssue,
+  getLinearProject,
 } from '../journal/db/database.js';
 
 /**
@@ -267,28 +281,169 @@ function formatIndexForPrompt(index: SummariesIndex): string {
 }
 
 /**
+ * Fetch a specific document from Tartarus API
+ */
+async function fetchDocument(slug: string): Promise<string | null> {
+  try {
+    const tartarusUrl = process.env.TARTARUS_URL || 'http://localhost:3000';
+    const response = await fetch(`${tartarusUrl}/api/documents/${slug}`);
+    if (!response.ok) return null;
+    const doc = await response.json();
+    return `# ${doc.title}\n\nType: ${doc.type}\n\n${doc.content}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Create deep mode tools for specific content retrieval
+ */
+function createDeepModeTools() {
+  return {
+    readJournalEntry: tool({
+      description: 'Read full content of a specific journal entry by commit hash. Use when summary lacks detail.',
+      parameters: z.object({
+        commit_hash: z.string().min(7).describe('The commit hash (7+ chars)'),
+      }),
+      execute: async ({ commit_hash }) => {
+        const entry = getEntryByCommit(commit_hash);
+        if (!entry) return { error: `Entry not found: ${commit_hash}` };
+        return {
+          commit_hash: entry.commit_hash,
+          repository: entry.repository,
+          branch: entry.branch,
+          date: entry.date,
+          why: entry.why,
+          what_changed: entry.what_changed,
+          decisions: entry.decisions,
+          files_changed: entry.files_changed,
+          raw_agent_report: entry.raw_agent_report?.substring(0, 2000), // Limit size
+        };
+      },
+    }),
+
+    readProjectSummary: tool({
+      description: 'Read full Entry 0 (project summary) for a repository. Use for architecture, tech stack, patterns.',
+      parameters: z.object({
+        repository: z.string().describe('Repository name'),
+      }),
+      execute: async ({ repository }) => {
+        const summary = getProjectSummary(repository);
+        if (!summary) return { error: `No project summary for: ${repository}` };
+        return {
+          repository: summary.repository,
+          summary: summary.summary,
+          purpose: summary.purpose,
+          architecture: summary.architecture,
+          technologies: summary.technologies,
+          status: summary.status,
+          file_structure: summary.file_structure,
+          tech_stack: summary.tech_stack,
+          frontend: summary.frontend,
+          backend: summary.backend,
+          database_info: summary.database_info,
+          services: summary.services,
+          patterns: summary.patterns,
+          commands: summary.commands,
+          extended_notes: summary.extended_notes,
+        };
+      },
+    }),
+
+    readLinearIssue: tool({
+      description: 'Read full Linear issue details by identifier (e.g., ENG-123).',
+      parameters: z.object({
+        identifier: z.string().describe('Linear issue identifier (e.g., ENG-123)'),
+      }),
+      execute: async ({ identifier }) => {
+        const issue = getLinearIssue(identifier);
+        if (!issue) return { error: `Issue not found: ${identifier}` };
+        return {
+          identifier: issue.identifier,
+          title: issue.title,
+          description: issue.description,
+          stateName: issue.stateName,
+          priority: issue.priority,
+          projectName: issue.projectName,
+          teamName: issue.teamName,
+          assigneeName: issue.assigneeName,
+          url: issue.url,
+        };
+      },
+    }),
+
+    readLinearProject: tool({
+      description: 'Read full Linear project details by ID.',
+      parameters: z.object({
+        id: z.string().describe('Linear project ID'),
+      }),
+      execute: async ({ id }) => {
+        const project = getLinearProject(id);
+        if (!project) return { error: `Project not found: ${id}` };
+        return {
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          content: project.content,
+          state: project.state,
+          progress: project.progress,
+          leadName: project.leadName,
+          url: project.url,
+        };
+      },
+    }),
+
+    readDocument: tool({
+      description: 'Read full document content from repository (writings, prompts, notes) by slug.',
+      parameters: z.object({
+        slug: z.string().describe('Document slug'),
+      }),
+      execute: async ({ slug }) => {
+        const content = await fetchDocument(slug);
+        if (!content) return { error: `Document not found: ${slug}` };
+        return { content };
+      },
+    }),
+  };
+}
+
+/**
  * Ask Kronus a question using the summaries index
+ *
+ * AI SDK 6.0 pattern: generateText with optional tools for deep mode
  */
 export async function askKronus(
   input: KronusAskInput,
   config: JournalConfig
 ): Promise<KronusResponse> {
   const { question, repository, depth = 'quick' } = input;
+  const startTime = Date.now();
+
+  // Start observability trace
+  const traceContext = startTrace('kronus_ask', {
+    question: question.substring(0, 100),
+    repository,
+    depth,
+  });
 
   logger.info(`Kronus receiving question: "${question}" (depth: ${depth}, repo: ${repository || 'all'})`);
 
   // Build summaries index
+  const indexSpanId = startSpan('build_summaries_index', { type: 'span' });
   const index = await buildSummariesIndex(repository);
   const formattedIndex = formatIndexForPrompt(index);
+  endSpan(indexSpanId, {
+    output: {
+      projects: index.projectSummaries.length,
+      entries: index.journalEntries.length,
+      issues: index.linearIssues.length,
+    },
+  });
 
   // Minimal Kronus soul for oracle mode
   const kronusSoul = loadKronusSoulMinimal();
 
-  const systemPrompt = `${kronusSoul}
-
-## Your Knowledge Index
-${formattedIndex}
-
+  const baseInstructions = `
 ## Instructions
 - Answer the question using the knowledge index above
 - Entry 0 (project_summaries) may be outdated - cross-check with recent journal entries dates
@@ -296,31 +451,100 @@ ${formattedIndex}
 - Cite sources by identifier (commit_hash, slug, ENG-XXX, project name)
 - For dates, note recency - newest entries are most accurate for current state
 - If the index doesn't have enough information, say so clearly
-- Do not make up information not in the index
+- Do not make up information not in the index`;
 
-## Depth Mode: ${depth}
-${depth === 'quick'
-    ? 'Quick mode: Answer using summaries only. Do not request additional information.'
-    : 'Deep mode: You may request to read full content if summaries are insufficient.'}
-`;
+  const depthInstructions =
+    depth === 'quick'
+      ? '\n\n## Mode: Quick\nAnswer using summaries only. Do not request additional information.'
+      : `\n\n## Mode: Deep
+You have tools to read SPECIFIC items in full when summaries lack detail:
+- **readJournalEntry(commit_hash)**: Full entry with why, what_changed, decisions, files_changed
+- **readProjectSummary(repository)**: Full Entry 0 with architecture, tech_stack, patterns, etc.
+- **readLinearIssue(identifier)**: Full issue description, assignee, team, URL
+- **readLinearProject(id)**: Full project description, content, progress, lead
+- **readDocument(slug)**: Full document content (writings, prompts, notes)
+
+Use tools SELECTIVELY - only when the summary above doesn't answer the question.`;
+
+  const systemPrompt = `${kronusSoul}
+
+## Your Knowledge Index
+${formattedIndex}
+${baseInstructions}${depthInstructions}`;
 
   // Set API key for Anthropic
   const originalKey = process.env.ANTHROPIC_API_KEY;
+  const modelName = 'claude-haiku-4-5';
+
   try {
     process.env.ANTHROPIC_API_KEY = config.aiApiKey;
 
+    // Start generation span
+    const genSpanId = startSpan('kronus_generation', {
+      type: 'generation',
+      model: modelName,
+      input: { question, depth },
+    });
+
     // Use Haiku for fast, efficient responses
-    const model = anthropic('claude-haiku-4-5');
+    const model = anthropic(modelName);
+
+    // Deep mode: provide tools for specific content retrieval
+    const tools = depth === 'deep' ? createDeepModeTools() : undefined;
 
     const result = await generateText({
       model,
       system: systemPrompt,
       prompt: question,
       temperature: 0.5, // Lower temp for factual accuracy
+      tools,
+      maxSteps: depth === 'deep' ? 5 : 1, // Allow tool use iterations in deep mode
+    });
+
+    // Extract token usage from result
+    const inputTokens = result.usage?.promptTokens ?? 0;
+    const outputTokens = result.usage?.completionTokens ?? 0;
+
+    // End generation span
+    endSpan(genSpanId, {
+      output: { text: result.text.substring(0, 200) },
+      inputTokens,
+      outputTokens,
     });
 
     // Extract sources from the answer (look for identifiers mentioned)
     const sources = extractSources(result.text, index);
+
+    // Calculate cost
+    const cost = calculateCost(modelName, inputTokens, outputTokens);
+    const latencyMs = Date.now() - startTime;
+
+    // Extract tool calls for storage
+    const toolCalls = result.steps?.flatMap((step) =>
+      step.toolCalls?.map((tc) => ({
+        name: tc.toolName,
+        args: tc.args,
+      })) ?? []
+    );
+
+    // Store chat in database
+    storeKronusChat({
+      trace_id: traceContext.traceId,
+      question,
+      answer: result.text,
+      repository,
+      depth,
+      sources,
+      tool_calls: toolCalls?.length ? toolCalls : undefined,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      latency_ms: latencyMs,
+      cost_usd: cost,
+      status: 'success',
+    });
+
+    // End trace
+    endTrace();
 
     // Restore API key
     if (originalKey !== undefined) process.env.ANTHROPIC_API_KEY = originalKey;
@@ -332,12 +556,30 @@ ${depth === 'quick'
       depth_used: depth,
     };
   } catch (error) {
+    const latencyMs = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Store failed chat
+    storeKronusChat({
+      trace_id: traceContext.traceId,
+      question,
+      answer: '',
+      repository,
+      depth,
+      latency_ms: latencyMs,
+      status: 'error',
+      error_message: errorMessage,
+    });
+
+    // End trace with error
+    endTrace({ error: error instanceof Error ? error : String(error) });
+
     // Restore API key on error
     if (originalKey !== undefined) process.env.ANTHROPIC_API_KEY = originalKey;
     else delete process.env.ANTHROPIC_API_KEY;
 
     logger.error('Kronus agent error:', error);
-    throw new Error(`Kronus failed to answer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(`Kronus failed to answer: ${errorMessage}`);
   }
 }
 

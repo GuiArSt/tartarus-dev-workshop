@@ -6,6 +6,7 @@ export function middleware(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname === "/login";
   const isApiAuth = request.nextUrl.pathname.startsWith("/api/auth");
   const isHealthCheck = request.nextUrl.pathname === "/api/health";
+  const isAiSummarize = request.nextUrl.pathname.startsWith("/api/ai/");
   const isMcpResources = request.nextUrl.pathname.startsWith("/api/mcp");
   const isAttachmentDownload = request.nextUrl.pathname.match(/^\/api\/attachments\/\d+\/raw$/);
 
@@ -21,8 +22,8 @@ export function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/media")
   );
 
-  // Allow auth API, health check, MCP resources, attachment downloads, and MCP repository access
-  if (isApiAuth || isHealthCheck || isMcpResources || isAttachmentDownload || isMcpRepositoryAccess) {
+  // Allow auth API, health check, AI endpoints, MCP resources, attachment downloads, and MCP repository access
+  if (isApiAuth || isHealthCheck || isAiSummarize || isMcpResources || isAttachmentDownload || isMcpRepositoryAccess) {
     return NextResponse.next();
   }
 

@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, FileText, Code, Briefcase, GraduationCap, BookOpen, Calendar, Edit, Tag, Cpu, Palette, Database, Server, PenTool, Users, Plus, Trash2, Settings, X, Layers, ExternalLink, Star } from "lucide-react";
+import { Search, FileText, Code, Briefcase, GraduationCap, BookOpen, Calendar, Edit, Tag, Cpu, Palette, Database, Server, PenTool, Users, Plus, Trash2, Settings, X, Layers, ExternalLink, Star, ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatMonthYear } from "@/lib/utils";
 import { SkillEditForm, ExperienceEditForm, EducationEditForm, PortfolioProjectEditForm } from "@/components/repository/CVEditForms";
@@ -154,6 +154,7 @@ interface Document {
   metadata: any;
   created_at: string;
   updated_at: string;
+  summary?: string; // AI-generated summary for Kronus indexing
 }
 
 interface Skill {
@@ -255,6 +256,9 @@ export default function RepositoryPage() {
   const [deletingDocType, setDeletingDocType] = useState(false);
   const [documentTypes, setDocumentTypes] = useState<Array<{ id: string; name: string; description: string; color: string; icon: string; sortOrder: number }>>([]);
 
+  // Expanded summaries state - tracks which document IDs have expanded summaries
+  const [expandedSummaries, setExpandedSummaries] = useState<Set<number>>(new Set());
+
   // Navigate to chat to EDIT a document with Kronus
   const editDocumentWithKronus = useCallback((doc: Document, e: React.MouseEvent) => {
     e.preventDefault();
@@ -350,6 +354,36 @@ What education entry would you like to add? Please provide the institution and d
     }
     return config;
   }, [skillCategories]);
+
+  // Build document type config from API data - memoized
+  const docTypeConfig = useMemo(() => {
+    const config: Record<string, { color: string; bgColor: string; barColor: string }> = {};
+    for (const dt of documentTypes) {
+      const colors = getColorClasses(dt.color);
+      config[dt.name] = colors;
+    }
+    return config;
+  }, [documentTypes]);
+
+  // Get color classes for a document type name
+  const getDocTypeColors = useCallback((typeName: string) => {
+    return docTypeConfig[typeName] || getColorClasses("teal"); // Default to teal (Tartarus palette)
+  }, [docTypeConfig]);
+
+  // Toggle summary expansion for a document
+  const toggleSummary = useCallback((docId: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setExpandedSummaries(prev => {
+      const next = new Set(prev);
+      if (next.has(docId)) {
+        next.delete(docId);
+      } else {
+        next.add(docId);
+      }
+      return next;
+    });
+  }, []);
 
   // Memoize lowercase search query to avoid recalculating
   const searchLower = useMemo(() => searchQuery.toLowerCase(), [searchQuery]);
@@ -910,7 +944,12 @@ What project would you like to add?`;
               )}
 
               {/* Manage Types button */}
-              <Button variant="outline" size="sm" onClick={() => openDocTypeDialog()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openDocTypeDialog()}
+                className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)] hover:text-[var(--tartarus-teal)]"
+              >
                 <Settings className="mr-2 h-4 w-4" />
                 Manage Types
               </Button>
@@ -955,7 +994,7 @@ What project would you like to add?`;
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <Card key={i} className="overflow-hidden">
-                      <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+                      <div className="h-1 bg-[var(--tartarus-teal)]" />
                       <CardHeader>
                         <Skeleton className="h-5 w-3/4" />
                         <Skeleton className="h-4 w-1/2 mt-2" />
@@ -969,8 +1008,8 @@ What project would you like to add?`;
               ) : filteredWritings.length === 0 ? (
                 <div className="py-12 text-center">
                   <div className="flex flex-col items-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                      <FileText className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--tartarus-teal-soft)]">
+                      <FileText className="h-8 w-8 text-[var(--tartarus-teal)]" />
                     </div>
                     <p className="text-muted-foreground">No writings found.</p>
                     {hasActiveFilters && (
@@ -984,25 +1023,25 @@ What project would you like to add?`;
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
                   {filteredWritings.map((doc) => (
                     <Link key={doc.id} href={`/repository/${doc.slug}`}>
-                      <Card className="group cursor-pointer hover:shadow-md overflow-hidden border-emerald-100 dark:border-emerald-900/30 h-full flex flex-col relative">
+                      <Card className="group cursor-pointer hover:shadow-md overflow-hidden border-[var(--tartarus-border)] h-full flex flex-col relative">
                         {/* Edit with Kronus button - absolute positioned */}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute top-3 right-3 h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-950 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          className="absolute top-3 right-3 h-8 w-8 text-[var(--tartarus-gold)] hover:text-[var(--tartarus-gold-dim)] hover:bg-[var(--tartarus-gold-soft)] opacity-0 group-hover:opacity-100 transition-opacity z-10"
                           onClick={(e) => editDocumentWithKronus(doc, e)}
                           title="Edit with Kronus"
                         >
                           <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 rounded-full object-cover" />
                         </Button>
 
-                        {/* Decorative gradient bar */}
-                        <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600 shrink-0" />
+                        {/* Decorative gradient bar - uses document type color */}
+                        <div className={`h-1 ${doc.metadata?.type ? getDocTypeColors(doc.metadata.type).barColor : 'bg-[var(--tartarus-teal)]'} shrink-0`} />
 
                         <CardHeader className="pb-2">
                           <div className="flex items-start gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                              <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--tartarus-teal-soft)]">
+                              <FileText className="h-5 w-5 text-[var(--tartarus-teal)]" />
                             </div>
                             <div className="flex-1 min-w-0 pr-8">
                               <CardTitle className="text-base font-semibold line-clamp-2">
@@ -1012,28 +1051,46 @@ What project would you like to add?`;
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0 flex-1 flex flex-col">
-                          {/* Category badge - prominent, solid color */}
+                          {/* Category badge - uses configured type colors */}
                           {doc.metadata?.type && (
                             <div className="mb-2">
-                              <Badge className="text-[10px] px-2 py-0.5 bg-emerald-600 text-white font-medium">
+                              <Badge className={`text-[10px] px-2 py-0.5 font-medium ${getDocTypeColors(doc.metadata.type).barColor} text-white`}>
                                 {doc.metadata.type}
                               </Badge>
                             </div>
                           )}
 
-                          {/* Content preview */}
-                          <p className="text-muted-foreground line-clamp-3 text-sm flex-1">
-                            {stripMarkdown(doc.content).substring(0, 150)}...
-                          </p>
+                          {/* Index summary - AI-generated for Kronus (expandable) */}
+                          {doc.summary ? (
+                            <div
+                              className="flex-1 cursor-pointer group/summary"
+                              onClick={(e) => toggleSummary(doc.id, e)}
+                            >
+                              <p className={`text-muted-foreground text-sm italic ${expandedSummaries.has(doc.id) ? '' : 'line-clamp-3'}`}>
+                                {doc.summary}
+                              </p>
+                              <button className="text-[10px] text-[var(--tartarus-teal)] mt-1 flex items-center gap-0.5 opacity-70 group-hover/summary:opacity-100">
+                                {expandedSummaries.has(doc.id) ? (
+                                  <>Show less <ChevronUp className="h-3 w-3" /></>
+                                ) : (
+                                  <>Show more <ChevronDown className="h-3 w-3" /></>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground line-clamp-3 text-sm flex-1">
+                              {stripMarkdown(doc.content).substring(0, 150)}...
+                            </p>
+                          )}
 
                           {/* Footer: Dates + Tags */}
-                          <div className="mt-3 pt-2 border-t border-emerald-100 dark:border-emerald-900/30">
+                          <div className="mt-3 pt-2 border-t border-[var(--tartarus-border)]">
                             {/* Dates */}
                             <div className="text-[10px] text-muted-foreground mb-2 flex items-center gap-3">
-                              {doc.metadata?.year && /^\d{4}$/.test(doc.metadata.year) && (
+                              {(doc.metadata?.writtenDate || doc.metadata?.year) && (
                                 <span>
                                   <Calendar className="h-3 w-3 inline mr-1" />
-                                  Written {doc.metadata.year}
+                                  Written {doc.metadata?.writtenDate || doc.metadata?.year}
                                 </span>
                               )}
                               {doc.created_at && (
@@ -1046,7 +1103,7 @@ What project would you like to add?`;
                             {doc.metadata?.tags && Array.isArray(doc.metadata.tags) && doc.metadata.tags.length > 0 && (
                               <div className="flex flex-wrap gap-1">
                                 {doc.metadata.tags.slice(0, 3).map((tag: string) => (
-                                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400">
+                                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
                                     {tag}
                                   </span>
                                 ))}
@@ -1071,7 +1128,7 @@ What project would you like to add?`;
                 <div className="grid gap-4 md:grid-cols-2">
                   {Array.from({ length: 4 }).map((_, i) => (
                     <Card key={i} className="overflow-hidden">
-                      <div className="h-1 bg-gradient-to-r from-violet-400 to-violet-600" />
+                      <div className="h-1 bg-[var(--tartarus-teal)]" />
                       <CardHeader>
                         <Skeleton className="h-5 w-2/3" />
                       </CardHeader>
@@ -1084,8 +1141,8 @@ What project would you like to add?`;
               ) : filteredPrompts.length === 0 ? (
                 <div className="py-12 text-center">
                   <div className="flex flex-col items-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30">
-                      <Code className="h-8 w-8 text-violet-600 dark:text-violet-400" />
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--tartarus-teal-soft)]">
+                      <Code className="h-8 w-8 text-[var(--tartarus-teal)]" />
                     </div>
                     <p className="text-muted-foreground">No prompts found.</p>
                     {hasActiveFilters && (
@@ -1099,25 +1156,25 @@ What project would you like to add?`;
                 <div className="grid gap-4 md:grid-cols-2 auto-rows-fr">
                   {filteredPrompts.map((doc) => (
                     <Link key={doc.id} href={`/repository/${doc.slug}`}>
-                      <Card className="group cursor-pointer hover:shadow-md overflow-hidden border-violet-100 dark:border-violet-900/30 h-full flex flex-col relative">
+                      <Card className="group cursor-pointer hover:shadow-md overflow-hidden border-[var(--tartarus-border)] h-full flex flex-col relative">
                         {/* Edit with Kronus button - absolute positioned */}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute top-3 right-3 h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-950 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          className="absolute top-3 right-3 h-8 w-8 text-[var(--tartarus-gold)] hover:text-[var(--tartarus-gold-dim)] hover:bg-[var(--tartarus-gold-soft)] opacity-0 group-hover:opacity-100 transition-opacity z-10"
                           onClick={(e) => editDocumentWithKronus(doc, e)}
                           title="Edit with Kronus"
                         >
                           <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 rounded-full object-cover" />
                         </Button>
 
-                        {/* Decorative gradient bar */}
-                        <div className="h-1 bg-gradient-to-r from-violet-400 to-violet-600 shrink-0" />
+                        {/* Decorative gradient bar - uses document type color */}
+                        <div className={`h-1 ${doc.metadata?.type ? getDocTypeColors(doc.metadata.type).barColor : 'bg-[var(--tartarus-teal)]'} shrink-0`} />
 
                         <CardHeader className="pb-2">
                           <div className="flex items-start gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
-                              <Code className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--tartarus-teal-soft)]">
+                              <Code className="h-5 w-5 text-[var(--tartarus-teal)]" />
                             </div>
                             <div className="flex-1 min-w-0 pr-8">
                               <CardTitle className="text-base font-semibold line-clamp-2">
@@ -1127,10 +1184,10 @@ What project would you like to add?`;
                           </div>
                         </CardHeader>
                         <CardContent className="pt-0 flex-1 flex flex-col">
-                          {/* Category badge - if exists */}
+                          {/* Category badge - uses configured type colors */}
                           {doc.metadata?.type && (
                             <div className="mb-2">
-                              <Badge className="text-[10px] px-2 py-0.5 bg-violet-600 text-white font-medium">
+                              <Badge className={`text-[10px] px-2 py-0.5 font-medium ${getDocTypeColors(doc.metadata.type).barColor} text-white`}>
                                 {doc.metadata.type}
                               </Badge>
                               {doc.language && doc.language !== 'en' && (
@@ -1141,16 +1198,34 @@ What project would you like to add?`;
                             </div>
                           )}
 
-                          {/* Code preview */}
-                          <div className="relative flex-1">
-                            <pre className="text-muted-foreground overflow-hidden text-xs bg-violet-50 dark:bg-violet-900/10 p-3 rounded-lg border border-violet-100 dark:border-violet-900/30 h-20 font-mono whitespace-pre-wrap break-words">
-                              {doc.content.substring(0, 180)}...
-                            </pre>
-                            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-violet-50 dark:from-violet-900/10 to-transparent pointer-events-none rounded-b-lg" />
-                          </div>
+                          {/* Index summary - AI-generated for Kronus (expandable) */}
+                          {doc.summary ? (
+                            <div
+                              className="flex-1 cursor-pointer group/summary"
+                              onClick={(e) => toggleSummary(doc.id, e)}
+                            >
+                              <p className={`text-muted-foreground text-sm italic ${expandedSummaries.has(doc.id) ? '' : 'line-clamp-3'}`}>
+                                {doc.summary}
+                              </p>
+                              <button className="text-[10px] text-[var(--tartarus-teal)] mt-1 flex items-center gap-0.5 opacity-70 group-hover/summary:opacity-100">
+                                {expandedSummaries.has(doc.id) ? (
+                                  <>Show less <ChevronUp className="h-3 w-3" /></>
+                                ) : (
+                                  <>Show more <ChevronDown className="h-3 w-3" /></>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="relative flex-1">
+                              <pre className="text-muted-foreground overflow-hidden text-xs bg-[var(--tartarus-surface)] p-3 rounded-lg border border-[var(--tartarus-border)] h-20 font-mono whitespace-pre-wrap break-words">
+                                {doc.content.substring(0, 180)}...
+                              </pre>
+                              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[var(--tartarus-surface)] to-transparent pointer-events-none rounded-b-lg" />
+                            </div>
+                          )}
 
                           {/* Footer: Date + Tags */}
-                          <div className="mt-3 pt-2 border-t border-violet-100 dark:border-violet-900/30">
+                          <div className="mt-3 pt-2 border-t border-[var(--tartarus-border)]">
                             {/* Date */}
                             {doc.created_at && (
                               <div className="text-[10px] text-muted-foreground mb-2">
@@ -1162,7 +1237,7 @@ What project would you like to add?`;
                             {doc.metadata?.tags && Array.isArray(doc.metadata.tags) && doc.metadata.tags.length > 0 && (
                               <div className="flex flex-wrap gap-1">
                                 {doc.metadata.tags.slice(0, 4).map((tag: string) => (
-                                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400">
+                                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
                                     {tag}
                                   </span>
                                 ))}

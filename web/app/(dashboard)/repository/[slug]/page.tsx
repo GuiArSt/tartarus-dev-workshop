@@ -22,7 +22,7 @@ import remarkBreaks from "remark-breaks";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { Edit, Save, X, ArrowLeft, Tag, Plus, FileText, Settings, Check, ImagePlus, Trash2, Image, Loader2 } from "lucide-react";
+import { Edit, Save, X, ArrowLeft, Tag, Plus, FileText, Settings, Check, ImagePlus, Trash2, Image, Loader2, Eye, EyeOff, Brain } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { compressImage, formatBytes } from "@/lib/image-compression";
 import { formatFlexibleDate } from "@/lib/utils";
@@ -47,6 +47,7 @@ interface Document {
   content: string;
   language: string;
   metadata: any;
+  summary: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -85,6 +86,9 @@ export default function DocumentDetailPage() {
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Index summary visibility
+  const [showIndexSummary, setShowIndexSummary] = useState(false);
 
   useEffect(() => {
     fetchDocument();
@@ -324,6 +328,18 @@ export default function DocumentDetailPage() {
             </>
           ) : (
             <>
+              {/* Index Summary Toggle */}
+              {document.summary && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowIndexSummary(!showIndexSummary)}
+                  className={`h-8 w-8 ${showIndexSummary ? "text-[var(--tartarus-teal)]" : "text-[var(--tartarus-ivory-muted)]"} hover:bg-[var(--tartarus-elevated)]`}
+                  title="Toggle Index Summary"
+                >
+                  {showIndexSummary ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -345,6 +361,20 @@ export default function DocumentDetailPage() {
           )}
         </div>
       </header>
+
+      {/* Index Summary Panel */}
+      {showIndexSummary && document.summary && (
+        <div className="mx-6 mt-4 p-4 rounded-lg bg-[var(--tartarus-teal-soft)] border border-[var(--tartarus-teal-dim)]">
+          <div className="flex items-center gap-2 mb-2 text-xs text-[var(--tartarus-teal)]">
+            <Brain className="h-3 w-3" />
+            <span className="font-medium">Index Summary</span>
+            <span className="text-[var(--tartarus-ivory-muted)]">(for Kronus)</span>
+          </div>
+          <p className="text-sm text-[var(--tartarus-ivory-dim)] leading-relaxed">
+            {document.summary}
+          </p>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">

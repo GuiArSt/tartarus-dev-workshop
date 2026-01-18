@@ -51,6 +51,14 @@
   --tartarus-warning: #F39C12;
   --tartarus-error: #E74C3C;
 
+  /* Status soft variants (for backgrounds) */
+  --tartarus-success-soft: rgba(46, 204, 113, 0.1);
+  --tartarus-warning-soft: rgba(243, 156, 18, 0.1);
+  --tartarus-error-soft: rgba(231, 76, 60, 0.1);
+
+  /* Additional teal variant */
+  --tartarus-teal-bright: #20E8EC;
+
   /* Borders and shadows */
   --tartarus-border: #2a2a2a;
   --tartarus-border-light: #3a3a3a;
@@ -1174,4 +1182,104 @@ body {
 
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ===== HOVER GLOW UTILITIES ===== */
+/* Interactive glow effects for buttons and cards */
+
+.hover-glow-teal {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.hover-glow-teal:hover {
+  box-shadow: 0 0 20px var(--tartarus-teal-glow);
+}
+
+.hover-glow-gold {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.hover-glow-gold:hover {
+  box-shadow: 0 0 20px var(--tartarus-gold-glow);
+}
+
+/* Card hover enhancement */
+.tartarus-card-hover {
+  transition: all 0.2s ease;
+}
+
+.tartarus-card-hover:hover {
+  border-color: var(--tartarus-teal-dim);
+  box-shadow: 0 0 15px var(--tartarus-teal-glow), 0 4px 20px var(--tartarus-shadow);
+}
+
+/* ===== SHIMMER ANIMATION ===== */
+/* Loading skeleton shimmer effect */
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--tartarus-elevated) 25%,
+    var(--tartarus-border-light) 50%,
+    var(--tartarus-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Light mode shimmer */
+.journal-page .skeleton-shimmer,
+.tartarus-reader .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #F0EDE6 25%,
+    #E5E0D8 50%,
+    #F0EDE6 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* ===== BUTTON ENHANCEMENTS ===== */
+/* Press feedback and focus states */
+
+.btn-press-feedback {
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.btn-press-feedback:active {
+  transform: scale(0.98);
+}
+
+.btn-glow-teal:hover {
+  box-shadow: 0 0 15px var(--tartarus-teal-glow);
+}
+
+.btn-glow-gold:hover {
+  box-shadow: 0 0 15px var(--tartarus-gold-glow);
+}
+
+/* ===== HEADER GRADIENT ACCENT ===== */
+/* Bottom line accent for page headers */
+
+.header-gradient-accent {
+  position: relative;
+}
+
+.header-gradient-accent::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--tartarus-teal), transparent);
 }

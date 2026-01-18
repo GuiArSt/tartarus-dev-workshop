@@ -32,6 +32,8 @@ export const journalEntries = sqliteTable("journal_entries", {
   createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
   // File change tracking (JSON array of FileChange objects)
   filesChanged: text("files_changed"),
+  // AI-generated 3-sentence summary for Kronus indexing
+  summary: text("summary"),
 });
 
 /**

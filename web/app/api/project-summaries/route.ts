@@ -96,7 +96,7 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
   // Delete attachments for entries in this repo (if deleting entries)
   if (deleteEntries && entryCount.count > 0) {
     db.prepare(`
-      DELETE FROM attachments
+      DELETE FROM entry_attachments
       WHERE commit_hash IN (SELECT commit_hash FROM journal_entries WHERE repository = ?)
     `).run(repository);
 
@@ -107,6 +107,15 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
   // Delete project summary (if exists)
   if (existing) {
     db.prepare(`DELETE FROM project_summaries WHERE repository = ?`).run(repository);
+  }
+
+  // If no project summary existed and no entries deleted, nothing was done
+  // This happens for "virtual" projects (entries without Entry 0)
+  if (!existing && !deleteEntries) {
+    return NextResponse.json({
+      success: false,
+      error: `No project summary exists for "${repository}". Check "Also delete journal entries" to remove entries.`,
+    }, { status: 400 });
   }
 
   return NextResponse.json({

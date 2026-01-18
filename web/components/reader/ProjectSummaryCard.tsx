@@ -13,7 +13,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -196,6 +195,7 @@ export function ProjectSummaryCard({
   children,
 }: Props) {
   const [showEntry0, setShowEntry0] = useState(false);
+  const [showIndexSummary, setShowIndexSummary] = useState(false);
   const [deleteEntries, setDeleteEntries] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const hasEntry0 = hasStructuredEntry0(project);
@@ -204,9 +204,16 @@ export function ProjectSummaryCard({
 
   const handleDelete = async () => {
     if (onDelete) {
-      await onDelete(deleteEntries);
-      setDeleteDialogOpen(false);
-      setDeleteEntries(false);
+      try {
+        await onDelete(deleteEntries);
+        // Only close on success
+        setDeleteDialogOpen(false);
+        setDeleteEntries(false);
+      } catch {
+        // Parent already shows alert via its own catch block
+        // Dialog stays open so user can retry (checkbox state preserved)
+        // Don't re-throw - would cause unhandled promise rejection
+      }
     }
   };
 
@@ -230,8 +237,8 @@ export function ProjectSummaryCard({
                   </CardTitle>
                   {hasEntry0 ? (
                     <Badge variant="outline" className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] flex-shrink-0 text-xs">
-                      <Brain className="h-3 w-3 mr-1" />
-                      {project.entries_synced || project.entry_count} analyzed
+                      <BookOpen className="h-3 w-3 mr-1" />
+                      Living Doc
                     </Badge>
                   ) : (
                     <Badge className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)] flex-shrink-0 text-xs">
@@ -274,6 +281,21 @@ export function ProjectSummaryCard({
 
               {/* Action buttons */}
               <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                {/* Index Summary Toggle */}
+                {project.summary && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowIndexSummary(!showIndexSummary);
+                    }}
+                    className={`h-8 w-8 ${showIndexSummary ? "text-[var(--tartarus-teal)]" : "text-[var(--tartarus-ivory-muted)]"} hover:text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]`}
+                    title="Toggle Index Summary"
+                  >
+                    {showIndexSummary ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                )}
                 {project.git_url && (
                   <Button
                     variant="ghost"
@@ -319,7 +341,7 @@ export function ProjectSummaryCard({
                         variant="ghost"
                         size="icon"
                         onClick={(e) => e.stopPropagation()}
-                        className="h-8 w-8 text-[var(--tartarus-ivory-muted)] hover:text-red-400 hover:bg-red-500/10"
+                        className="h-8 w-8 text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error-soft)]"
                       >
                         {deleting ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -334,7 +356,7 @@ export function ProjectSummaryCard({
                           Delete Project: {project.repository}
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-[var(--tartarus-ivory-muted)]">
-                          This will delete the project summary (Entry 0) for this repository.
+                          This will delete the Living Document for this repository.
                           {project.entry_count > 0 && (
                             <div className="mt-4 p-3 rounded-lg bg-[var(--tartarus-elevated)] border border-[var(--tartarus-border)]">
                               <div className="flex items-start gap-3">
@@ -342,10 +364,10 @@ export function ProjectSummaryCard({
                                   id="delete-entries"
                                   checked={deleteEntries}
                                   onCheckedChange={(checked) => setDeleteEntries(checked === true)}
-                                  className="mt-0.5 border-red-400 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                                  className="mt-0.5 border-[var(--tartarus-error)] data-[state=checked]:bg-[var(--tartarus-error)] data-[state=checked]:border-[var(--tartarus-error)]"
                                 />
                                 <label htmlFor="delete-entries" className="text-sm cursor-pointer">
-                                  <span className="text-red-400 font-medium">Also delete {project.entry_count} journal entries</span>
+                                  <span className="text-[var(--tartarus-error)] font-medium">Also delete {project.entry_count} journal entries</span>
                                   <br />
                                   <span className="text-[var(--tartarus-ivory-faded)] text-xs">
                                     This cannot be undone. All entries and attachments will be permanently removed.
@@ -360,10 +382,11 @@ export function ProjectSummaryCard({
                         <AlertDialogCancel className="border-[var(--tartarus-border)] text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)]">
                           Cancel
                         </AlertDialogCancel>
-                        <AlertDialogAction
+                        <Button
                           onClick={handleDelete}
+                          disabled={deleting}
                           className={deleteEntries
-                            ? "bg-red-500 hover:bg-red-600 text-white"
+                            ? "bg-[var(--tartarus-error)] hover:bg-[var(--tartarus-error)]/90 text-white"
                             : "bg-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-bright)] text-[var(--tartarus-void)]"
                           }
                         >
@@ -373,7 +396,7 @@ export function ProjectSummaryCard({
                             <Trash2 className="h-4 w-4 mr-1.5" />
                           )}
                           {deleteEntries ? "Delete All" : "Delete Summary"}
-                        </AlertDialogAction>
+                        </Button>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -402,7 +425,21 @@ export function ProjectSummaryCard({
               )}
             </div>
 
-            {/* Entry 0 Toggle - Living Project Summary */}
+            {/* Index Summary Panel - AI-generated summary for Kronus indexing */}
+            {showIndexSummary && project.summary && (
+              <div className="p-3 rounded-lg bg-[var(--tartarus-teal-soft)] border border-[var(--tartarus-teal-dim)]">
+                <div className="flex items-center gap-2 mb-2 text-xs text-[var(--tartarus-teal)]">
+                  <Brain className="h-3 w-3" />
+                  <span className="font-medium">Index Summary</span>
+                  <span className="text-[var(--tartarus-ivory-muted)]">(for Kronus)</span>
+                </div>
+                <p className="text-sm text-[var(--tartarus-ivory-dim)] leading-relaxed">
+                  {project.summary}
+                </p>
+              </div>
+            )}
+
+            {/* Living Document - Full project documentation (Entry 0) */}
             {hasEntry0 && (
               <div className="rounded-lg border border-[var(--tartarus-teal-dim)]/30 bg-gradient-to-r from-[var(--tartarus-teal)]/5 to-transparent overflow-hidden">
                 <button
@@ -411,14 +448,14 @@ export function ProjectSummaryCard({
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-[var(--tartarus-teal)]/20 flex items-center justify-center">
-                      <Brain className="h-4 w-4 text-[var(--tartarus-teal)]" />
+                      <BookOpen className="h-4 w-4 text-[var(--tartarus-teal)]" />
                     </div>
                     <div className="text-left">
                       <div className="text-sm font-medium text-[var(--tartarus-ivory)]">
-                        Project Summary
+                        Living Document
                       </div>
                       <div className="text-xs text-[var(--tartarus-ivory-muted)]">
-                        Structure, stack, patterns, commands
+                        Architecture, tech stack, patterns, commands
                       </div>
                     </div>
                   </div>
@@ -566,9 +603,9 @@ export function ProjectSummaryCard({
             {/* Needs Analysis Prompt */}
             {needsAnalysis && (
               <div className="rounded-lg border border-dashed border-[var(--tartarus-gold-dim)] bg-[var(--tartarus-gold)]/5 p-4 text-center">
-                <Brain className="h-6 w-6 text-[var(--tartarus-gold)] mx-auto mb-2" />
+                <BookOpen className="h-6 w-6 text-[var(--tartarus-gold)] mx-auto mb-2" />
                 <p className="text-sm text-[var(--tartarus-ivory-muted)] mb-2">
-                  This project has {project.entry_count} entries but no Entry 0 summary yet.
+                  This project has {project.entry_count} entries but no Living Document yet.
                 </p>
                 <Button
                   size="sm"
@@ -579,9 +616,9 @@ export function ProjectSummaryCard({
                   {analyzing ? (
                     <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                   ) : (
-                    <Brain className="h-4 w-4 mr-1.5" />
+                    <BookOpen className="h-4 w-4 mr-1.5" />
                   )}
-                  Generate Entry 0
+                  Generate Living Document
                 </Button>
               </div>
             )}

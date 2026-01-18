@@ -4,8 +4,8 @@
  * Streams progress updates as NDJSON (newline-delimited JSON)
  */
 
-import { getDrizzleDb, documents, linearProjects, linearIssues } from "@/lib/db/drizzle";
-import { isNull, eq } from "drizzle-orm";
+import { getDrizzleDb, documents, linearProjects, linearIssues, journalEntries, projectSummaries } from "@/lib/db/drizzle";
+import { isNull, eq, or, and, isNotNull } from "drizzle-orm";
 
 // Types for streaming
 interface ProgressUpdate {
@@ -269,6 +269,190 @@ export async function POST() {
             total: issueProgress.total,
             succeeded: issueProgress.succeeded,
             failed: issueProgress.failed,
+          },
+        });
+
+        // Running totals for progress
+        let runningTotal = docProgress.total + projectProgress.total + issueProgress.total;
+        let runningProcessed = docProgress.processed + projectProgress.processed + issueProgress.processed;
+        let runningSucceeded = docProgress.succeeded + projectProgress.succeeded + issueProgress.succeeded;
+        let runningFailed = docProgress.failed + projectProgress.failed + issueProgress.failed;
+
+        // === Journal Entries ===
+        const entriesToBackfill = await db
+          .select()
+          .from(journalEntries)
+          .where(isNull(journalEntries.summary));
+
+        let entryProgress = {
+          total: entriesToBackfill.length,
+          processed: 0,
+          succeeded: 0,
+          failed: 0,
+        };
+
+        send({
+          type: "progress",
+          progress: {
+            total: runningTotal + entryProgress.total,
+            processed: runningProcessed,
+            succeeded: runningSucceeded,
+            failed: runningFailed,
+            currentItem: "Starting journal entries...",
+          },
+        });
+
+        for (const entry of entriesToBackfill) {
+          // Build content from entry fields
+          const content = [
+            `Why: ${entry.why}`,
+            `What Changed: ${entry.whatChanged}`,
+            `Decisions: ${entry.decisions}`,
+            entry.kronusWisdom ? `Kronus Wisdom: ${entry.kronusWisdom}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n\n");
+
+          if (content.length > 20 && entry.id) {
+            const summary = await generateSummary(
+              "journal_entry",
+              content,
+              `${entry.repository} - ${entry.commitHash.slice(0, 7)}`
+            );
+
+            if (summary) {
+              await db
+                .update(journalEntries)
+                .set({ summary })
+                .where(eq(journalEntries.id, entry.id));
+              entryProgress.succeeded++;
+            } else {
+              entryProgress.failed++;
+            }
+          } else {
+            entryProgress.failed++;
+          }
+
+          entryProgress.processed++;
+          send({
+            type: "progress",
+            progress: {
+              total: runningTotal + entryProgress.total,
+              processed: runningProcessed + entryProgress.processed,
+              succeeded: runningSucceeded + entryProgress.succeeded,
+              failed: runningFailed + entryProgress.failed,
+              currentItem: `Entry: ${entry.commitHash.slice(0, 7)}`,
+            },
+          });
+
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        send({
+          type: "result",
+          result: {
+            type: "Journal Entries",
+            total: entryProgress.total,
+            succeeded: entryProgress.succeeded,
+            failed: entryProgress.failed,
+          },
+        });
+
+        // Update running totals
+        runningTotal += entryProgress.total;
+        runningProcessed += entryProgress.processed;
+        runningSucceeded += entryProgress.succeeded;
+        runningFailed += entryProgress.failed;
+
+        // === Project Summaries (Living Documents) ===
+        // Only backfill those with content but no summary
+        const summariesToBackfill = await db
+          .select()
+          .from(projectSummaries)
+          .where(
+            and(
+              isNull(projectSummaries.summary),
+              or(
+                isNotNull(projectSummaries.purpose),
+                isNotNull(projectSummaries.architecture),
+                isNotNull(projectSummaries.techStack),
+                isNotNull(projectSummaries.fileStructure)
+              )
+            )
+          );
+
+        let summaryProgress = {
+          total: summariesToBackfill.length,
+          processed: 0,
+          succeeded: 0,
+          failed: 0,
+        };
+
+        send({
+          type: "progress",
+          progress: {
+            total: runningTotal + summaryProgress.total,
+            processed: runningProcessed,
+            succeeded: runningSucceeded,
+            failed: runningFailed,
+            currentItem: "Starting project summaries (Living Documents)...",
+          },
+        });
+
+        for (const proj of summariesToBackfill) {
+          // Build content from project summary fields
+          const content = [
+            proj.purpose ? `Purpose: ${proj.purpose}` : null,
+            proj.architecture ? `Architecture: ${proj.architecture}` : null,
+            proj.techStack ? `Tech Stack: ${proj.techStack}` : null,
+            proj.status ? `Status: ${proj.status}` : null,
+            proj.technologies ? `Technologies: ${proj.technologies}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n\n");
+
+          if (content.length > 20) {
+            const summary = await generateSummary(
+              "project_summary",
+              content,
+              proj.repository
+            );
+
+            if (summary) {
+              await db
+                .update(projectSummaries)
+                .set({ summary })
+                .where(eq(projectSummaries.repository, proj.repository));
+              summaryProgress.succeeded++;
+            } else {
+              summaryProgress.failed++;
+            }
+          } else {
+            summaryProgress.failed++;
+          }
+
+          summaryProgress.processed++;
+          send({
+            type: "progress",
+            progress: {
+              total: runningTotal + summaryProgress.total,
+              processed: runningProcessed + summaryProgress.processed,
+              succeeded: runningSucceeded + summaryProgress.succeeded,
+              failed: runningFailed + summaryProgress.failed,
+              currentItem: `Living Doc: ${proj.repository}`,
+            },
+          });
+
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        send({
+          type: "result",
+          result: {
+            type: "Project Summaries (Living Documents)",
+            total: summaryProgress.total,
+            succeeded: summaryProgress.succeeded,
+            failed: summaryProgress.failed,
           },
         });
 

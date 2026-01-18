@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listIssues, createIssue } from "@/lib/linear/client";
+import { getDrizzleDb, linearIssues } from "@/lib/db/drizzle";
+import { inArray } from "drizzle-orm";
 
 // GET - List issues (linear_list_issues)
 export async function GET(request: NextRequest) {
@@ -16,6 +18,25 @@ export async function GET(request: NextRequest) {
     };
 
     const result = await listIssues(options);
+
+    // Merge with local database summaries
+    const issueIds = result.issues.map((i: any) => i.id);
+    if (issueIds.length > 0) {
+      const db = getDrizzleDb();
+      const localIssues = await db
+        .select({ id: linearIssues.id, summary: linearIssues.summary })
+        .from(linearIssues)
+        .where(inArray(linearIssues.id, issueIds));
+
+      const summaryMap = new Map(localIssues.map(i => [i.id, i.summary]));
+
+      // Add summaries to issues
+      result.issues = result.issues.map((issue: any) => ({
+        ...issue,
+        summary: summaryMap.get(issue.id) || null,
+      }));
+    }
+
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("Linear list issues error:", error);

@@ -71,9 +71,10 @@ export async function syncLinearProjects(includeCompleted: boolean = false): Pro
     ? apiProjects
     : apiProjects.filter((p: any) => p.state !== "completed" && p.state !== "canceled");
   
-  // Get all existing project IDs from DB
-  const existingProjects = await db.select({ id: linearProjects.id }).from(linearProjects);
+  // Get all existing project IDs and their summaries from DB
+  const existingProjects = await db.select({ id: linearProjects.id, summary: linearProjects.summary }).from(linearProjects);
   const existingIds = new Set(existingProjects.map(p => p.id));
+  const existingSummaries = new Map(existingProjects.map(p => [p.id, p.summary]));
   
   // Track API project IDs
   const apiIds = new Set(filteredProjects.map((p: any) => p.id));
@@ -107,11 +108,26 @@ export async function syncLinearProjects(includeCompleted: boolean = false): Pro
     };
     
     if (existingIds.has(project.id)) {
-      // Update existing
+      // Update existing - also generate summary if missing
+      const hasSummary = !!existingSummaries.get(project.id);
+      let summary: string | null | undefined = undefined; // undefined = don't update
+
+      if (!hasSummary) {
+        const contentForSummary = [
+          project.description,
+          project.content,
+        ].filter(Boolean).join("\n\n");
+
+        if (contentForSummary.length > 20) {
+          summary = await generateSummary("linear_project", contentForSummary, project.name);
+        }
+      }
+
       await db
         .update(linearProjects)
         .set({
           ...projectData,
+          ...(summary !== undefined && { summary }),
           createdAt: undefined, // Preserve original created_at
         })
         .where(eq(linearProjects.id, project.id));
@@ -180,9 +196,10 @@ export async function syncLinearIssues(includeCompleted: boolean = false): Promi
         );
       });
   
-  // Get all existing issue IDs from DB
-  const existingIssues = await db.select({ id: linearIssues.id }).from(linearIssues);
+  // Get all existing issue IDs and their summaries from DB
+  const existingIssues = await db.select({ id: linearIssues.id, summary: linearIssues.summary }).from(linearIssues);
   const existingIds = new Set(existingIssues.map(i => i.id));
+  const existingSummaries = new Map(existingIssues.map(i => [i.id, i.summary]));
   
   // Track API issue IDs
   const apiIds = new Set(filteredIssues.map((i: any) => i.id));
@@ -216,11 +233,19 @@ export async function syncLinearIssues(includeCompleted: boolean = false): Promi
     };
     
     if (existingIds.has(issue.id)) {
-      // Update existing
+      // Update existing - also generate summary if missing
+      const hasSummary = !!existingSummaries.get(issue.id);
+      let summary: string | null | undefined = undefined; // undefined = don't update
+
+      if (!hasSummary && issue.description && issue.description.length > 20) {
+        summary = await generateSummary("linear_issue", issue.description, issue.title);
+      }
+
       await db
         .update(linearIssues)
         .set({
           ...issueData,
+          ...(summary !== undefined && { summary }),
           createdAt: undefined, // Preserve original created_at
         })
         .where(eq(linearIssues.id, issue.id));

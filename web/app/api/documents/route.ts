@@ -12,6 +12,7 @@ interface DocumentRow {
   content: string;
   language: string;
   metadata: string;
+  summary: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -27,9 +28,17 @@ function slugify(text: string): string {
 
 function parseDocumentMetadata(doc: DocumentRow): Omit<DocumentRow, 'metadata'> & { metadata: Record<string, unknown> } {
   try {
+    const metadata = JSON.parse(doc.metadata || "{}") as Record<string, unknown>;
+    
+    // Normalize: migrate legacy 'year' field to 'writtenDate' if needed
+    if (metadata.year && !metadata.writtenDate) {
+      metadata.writtenDate = metadata.year;
+      delete metadata.year;
+    }
+    
     return {
       ...doc,
-      metadata: JSON.parse(doc.metadata || "{}") as Record<string, unknown>,
+      metadata,
     };
   } catch {
     return {
@@ -119,7 +128,18 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const db = getDatabase();
 
   const slug = providedSlug || slugify(title);
-  const metadataJson = JSON.stringify(metadata);
+  
+  // Normalize: migrate legacy 'year' field to 'writtenDate' if needed
+  const normalizedMetadata = { ...metadata };
+  if (normalizedMetadata.year && !normalizedMetadata.writtenDate) {
+    normalizedMetadata.writtenDate = normalizedMetadata.year;
+    delete normalizedMetadata.year;
+  } else if (normalizedMetadata.year) {
+    // If both exist, prefer writtenDate and remove year
+    delete normalizedMetadata.year;
+  }
+  
+  const metadataJson = JSON.stringify(normalizedMetadata);
 
   // Check if slug already exists
   const existing = db.prepare("SELECT id FROM documents WHERE slug = ?").get(slug);

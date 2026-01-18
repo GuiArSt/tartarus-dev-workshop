@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listProjects, createProject } from "@/lib/linear/client";
+import { getDrizzleDb, linearProjects } from "@/lib/db/drizzle";
+import { inArray } from "drizzle-orm";
 
 // GET - List projects (linear_list_projects)
 export async function GET(request: NextRequest) {
@@ -9,6 +11,25 @@ export async function GET(request: NextRequest) {
     const showAll = searchParams.get("showAll") === "true";
 
     const result = await listProjects({ teamId, showAll });
+
+    // Merge with local database summaries
+    const projectIds = result.projects.map((p: any) => p.id);
+    if (projectIds.length > 0) {
+      const db = getDrizzleDb();
+      const localProjects = await db
+        .select({ id: linearProjects.id, summary: linearProjects.summary })
+        .from(linearProjects)
+        .where(inArray(linearProjects.id, projectIds));
+
+      const summaryMap = new Map(localProjects.map(p => [p.id, p.summary]));
+
+      // Add summaries to projects
+      result.projects = result.projects.map((project: any) => ({
+        ...project,
+        summary: summaryMap.get(project.id) || null,
+      }));
+    }
+
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("Linear list projects error:", error);
