@@ -27,12 +27,15 @@ export class UnifiedMCPServer {
   constructor() {
     this.server = new McpServer(
       {
-        name: 'developer-journal-mcp',
+        name: 'ai-workshop', // Match the name in ~/.cursor/mcp.json
         version: '2.0.0',
       },
       {
         capabilities: {
-          resources: {},
+          resources: {
+            subscribe: false,
+            listChanged: false,
+          },
           prompts: {},
         },
       }
@@ -47,7 +50,7 @@ export class UnifiedMCPServer {
     // Initialize Journal module if configured
     if (this.config.journal) {
       initDatabase(this.config.journal.dbPath);
-      registerJournalTools(this.server, this.config.journal);
+      await registerJournalTools(this.server, this.config.journal);
 
       // Register Kronus agent tools (requires journal config for AI)
       registerKronusTools(this.server, this.config.journal);

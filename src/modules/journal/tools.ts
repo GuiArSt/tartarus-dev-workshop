@@ -198,7 +198,7 @@ function truncateOutput(text: string): string {
 /**
  * Register Journal tools with the MCP server
  */
-export function registerJournalTools(server: McpServer, journalConfig?: JournalConfig) {
+export async function registerJournalTools(server: McpServer, journalConfig?: JournalConfig) {
   logger.info('Registering Journal tools...');
   
   if (!journalConfig) {
@@ -1484,31 +1484,41 @@ Returns projects with titles, categories, technologies, and metrics.`,
 
 ## Required Fields
 - **title**: Document title
-- **content**: Document content
+- **content**: Document content (for prompts, this is the prompt text)
 - **type**: One of "writing", "prompt", or "note" (default: "writing")
 
-## Optional Fields
+## Optional Fields (All Document Types)
 - **slug**: URL-friendly slug (auto-generated from title if not provided)
 - **language**: Language code (default: "en")
 - **tags**: Array of strings for categorization
 - **metadataType**: Secondary category (metadata.type) - free-form string for additional categorization beyond primary type
 - **writtenDate**: Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15" (year, year-month, or full date)
 
+## Prompt-Specific Fields (when type="prompt")
+Prompts have a richer structure for better organization and reuse:
+- **purpose**: What this prompt is for (e.g., "System prompt for Kronus oracle mode", "Template for code review")
+- **role**: Message role type - "system", "user", "assistant", or "chat" (for multi-turn conversations)
+- **inputSchema**: JSON schema for input validation (if applicable) - Zod schema as JSON
+- **outputSchema**: JSON schema for expected output (if applicable) - Zod schema as JSON
+- **config**: Configuration metadata (JSON object) - model, temperature, max_tokens, etc.
+
+Note: For prompts, \`content\` field contains the actual prompt text. The \`purpose\` field provides context about what the prompt does.
+
 ## Tags
 ${currentTagsDescription}
 
 ## Metadata Structure
 Documents have a two-level categorization system:
-- **Primary Type** (required): `type` field - must be "writing", "prompt", or "note"
-- **Secondary Category** (optional): `metadata.type` field - free-form string for additional categorization
-- **Tags** (optional): `metadata.tags` array - array of strings for flexible categorization
-- **Written Date** (optional): `metadata.writtenDate` - when document was originally written (normalized format)
+- **Primary Type** (required): \`type\` field - must be "writing", "prompt", or "note"
+- **Secondary Category** (optional): \`metadata.type\` field - free-form string for additional categorization
+- **Tags** (optional): \`metadata.tags\` array - array of strings for flexible categorization
+- **Written Date** (optional): \`metadata.writtenDate\` - when document was originally written (normalized format)
 
 ## Secondary Category (metadata.type)
 ${currentTypesDescription}
 
 ## Written Date
-Use `writtenDate` field for when the document was originally written. Format: "2024" (year), "2024-03" (year-month), or "2024-03-15" (full date). Legacy `year` field is automatically migrated to `writtenDate`.
+Use \`writtenDate\` field for when the document was originally written. Format: "2024" (year), "2024-03" (year-month), or "2024-03-15" (full date). Legacy \`year\` field is automatically migrated to \`writtenDate\`.
 
 ## AI Summary Generation
 **IMPORTANT**: This tool automatically generates an AI summary for Kronus indexing after creating the document.
@@ -1519,24 +1529,56 @@ This happens automatically - no additional step needed.
 If \`slug\` is not provided, it will be auto-generated from the title (lowercase, alphanumeric with dashes).
 
 ## Example Usage
-- Save a poem: \`{ type: "writing", title: "My Poem", content: "...", tags: ["poem", "philosophy"] }\`
-- Save a prompt: \`{ type: "prompt", title: "System Prompt", content: "...", tags: ["prompt", "ai"] }\`
-- Save a note: \`{ type: "note", title: "Quick Note", content: "...", tags: ["reference"] }\`
-- Multi-tab document: \`{ type: "writing", title: "...", content: "...", alsoShownIn: ["writing", "prompt"] }\`
+
+**Writing:**
+\`\`\`
+{ type: "writing", title: "My Poem", content: "...", tags: ["poem", "philosophy"] }
+\`\`\`
+
+**Simple Prompt:**
+\`\`\`
+{ type: "prompt", title: "System Prompt", content: "You are a helpful assistant...", tags: ["prompt", "ai"] }
+\`\`\`
+
+**Structured Prompt (Recommended):**
+\`\`\`
+{
+  type: "prompt",
+  title: "Code Review Prompt",
+  content: "Review this code for bugs and improvements...",
+  purpose: "Template for code review",
+  role: "system",
+  inputSchema: '{"type":"object","properties":{"code":{"type":"string"},"language":{"type":"string"}}}',
+  outputSchema: '{"type":"object","properties":{"review":{"type":"string"},"score":{"type":"number"}}}',
+  config: {"model": "claude-sonnet-4", "temperature": 0.7, "max_tokens": 2000},
+  tags: ["code", "review"]
+}
+\`\`\`
+
+**Note:**
+\`\`\`
+{ type: "note", title: "Quick Note", content: "...", tags: ["reference"] }
+\`\`\`
 
 Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
       inputSchema: {
         title: z.string().min(1).describe('Document title (required)'),
-        content: z.string().min(1).describe('Document content (required)'),
+        content: z.string().min(1).describe('Document content (required). For prompts, this is the prompt text.'),
         type: z.enum(['writing', 'prompt', 'note']).default('writing').describe('Primary document type (default: writing)'),
         slug: z.string().optional().describe('URL-friendly slug (auto-generated from title if not provided)'),
         language: z.string().optional().default('en').describe('Language code (default: en)'),
         tags: z.array(z.string()).optional().default([]).describe('Array of tags for categorization'),
         metadataType: z.string().optional().describe('Secondary category (metadata.type) - free-form string for additional categorization beyond primary type'),
         writtenDate: z.string().optional().describe('Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15" (year, year-month, or full date)'),
+        // Prompt-specific fields
+        purpose: z.string().optional().describe('For prompts: What this prompt is for (e.g., "System prompt for Kronus oracle mode")'),
+        role: z.enum(['system', 'user', 'assistant', 'chat']).optional().describe('For prompts: Message role type - "system" (default), "user", "assistant", or "chat" (multi-turn)'),
+        inputSchema: z.string().optional().describe('For prompts: JSON schema for input validation (Zod schema as JSON string)'),
+        outputSchema: z.string().optional().describe('For prompts: JSON schema for expected output (Zod schema as JSON string)'),
+        config: z.record(z.string(), z.unknown()).optional().describe('For prompts: Configuration metadata (model, temperature, max_tokens, etc.)'),
       },
     },
-    async ({ title, content, type, slug, language, tags, metadataType, writtenDate }) => {
+    async ({ title, content, type, slug, language, tags, metadataType, writtenDate, purpose, role, inputSchema, outputSchema, config }) => {
       try {
         // Build metadata object from simplified fields
         const metadata: Record<string, unknown> = {};
@@ -1548,6 +1590,39 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         }
         if (writtenDate && writtenDate.trim().length > 0) {
           metadata.writtenDate = writtenDate.trim();
+        }
+        
+        // Add prompt-specific fields to metadata when type is 'prompt'
+        if (type === 'prompt') {
+          if (purpose && purpose.trim().length > 0) {
+            metadata.purpose = purpose.trim();
+          }
+          if (role) {
+            metadata.role = role; // 'system', 'user', 'assistant', or 'chat'
+          } else {
+            metadata.role = 'system'; // Default for prompts
+          }
+          if (inputSchema && inputSchema.trim().length > 0) {
+            try {
+              // Validate it's valid JSON
+              JSON.parse(inputSchema);
+              metadata.inputSchema = inputSchema;
+            } catch (e) {
+              logger.warn('Invalid inputSchema JSON, skipping:', e);
+            }
+          }
+          if (outputSchema && outputSchema.trim().length > 0) {
+            try {
+              // Validate it's valid JSON
+              JSON.parse(outputSchema);
+              metadata.outputSchema = outputSchema;
+            } catch (e) {
+              logger.warn('Invalid outputSchema JSON, skipping:', e);
+            }
+          }
+          if (config && Object.keys(config).length > 0) {
+            metadata.config = config;
+          }
         }
 
         const payload = {
@@ -1584,17 +1659,41 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         let summary: string | null = null;
         if (response.id && content.length > 20) {
           try {
+              // Build metadata for summary generation
+              const summaryMetadata: Record<string, unknown> = {
+                tags: tags || [],
+                type: metadataType || undefined,
+                writtenDate: writtenDate || undefined,
+              };
+              
+              // Add prompt-specific fields for better summary generation
+              if (type === 'prompt') {
+                if (purpose) summaryMetadata.purpose = purpose;
+                if (role) summaryMetadata.role = role;
+                if (inputSchema) {
+                  try {
+                    summaryMetadata.inputSchema = JSON.parse(inputSchema);
+                  } catch {
+                    summaryMetadata.inputSchema = inputSchema; // Keep as string if invalid JSON
+                  }
+                }
+                if (outputSchema) {
+                  try {
+                    summaryMetadata.outputSchema = JSON.parse(outputSchema);
+                  } catch {
+                    summaryMetadata.outputSchema = outputSchema; // Keep as string if invalid JSON
+                  }
+                }
+                if (config) summaryMetadata.config = config;
+              }
+              
               const summaryResponse = await fetchTartarus<{ summary: string; type: string }>('/api/ai/summarize', {
               method: 'POST',
               body: {
                 type: 'document',
                 content: content,
                 title: title,
-                metadata: {
-                  tags: tags || [],
-                  type: metadataType || undefined,
-                  writtenDate: writtenDate || undefined,
-                },
+                metadata: summaryMetadata,
               },
             });
 
@@ -1654,7 +1753,447 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     }
   );
 
-  // Tool 22: repository_upload_media
+  // Tool 22: repository_update_document
+  server.registerTool(
+    'repository_update_document',
+    {
+      title: 'Update Repository Document',
+      description: `Update an existing document (writing, prompt, or note) in the Tartarus repository database.
+
+## Document Identification
+- **slug**: Document slug (URL-friendly identifier) OR numeric ID
+- Either slug or id can be used to identify the document
+
+## Updatable Fields
+All fields are optional - only provide fields you want to update:
+
+### Basic Fields
+- **title**: Document title (if changed, slug will be auto-updated)
+- **content**: Document content
+- **type**: Primary type - "writing", "prompt", or "note"
+- **language**: Language code (default: "en")
+
+### Metadata Fields
+- **tags**: Array of strings for categorization (replaces existing tags)
+- **metadataType**: Secondary category (metadata.type) - free-form string
+- **writtenDate**: Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15"
+
+### Prompt-Specific Metadata (when type="prompt" or document has prompt metadata)
+- **purpose**: What this prompt is for
+- **role**: Message role type - "system", "user", "assistant", or "chat"
+- **inputSchema**: JSON schema for input validation (Zod schema as JSON string)
+- **outputSchema**: JSON schema for expected output (Zod schema as JSON string)
+- **config**: Configuration metadata (JSON object) - model, temperature, max_tokens, etc.
+
+## AI Summary & Normalization
+**IMPORTANT**: This tool automatically:
+1. **Normalizes metadata**: Migrates legacy 'year' field to 'writtenDate', normalizes prompt metadata
+2. **Generates AI summary**: If content changed, automatically generates/updates the 3-sentence summary for Kronus indexing
+3. **Preserves existing data**: Only updates fields you provide, preserves others
+
+## Example Usage
+
+**Update title and content:**
+\`\`\`
+{ slug: "my-document", title: "New Title", content: "Updated content..." }
+\`\`\`
+
+**Add prompt metadata to a writing:**
+\`\`\`
+{ 
+  slug: "my-writing", 
+  purpose: "System prompt for Kronus",
+  role: "system",
+  config: {"model": "claude-sonnet-4", "temperature": 0.7}
+}
+\`\`\`
+
+**Update tags:**
+\`\`\`
+{ slug: "my-document", tags: ["new", "tags"] }
+\`\`\`
+
+Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
+      inputSchema: {
+        slug: z.string().optional().describe('Document slug or numeric ID (required if id not provided)'),
+        id: z.number().optional().describe('Document numeric ID (required if slug not provided)'),
+        title: z.string().optional().describe('Document title (if changed, slug will be auto-updated)'),
+        content: z.string().optional().describe('Document content'),
+        type: z.enum(['writing', 'prompt', 'note']).optional().describe('Primary document type'),
+        language: z.string().optional().describe('Language code'),
+        tags: z.array(z.string()).optional().describe('Array of tags for categorization (replaces existing)'),
+        metadataType: z.string().optional().describe('Secondary category (metadata.type)'),
+        writtenDate: z.string().optional().describe('Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15"'),
+        // Prompt-specific fields
+        purpose: z.string().optional().describe('For prompts: What this prompt is for'),
+        role: z.enum(['system', 'user', 'assistant', 'chat']).optional().describe('For prompts: Message role type'),
+        inputSchema: z.string().optional().describe('For prompts: JSON schema for input validation (Zod schema as JSON string)'),
+        outputSchema: z.string().optional().describe('For prompts: JSON schema for expected output (Zod schema as JSON string)'),
+        config: z.record(z.string(), z.unknown()).optional().describe('For prompts: Configuration metadata (model, temperature, max_tokens, etc.)'),
+      },
+    },
+    async ({ slug, id, title, content, type, language, tags, metadataType, writtenDate, purpose, role, inputSchema, outputSchema, config }) => {
+      try {
+        if (!slug && !id) {
+          throw new Error('Either slug or id is required');
+        }
+
+        const identifier = id ? String(id) : slug!;
+
+        // Validate JSON fields for prompts
+        let parsedInputSchema: string | null = null;
+        let parsedOutputSchema: string | null = null;
+        let parsedConfig: Record<string, unknown> | null = null;
+
+        if (inputSchema) {
+          try {
+            JSON.parse(inputSchema); // Validate JSON
+            parsedInputSchema = inputSchema.trim();
+          } catch (e) {
+            throw new Error('Invalid JSON in inputSchema');
+          }
+        }
+
+        if (outputSchema) {
+          try {
+            JSON.parse(outputSchema); // Validate JSON
+            parsedOutputSchema = outputSchema.trim();
+          } catch (e) {
+            throw new Error('Invalid JSON in outputSchema');
+          }
+        }
+
+        if (config) {
+          try {
+            parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
+          } catch (e) {
+            throw new Error('Invalid JSON in config');
+          }
+        }
+
+        // Build update payload
+        const updatePayload: Record<string, unknown> = {};
+
+        if (title !== undefined) updatePayload.title = title;
+        if (content !== undefined) updatePayload.content = content;
+        if (type !== undefined) updatePayload.type = type;
+        if (language !== undefined) updatePayload.language = language;
+
+        // Build metadata object
+        if (tags !== undefined || metadataType !== undefined || writtenDate !== undefined || 
+            purpose !== undefined || role !== undefined || parsedInputSchema !== null || 
+            parsedOutputSchema !== null || parsedConfig !== null) {
+          
+          // Fetch existing document to merge metadata
+          const existingDoc = await fetchTartarus<{ metadata: Record<string, unknown> }>(`/api/documents/${identifier}`);
+          const existingMetadata = existingDoc.metadata || {};
+
+          const metadata: Record<string, unknown> = { ...existingMetadata };
+
+          // Update basic metadata fields
+          if (tags !== undefined) metadata.tags = tags;
+          if (metadataType !== undefined) metadata.type = metadataType || null;
+          if (writtenDate !== undefined) metadata.writtenDate = writtenDate || null;
+
+          // Update prompt-specific metadata
+          if (purpose !== undefined) metadata.purpose = purpose || null;
+          if (role !== undefined) metadata.role = role || null;
+          if (parsedInputSchema !== null) metadata.inputSchema = parsedInputSchema;
+          if (parsedOutputSchema !== null) metadata.outputSchema = parsedOutputSchema;
+          if (parsedConfig !== null) metadata.config = parsedConfig;
+
+          // Remove prompt fields if explicitly set to null/empty and not a prompt
+          if (type && type !== 'prompt') {
+            if (purpose === null || purpose === '') delete metadata.purpose;
+            if (role === null || role === '') delete metadata.role;
+            if (parsedInputSchema === null) delete metadata.inputSchema;
+            if (parsedOutputSchema === null) delete metadata.outputSchema;
+            if (parsedConfig === null) delete metadata.config;
+          }
+
+          updatePayload.metadata = metadata;
+        }
+
+        // Update document via PUT endpoint (which handles normalization and auto-summary)
+        const response = await fetchTartarus<{
+          id: number;
+          slug: string;
+          type: string;
+          title: string;
+          content: string;
+          language: string;
+          metadata: Record<string, unknown>;
+          summary: string | null;
+          created_at: string;
+          updated_at: string;
+        }>(`/api/documents/${identifier}`, {
+          method: 'PUT',
+          body: updatePayload,
+        });
+
+        const responseText = `✅ Document updated successfully\n\n${JSON.stringify({
+          id: response.id,
+          slug: response.slug,
+          type: response.type,
+          title: response.title,
+          summary: response.summary ? 'AI summary updated' : 'No summary change',
+          url: `${tartarusUrl}/repository/${response.slug}`,
+        }, null, 2)}`;
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: truncateOutput(responseText),
+            },
+          ],
+        };
+      } catch (error) {
+        throw toMcpError(error);
+      }
+    }
+  );
+
+  // Tool 23: repository_create_from_report (unified document/prompt creation from agent report)
+  server.registerTool(
+    'repository_create_from_report',
+    {
+      title: 'Create Document or Prompt from Agent Report',
+      description: `Create a document (writing, prompt, or note) or update an existing one by providing a free-form agent report. Kronus will extract all structured information automatically.
+
+## How It Works
+
+This tool follows the same pattern as journal entry creation:
+1. You provide a **raw_agent_report** describing the document/prompt
+2. Kronus (AI) analyzes the report and extracts:
+   - Title, content, type
+   - All metadata (tags, categories, dates)
+   - For prompts: purpose, role, schemas, config
+3. The document is created/updated with auto-summary generation
+
+## Document Types
+
+- **writing**: Creative works, essays, poems, philosophical pieces, fiction
+- **prompt**: System prompts, AI contexts, templates, instructions for AI
+- **note**: Quick notes, reference material, snippets
+
+## What Kronus Extracts
+
+### Required
+- **title**: Document title
+- **content**: Full document content
+- **type**: Document type (auto-detected if not specified)
+
+### Metadata (extracted from report)
+- **tags**: Array of tags
+- **metadataType**: Secondary category
+- **writtenDate**: Date when written (if mentioned)
+
+### Prompt-Specific (if type is "prompt" or report indicates prompt)
+- **purpose**: What the prompt is for
+- **role**: Message role (system/user/assistant/chat)
+- **inputSchema**: JSON schema for input (if mentioned)
+- **outputSchema**: JSON schema for output (if mentioned)
+- **config**: Configuration (model, temperature, etc. if mentioned)
+
+## Auto-Summary & Normalization
+
+- **AI Summary**: Automatically generated for Kronus indexing
+- **Normalization**: Legacy fields (year → writtenDate) are normalized automatically
+
+## Example Reports
+
+**Writing:**
+"I wrote a poem called 'The Song of Aquinas' about the philosophy of work. It's a reflection on how we approach coding and creativity. Tags: poetry, philosophy, work. Written in December 2025."
+
+**Prompt:**
+"I created a system prompt for Kronus oracle mode. Purpose: Answer questions about projects and code. Role: system. The prompt helps users understand their codebase. Config: model claude-sonnet-4, temperature 0.7, max_tokens 2000."
+
+**Note:**
+"Quick reference note about React hooks. Covers useState, useEffect, useContext. Tags: react, reference, frontend."
+
+## Updating Existing Documents
+
+If you provide a \`slug\` or \`id\` of an existing document, it will be updated instead of created. Only fields extracted from the report will be updated - existing data is preserved.
+
+Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
+      inputSchema: {
+        raw_agent_report: z.string().min(10).describe('Your detailed report describing the document or prompt to create/update'),
+        document_type: z.enum(['writing', 'prompt', 'note']).optional().describe('Document type - if not provided, will be auto-detected from report'),
+        slug: z.string().optional().describe('Slug or ID of existing document to update (if provided, updates instead of creates)'),
+        id: z.number().optional().describe('Numeric ID of existing document to update (if provided, updates instead of creates)'),
+      },
+    },
+    async ({ raw_agent_report, document_type, slug, id }) => {
+      try {
+        // Import the generateDocument function
+        const { generateDocument } = await import('./ai/generate-document.js');
+
+        // Generate structured data from agent report
+        const aiOutput = await generateDocument(
+          { raw_agent_report, document_type },
+          journalConfig!
+        );
+
+        // Validate JSON fields for prompts
+        let parsedInputSchema: string | null = null;
+        let parsedOutputSchema: string | null = null;
+        let parsedConfig: Record<string, unknown> | null = null;
+
+        if (aiOutput.inputSchema) {
+          try {
+            JSON.parse(aiOutput.inputSchema); // Validate JSON
+            parsedInputSchema = aiOutput.inputSchema.trim();
+          } catch (e) {
+            logger.warn('Invalid JSON in extracted inputSchema, skipping');
+          }
+        }
+
+        if (aiOutput.outputSchema) {
+          try {
+            JSON.parse(aiOutput.outputSchema); // Validate JSON
+            parsedOutputSchema = aiOutput.outputSchema.trim();
+          } catch (e) {
+            logger.warn('Invalid JSON in extracted outputSchema, skipping');
+          }
+        }
+
+        if (aiOutput.config) {
+          try {
+            parsedConfig = typeof aiOutput.config === 'string' ? JSON.parse(aiOutput.config) : aiOutput.config;
+          } catch (e) {
+            logger.warn('Invalid JSON in extracted config, skipping');
+          }
+        }
+
+        // Build metadata object
+        const metadata: Record<string, unknown> = {
+          tags: aiOutput.tags || [],
+        };
+
+        if (aiOutput.metadataType) metadata.type = aiOutput.metadataType;
+        if (aiOutput.writtenDate) metadata.writtenDate = aiOutput.writtenDate;
+
+        // Add prompt-specific metadata if type is prompt
+        if (aiOutput.type === 'prompt') {
+          if (aiOutput.purpose) metadata.purpose = aiOutput.purpose;
+          if (aiOutput.role) metadata.role = aiOutput.role;
+          if (parsedInputSchema) metadata.inputSchema = parsedInputSchema;
+          if (parsedOutputSchema) metadata.outputSchema = parsedOutputSchema;
+          if (parsedConfig) metadata.config = parsedConfig;
+        }
+
+        // Determine if updating or creating
+        const isUpdate = !!(slug || id);
+        const identifier = id ? String(id) : slug;
+
+        let response: {
+          id: number;
+          slug: string;
+          type: string;
+          title: string;
+          content: string;
+          language: string;
+          metadata: Record<string, unknown>;
+          summary: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+
+        if (isUpdate) {
+          // Update existing document
+          const updatePayload: Record<string, unknown> = {
+            title: aiOutput.title,
+            content: aiOutput.content,
+            type: aiOutput.type,
+            language: aiOutput.language,
+            metadata,
+          };
+
+          response = await fetchTartarus(`/api/documents/${identifier}`, {
+            method: 'PUT',
+            body: updatePayload,
+          });
+        } else {
+          // Create new document
+          response = await fetchTartarus('/api/documents', {
+            method: 'POST',
+            body: {
+              title: aiOutput.title,
+              content: aiOutput.content,
+              type: aiOutput.type,
+              language: aiOutput.language,
+              metadata,
+            },
+          });
+
+          // Auto-generate summary (PUT endpoint handles this for updates)
+          try {
+            const contentToSummarize = aiOutput.content || "";
+            if (contentToSummarize.length > 20) {
+              const summaryResponse = await fetchTartarus<{ summary: string }>('/api/ai/summarize', {
+                method: 'POST',
+                body: {
+                  type: 'document',
+                  content: contentToSummarize,
+                  title: aiOutput.title,
+                  metadata,
+                },
+              });
+
+              if (summaryResponse.summary) {
+                // Update document with summary
+                await fetchTartarus(`/api/documents/${response.slug}`, {
+                  method: 'PUT',
+                  body: {
+                    summary: summaryResponse.summary,
+                  },
+                });
+                response.summary = summaryResponse.summary;
+              }
+            }
+          } catch (summaryError) {
+            logger.warn('Failed to generate summary for document:', summaryError);
+          }
+        }
+
+        const action = isUpdate ? 'updated' : 'created';
+        const responseText = `✅ Document ${action} successfully from agent report\n\n${JSON.stringify({
+          id: response.id,
+          slug: response.slug,
+          type: response.type,
+          title: response.title,
+          extracted_fields: {
+            tags: aiOutput.tags?.length || 0,
+            metadataType: aiOutput.metadataType || null,
+            writtenDate: aiOutput.writtenDate || null,
+            ...(aiOutput.type === 'prompt' ? {
+              purpose: aiOutput.purpose || null,
+              role: aiOutput.role || null,
+              hasInputSchema: !!parsedInputSchema,
+              hasOutputSchema: !!parsedOutputSchema,
+              hasConfig: !!parsedConfig,
+            } : {}),
+          },
+          summary: response.summary ? 'AI summary generated' : 'No summary',
+          url: `${tartarusUrl}/repository/${response.slug}`,
+        }, null, 2)}`;
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: truncateOutput(responseText),
+            },
+          ],
+        };
+      } catch (error) {
+        throw toMcpError(error);
+      }
+    }
+  );
+
+  // Tool 24: repository_upload_media
   server.registerTool(
     'repository_upload_media',
     {
@@ -1774,37 +2313,53 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     }
   );
 
-  logger.success('Journal tools registered (7 tools) + Repository tools (7 tools via Tartarus API)');
+  logger.success('Journal tools registered (7 tools) + Repository tools (9 tools via Tartarus API)');
 
   // ============================================
   // MCP Resources - Expose journal data as resources
-  // AI SDK 6.0 feature: Resources provide read-only data access
+  // MCP Resources provide read-only data access via URIs
   // ============================================
 
-  // Resource: List of all repositories
-  server.registerResource(
-    'repositories',
-    'journal://repositories',
-    {
-      description: 'List of all repositories with journal entries',
-      mimeType: 'application/json',
-    },
-    async () => {
-      const repositories = listRepositories();
-      return {
-        contents: [{
-          uri: 'journal://repositories',
-          mimeType: 'application/json',
-          text: JSON.stringify(repositories, null, 2),
-        }],
-      };
-    }
-  );
+  try {
+    // Resource: List of all repositories
+    server.registerResource(
+      'repositories',
+      'journal://repositories',
+      {
+        description: 'List of all repositories with journal entries',
+        mimeType: 'application/json',
+      },
+      async () => {
+        const repositories = listRepositories();
+        return {
+          contents: [{
+            uri: 'journal://repositories',
+            mimeType: 'application/json',
+            text: JSON.stringify(repositories, null, 2),
+          }],
+        };
+      }
+    );
+    logger.debug('Registered resource: journal://repositories');
+  } catch (error) {
+    logger.error('Failed to register repositories resource:', error);
+    throw error;
+  }
 
   // Resource Template: Project summary by repository
   server.registerResource(
     'project-summary',
-    new ResourceTemplate('journal://summary/{repository}', { list: undefined }),
+    new ResourceTemplate('journal://summary/{repository}', { 
+      list: async () => {
+        const repositories = listRepositories();
+        return {
+          resources: repositories.map(repo => ({
+            uri: `journal://summary/${repo}`,
+            name: repo,
+          })),
+        };
+      }
+    }),
     {
       description: 'Get Entry 0 (Living Project Summary) for a repository',
       mimeType: 'application/json',
@@ -1833,7 +2388,25 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
   // Resource Template: Get journal entry by commit hash
   server.registerResource(
     'journal-entry',
-    new ResourceTemplate('journal://entry/{commit_hash}', { list: undefined }),
+    new ResourceTemplate('journal://entry/{commit_hash}', { 
+      list: async () => {
+        // Return recent entries (last 50) as concrete resources
+        const repositories = listRepositories();
+        const entries: Array<{ uri: string; name: string }> = [];
+        for (const repo of repositories.slice(0, 5)) { // Limit to 5 repos to avoid too many
+          const { entries: repoEntries } = getEntriesByRepositoryPaginated(repo, 10, 0, false);
+          for (const entry of repoEntries) {
+            entries.push({
+              uri: `journal://entry/${entry.commit_hash}`,
+              name: `${entry.commit_hash.substring(0, 7)} - ${repo}`,
+            });
+          }
+        }
+        return {
+          resources: entries.slice(0, 50), // Limit total to 50
+        };
+      }
+    }),
     {
       description: 'Get a journal entry by commit hash. By default excludes raw_agent_report. Add ?include_raw_report=true to URI query to include full report.',
       mimeType: 'application/json',
@@ -1880,7 +2453,17 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
   // Resource Template: List branches for a repository
   server.registerResource(
     'journal-branches',
-    new ResourceTemplate('journal://branches/{repository}', { list: undefined }),
+    new ResourceTemplate('journal://branches/{repository}', { 
+      list: async () => {
+        const repositories = listRepositories();
+        return {
+          resources: repositories.map(repo => ({
+            uri: `journal://branches/${repo}`,
+            name: `${repo} branches`,
+          })),
+        };
+      }
+    }),
     {
       description: 'List all branches in a repository that have journal entries. Returns a simple list of branch names.',
       mimeType: 'application/json',
@@ -1916,7 +2499,28 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
   // Resource Template: List attachments for a journal entry
   server.registerResource(
     'journal-attachments',
-    new ResourceTemplate('journal://attachments/{commit_hash}', { list: undefined }),
+    new ResourceTemplate('journal://attachments/{commit_hash}', { 
+      list: async () => {
+        // Return recent entries that have attachments
+        const repositories = listRepositories();
+        const entries: Array<{ uri: string; name: string }> = [];
+        for (const repo of repositories.slice(0, 5)) {
+          const { entries: repoEntries } = getEntriesByRepositoryPaginated(repo, 20, 0, false);
+          for (const entry of repoEntries) {
+            const attachments = getAttachmentMetadataByCommit(entry.commit_hash);
+            if (attachments.length > 0) {
+              entries.push({
+                uri: `journal://attachments/${entry.commit_hash}`,
+                name: `${entry.commit_hash.substring(0, 7)} - ${repo} (${attachments.length} files)`,
+              });
+            }
+          }
+        }
+        return {
+          resources: entries.slice(0, 30), // Limit to 30 entries with attachments
+        };
+      }
+    }),
     {
       description: 'List attachment metadata for a journal entry by commit hash. Binary file data is excluded. Use journal://attachment/{attachment_id} resource to get individual attachment details.',
       mimeType: 'application/json',
@@ -2199,11 +2803,13 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     new ResourceTemplate('repository://documents/{type}', { 
       list: async () => {
         // Return list of available types
-        return [
-          { uri: 'repository://documents/writing', name: 'Writings' },
-          { uri: 'repository://documents/prompt', name: 'Prompts' },
-          { uri: 'repository://documents/note', name: 'Notes' },
-        ];
+        return {
+          resources: [
+            { uri: 'repository://documents/writing', name: 'Writings' },
+            { uri: 'repository://documents/prompt', name: 'Prompts' },
+            { uri: 'repository://documents/note', name: 'Notes' },
+          ],
+        };
       }
     }),
     {
@@ -2302,6 +2908,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     }
   );
 
+  logger.info(`Journal resources registered: 1 static + 6 templates`);
   logger.success('Journal resources registered (7 resources) + Repository resources (3 resource templates)');
 
   // ============================================
@@ -2712,7 +3319,7 @@ Use journal_create_project_summary if Entry 0 doesn't exist yet, or journal_subm
     },
     async ({ repository }) => {
       const summary = getProjectSummary(repository);
-      const entries = getEntriesByRepositoryPaginated(repository, 5, 0, false);
+      const { entries } = getEntriesByRepositoryPaginated(repository, 5, 0, false);
 
       let context = `Repository: ${repository}\n`;
       if (summary) {

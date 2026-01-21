@@ -59,6 +59,8 @@ const envSchema = z.object({
   // Optional settings
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).optional(),
   SOUL_XML_PATH: z.string().optional(), // Path to Soul.xml (default: Soul.xml in project root)
+  AGENT_NAME: z.string().optional(), // Name of the AI agent (default: "Kronus")
+  AGENT_SOUL_PATH: z.string().optional(), // Path to agent prompt file (default: "Soul.xml")
   TARTARUS_URL: z.string().optional(), // Base URL for Tartarus web app (e.g., http://localhost:3001)
   MCP_API_KEY: z.string().optional(), // API key for MCP to access Tartarus repository endpoints
 });

@@ -185,6 +185,10 @@ TARTARUS_URL=http://localhost:3000
 # Optional
 LINEAR_API_KEY=lin_api_...
 MCP_API_KEY=your-mcp-key                # For authenticated MCP requests
+
+# Agent Configuration (Optional)
+AGENT_NAME=Kronus                        # Name of your AI agent (default: "Kronus")
+AGENT_SOUL_PATH=Soul.xml                # Path to agent prompt file (default: "Soul.xml")
 ```
 
 ### MCP Client Setup
@@ -206,6 +210,36 @@ Platform-specific config locations:
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux**: `~/.config/Claude/claude_desktop_config.json`
 - **Cursor**: `~/.cursor/mcp.json`
+
+## Agent Configuration
+
+The system supports customizing the AI agent name and prompt file for personalized instances.
+
+### Environment Variables
+
+- `AGENT_NAME`: Name of your AI agent (default: "Kronus")
+- `AGENT_SOUL_PATH`: Path to agent prompt file (default: "Soul.xml")
+
+### Creating a Custom Agent
+
+1. **Create a custom prompt file** (e.g., `Soul_Custom.xml`) with your personalized agent personality
+2. **Set environment variables** in your `.env` file:
+   ```bash
+   AGENT_NAME=CustomName
+   AGENT_SOUL_PATH=Soul_Custom.xml
+   ```
+3. **Restart the application** - the UI and all references will use your custom agent name
+
+### Example: Multiple Instances
+
+For separate deployments (e.g., personal vs. team instance):
+
+1. **Fork/clone the repository** for each instance
+2. **Create custom prompt files** for each (e.g., `Soul_Personal.xml`, `Soul_Team.xml`)
+3. **Configure each instance** with different `AGENT_NAME` and `AGENT_SOUL_PATH` values
+4. **Deploy independently** - each instance will have its own agent identity while sharing the same codebase
+
+The agent name appears throughout the UI (chat interface, context selector, API responses) and all functionality remains the same - only the personality and branding change.
 
 ## Development
 

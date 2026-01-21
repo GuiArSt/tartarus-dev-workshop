@@ -33,16 +33,17 @@ function getProjectRoot(): string {
 
 function loadKronusSoul(): string {
   const projectRoot = getProjectRoot();
-  const soulPathEnv = process.env.SOUL_XML_PATH;
-  const soulPath = soulPathEnv
+  const agentName = process.env.AGENT_NAME || "Kronus";
+  const soulPathEnv = process.env.SOUL_XML_PATH || process.env.AGENT_SOUL_PATH || "Soul.xml";
+  const soulPath = soulPathEnv.startsWith("/") || soulPathEnv.startsWith("~")
     ? path.resolve(soulPathEnv.replace(/^~/, os.homedir()))
-    : path.join(projectRoot, "Soul.xml");
+    : path.join(projectRoot, soulPathEnv);
 
   try {
     return fs.readFileSync(soulPath, "utf-8");
   } catch (error) {
-    console.warn(`Could not load Soul.xml from ${soulPath}. Using minimal prompt.`);
-    return "You are Kronus, an empathetic consciousness analyzing developer work with wisdom and care.";
+    console.warn(`Could not load agent soul from ${soulPath}. Using minimal prompt.`);
+    return `You are ${agentName}, an empathetic consciousness analyzing developer work with wisdom and care.`;
   }
 }
 

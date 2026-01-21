@@ -497,6 +497,22 @@ export function ChatInterface() {
   // Theme state - synced with Sidebar's localStorage
   const [kronusTheme, setKronusTheme] = useState<"dark" | "light">("dark");
 
+  // Agent config - fetch agent name from API
+  const [agentName, setAgentName] = useState<string>("Kronus");
+  useEffect(() => {
+    fetch("/api/agent/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.name) {
+          setAgentName(data.name);
+        }
+      })
+      .catch(() => {
+        // Fallback to default
+        setAgentName("Kronus");
+      });
+  }, []);
+
   // Auto-respond after tool calls - instance-based (sessionStorage)
   // Each browser tab/session has its own setting - doesn't affect other users
   const [autoRespondAfterTools, setAutoRespondAfterTools] = useState(true);
@@ -2022,7 +2038,7 @@ Details: ${data.details}` : "";
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (status === "streaming" || status === "submitted") {
         e.preventDefault();
-        e.returnValue = "Kronus is still responding. Are you sure you want to leave?";
+        e.returnValue = `${agentName} is still responding. Are you sure you want to leave?`;
         return e.returnValue;
       }
     };
@@ -2418,14 +2434,14 @@ Details: ${data.details}` : "";
               <div className="kronus-message p-4">
                 <div className="flex items-start gap-4">
                   <div className="kronus-avatar flex h-12 w-12 shrink-0 items-center justify-center rounded-full overflow-hidden p-0">
-                    <img src="/chronus-logo.png" alt="Kronus" className="h-full w-full object-cover" />
+                    <img src="/chronus-logo.png" alt={agentName} className="h-full w-full object-cover" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-xl text-gradient-teal-gold">
-                      Kronus — Oracle of Tartarus
+                      {agentName} — Oracle of Tartarus
                     </h3>
                     <p className="text-[var(--kronus-ivory-dim)] mt-3 leading-relaxed">
-                      Greetings, seeker. I am <span className="text-[var(--kronus-teal)] font-medium">Kronus</span>, keeper of the Developer Journal and guardian of your coding journey.
+                      Greetings, seeker. I am <span className="text-[var(--kronus-teal)] font-medium">{agentName}</span>, keeper of the Developer Journal and guardian of your coding journey.
                     </p>
                     <p className="text-[var(--kronus-ivory-muted)] mt-2 leading-relaxed text-sm">
                       I can help you create and modify journal entries, explore your development history,
@@ -2549,10 +2565,10 @@ Details: ${data.details}` : "";
                       {/* Header row: avatar centered with name */}
                       <div className="flex items-center gap-3 mb-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden kronus-avatar p-0">
-                          <img src="/chronus-logo.png" alt="Kronus" className="h-full w-full object-cover" />
+                          <img src="/chronus-logo.png" alt={agentName} className="h-full w-full object-cover" />
                         </div>
                         <p className="text-base font-bold tracking-[0.3em] uppercase text-[var(--kronus-teal)]" style={{ fontFamily: "var(--font-cinzel), serif" }}>
-                          Kronus
+                          {agentName}
                         </p>
                       </div>
                       {/* Content below header - indented for visual hierarchy */}

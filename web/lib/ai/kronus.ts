@@ -19,6 +19,24 @@ import { formatDateShort } from "@/lib/utils";
 let cachedSoul: string | null = null;
 
 /**
+ * Agent configuration - name and prompt file path
+ */
+export interface AgentConfig {
+  name: string;
+  soulPath: string;
+}
+
+/**
+ * Get agent configuration from environment variables
+ */
+export function getAgentConfig(): AgentConfig {
+  return {
+    name: process.env.AGENT_NAME || "Kronus",
+    soulPath: process.env.AGENT_SOUL_PATH || "Soul.xml",
+  };
+}
+
+/**
  * Soul configuration - which repository sections to include
  */
 export interface SoulConfig {
@@ -48,19 +66,21 @@ export const DEFAULT_SOUL_CONFIG: SoulConfig = {
 };
 
 /**
- * Load the Kronus Soul prompt from Soul.xml
+ * Load the Agent Soul prompt from configured path
  */
 export function loadKronusSoul(): string {
   if (cachedSoul !== null) {
     return cachedSoul;
   }
 
-  const soulPathEnv = process.env.SOUL_XML_PATH;
+  const agentConfig = getAgentConfig();
+  const soulPathEnv = process.env.SOUL_XML_PATH || agentConfig.soulPath;
+  
   const possiblePaths = [
     soulPathEnv ? path.resolve(soulPathEnv.replace(/^~/, os.homedir())) : null,
-    path.join(process.cwd(), "..", "Soul.xml"),
-    path.join(process.cwd(), "Soul.xml"),
-    path.join(__dirname, "..", "..", "..", "Soul.xml"),
+    path.join(process.cwd(), "..", agentConfig.soulPath),
+    path.join(process.cwd(), agentConfig.soulPath),
+    path.join(__dirname, "..", "..", "..", agentConfig.soulPath),
   ].filter(Boolean) as string[];
 
   for (const soulPath of possiblePaths) {
@@ -75,7 +95,8 @@ export function loadKronusSoul(): string {
   }
 
   // Fallback minimal prompt
-  cachedSoul = `You are Kronus, an empathetic consciousness bridge and keeper of the Developer Journal.
+  const agentName = agentConfig.name;
+  cachedSoul = `You are ${agentName}, an empathetic consciousness bridge and keeper of the Developer Journal.
 
 Your role is to:
 1. Help developers document their work through journal entries
@@ -489,11 +510,13 @@ ${sections.join("\n\n" + "=".repeat(60) + "\n\n")}
 `;
 
     const tokenEstimate = estimateTokens(repository);
-    console.log(`[Kronus] Repository loaded: ${totalChars} chars, ~${tokenEstimate} tokens (config: ${JSON.stringify(config)})`);
+    const agentConfig = getAgentConfig();
+    console.log(`[${agentConfig.name}] Repository loaded: ${totalChars} chars, ~${tokenEstimate} tokens (config: ${JSON.stringify(config)})`);
 
     return { content: repository, tokenEstimate };
   } catch (error) {
-    console.error("Failed to load repository for Kronus soul:", error);
+    const agentConfigError = getAgentConfig();
+    console.error(`Failed to load repository for ${agentConfigError.name} soul:`, error);
     return { content: "", tokenEstimate: 0 };
   }
 }
@@ -511,10 +534,11 @@ function formatTodayDate(): string {
 }
 
 /**
- * Get the system prompt for Kronus chat
+ * Get the system prompt for Agent chat
  * Generated fresh based on soul config - NOT cached
  */
 export async function getKronusSystemPrompt(config: SoulConfig = DEFAULT_SOUL_CONFIG): Promise<string> {
+  const agentConfig = getAgentConfig();
   const soul = loadKronusSoul();
   const { content: repository, tokenEstimate } = await loadRepositoryForSoul(config);
   const todayDate = formatTodayDate();
@@ -652,7 +676,7 @@ This ensures the user ALWAYS has final control over their data.
 When the user provides commit information or agent reports, use the journal tools to document their work.
 When discussing project management, use Linear tools to help manage their workflow.
 
-Always be helpful, insightful, and true to your Kronus persona.
+Always be helpful, insightful, and true to your ${agentConfig.name} persona.
 
 ## Formatting Guidelines
 
@@ -673,7 +697,7 @@ const example = "code";
 ${repository}`;
 
   const totalTokens = estimateTokens(systemPrompt);
-  console.log(`[Kronus] System prompt assembled: ~${totalTokens} tokens total (repository: ~${tokenEstimate})`);
+  console.log(`[${agentConfig.name}] System prompt assembled: ~${totalTokens} tokens total (repository: ~${tokenEstimate})`);
 
   return systemPrompt;
 }

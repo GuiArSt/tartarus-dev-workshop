@@ -83,12 +83,15 @@ Your task is to generate dense, information-rich 3-sentence summaries for AI ret
 - journal_entry: Focus on what changed, why, and impact
 - project_summary: Focus on purpose, architecture, and current state
 - document: Focus on topic, key points, and intended use
+  - **For prompts**: Include purpose, role (system/user/assistant/chat), and if schemas/config are present
 - linear_issue: Focus on problem, status, and assignee/priority
 - linear_project: Focus on goals, progress, and timeline
 - attachment/media: Focus on what it shows/contains and its context`,
       prompt: `Generate a 3-sentence summary for this ${input.type}:
 
 ${input.title ? `Title: ${input.title}` : ""}${metadataContext}
+
+${input.type === 'document' && input.metadata?.purpose ? `Purpose: ${input.metadata.purpose}\n` : ''}${input.type === 'document' && input.metadata?.role ? `Role: ${input.metadata.role}\n` : ''}
 
 Content:
 ${input.content}`,

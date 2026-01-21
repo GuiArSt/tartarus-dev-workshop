@@ -67,6 +67,7 @@ export const updateJournalEntrySchema = z.object({
   decisions: z.string().optional(),
   technologies: z.string().optional(),
   kronus_wisdom: z.string().nullable().optional(),
+  summary: z.string().nullable().optional(), // AI-generated summary for indexing
   // Attribution fields
   author: z.string().min(1).optional(),
   code_author: z.string().min(1).optional(),

@@ -1,27 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDatabase } from "@/lib/db";
+import { desc, eq, sql, type SQL } from "drizzle-orm";
+import { getDrizzleDb, documents, mediaAssets } from "@/lib/db/drizzle";
 import { withErrorHandler } from "@/lib/api-handler";
 import { NotFoundError, ConflictError, DatabaseError } from "@/lib/errors";
 
-interface DocumentRow {
-  id: number;
-  slug: string;
-  type: string;
-  title: string;
-  content: string;
-  language: string;
-  metadata: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface MediaAssetRow {
-  id: number;
-  filename: string;
-  mime_type: string;
-  description: string | null;
-  alt: string | null;
-}
+type DocumentRow = typeof documents.$inferSelect;
+type MediaAssetRow = typeof mediaAssets.$inferSelect;
 
 function slugify(text: string): string {
   return text
@@ -32,7 +16,7 @@ function slugify(text: string): string {
     .trim();
 }
 
-function parseDocumentMetadata(doc: DocumentRow): Omit<DocumentRow, 'metadata'> & { metadata: Record<string, unknown> } {
+function parseDocumentMetadata(doc: DocumentRow): Omit<DocumentRow, "metadata"> & { metadata: Record<string, unknown> } {
   try {
     const metadata = JSON.parse(doc.metadata || "{}") as Record<string, unknown>;
     
@@ -54,11 +38,36 @@ function parseDocumentMetadata(doc: DocumentRow): Omit<DocumentRow, 'metadata'> 
   }
 }
 
-function getDocumentBySlugOrId(db: ReturnType<typeof getDatabase>, slug: string): DocumentRow | undefined {
+function toApiDocument(doc: ReturnType<typeof parseDocumentMetadata>) {
+  return {
+    id: doc.id,
+    slug: doc.slug,
+    type: doc.type,
+    title: doc.title,
+    content: doc.content,
+    language: doc.language,
+    metadata: doc.metadata,
+    summary: doc.summary,
+    created_at: doc.createdAt,
+    updated_at: doc.updatedAt,
+  };
+}
+
+async function getDocumentBySlugOrId(db: ReturnType<typeof getDrizzleDb>, slug: string): Promise<DocumentRow | undefined> {
   if (/^\d+$/.test(slug)) {
-    return db.prepare("SELECT * FROM documents WHERE id = ?").get(parseInt(slug)) as DocumentRow | undefined;
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.id, parseInt(slug, 10)))
+      .limit(1);
+    return document;
   }
-  return db.prepare("SELECT * FROM documents WHERE slug = ?").get(slug) as DocumentRow | undefined;
+  const [document] = await db
+    .select()
+    .from(documents)
+    .where(eq(documents.slug, slug))
+    .limit(1);
+  return document;
 }
 
 /**
@@ -72,9 +81,9 @@ export const GET = withErrorHandler<{ slug: string }>(async (
   const { params } = context!;
   const { slug } = await params;
   console.log(`[Documents API] Fetching document with slug/id: ${slug}`);
-  const db = getDatabase();
+  const db = getDrizzleDb();
 
-  const document = getDocumentBySlugOrId(db, slug);
+  const document = await getDocumentBySlugOrId(db, slug);
   if (!document) {
     console.log(`[Documents API] Document not found for slug: ${slug}`);
     throw new NotFoundError("Document not found");
@@ -83,19 +92,24 @@ export const GET = withErrorHandler<{ slug: string }>(async (
   console.log(`[Documents API] Found document: ${document.title}`);
 
   // Fetch attached media assets
-  const mediaAssets = db.prepare(`
-    SELECT id, filename, mime_type, description, alt
-    FROM media_assets
-    WHERE document_id = ?
-    ORDER BY created_at DESC
-  `).all(document.id) as MediaAssetRow[];
+  const mediaAssetsRows = await db
+    .select({
+      id: mediaAssets.id,
+      filename: mediaAssets.filename,
+      mime_type: mediaAssets.mimeType,
+      description: mediaAssets.description,
+      alt: mediaAssets.alt,
+    })
+    .from(mediaAssets)
+    .where(eq(mediaAssets.documentId, document.id))
+    .orderBy(desc(mediaAssets.createdAt));
 
   const parsedDoc = parseDocumentMetadata(document);
 
   return NextResponse.json({
-    ...parsedDoc,
-    media_count: mediaAssets.length,
-    media_assets: mediaAssets.map(m => ({
+    ...toApiDocument(parsedDoc),
+    media_count: mediaAssetsRows.length,
+    media_assets: mediaAssetsRows.map(m => ({
       id: m.id,
       filename: m.filename,
       mime_type: m.mime_type,
@@ -116,7 +130,7 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
 ) => {
   const { params } = context!;
   const { slug } = await params;
-  const db = getDatabase();
+  const db = getDrizzleDb();
   const body = await request.json();
   const { title, content, type, metadata, summary } = body as {
     title?: string;
@@ -127,38 +141,37 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
   };
 
   const isNumericId = /^\d+$/.test(slug);
-  const existing = getDocumentBySlugOrId(db, slug);
+  const existing = await getDocumentBySlugOrId(db, slug);
   if (!existing) {
     throw new NotFoundError("Document not found");
   }
 
-  const updates: string[] = [];
-  const values: (string | number | null)[] = [];
+  const updates: Partial<typeof documents.$inferInsert> & { updatedAt?: SQL } = {};
 
   if (title !== undefined) {
-    updates.push("title = ?");
-    values.push(title);
+    updates.title = title;
     // Update slug if title changed
     const newSlug = slugify(title);
     if (newSlug !== slug && !isNumericId) {
       // Check if new slug exists
-      const slugExists = db.prepare("SELECT id FROM documents WHERE slug = ?").get(newSlug);
+      const [slugExists] = await db
+        .select({ id: documents.id })
+        .from(documents)
+        .where(eq(documents.slug, newSlug))
+        .limit(1);
       if (slugExists) {
         throw new ConflictError("Document with this title already exists");
       }
-      updates.push("slug = ?");
-      values.push(newSlug);
+      updates.slug = newSlug;
     }
   }
 
   if (content !== undefined) {
-    updates.push("content = ?");
-    values.push(content);
+    updates.content = content;
   }
 
   if (type !== undefined && ["writing", "prompt", "note"].includes(type)) {
-    updates.push("type = ?");
-    values.push(type);
+    updates.type = type;
   }
 
   if (metadata !== undefined) {
@@ -172,39 +185,78 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
       delete normalizedMetadata.year;
     }
     
-    updates.push("metadata = ?");
-    values.push(JSON.stringify(normalizedMetadata));
+    updates.metadata = JSON.stringify(normalizedMetadata);
   }
 
   if (summary !== undefined) {
-    updates.push("summary = ?");
-    values.push(summary);
+    updates.summary = summary;
   }
 
-  updates.push("updated_at = CURRENT_TIMESTAMP");
+  updates.updatedAt = sql`CURRENT_TIMESTAMP`;
+
+  // Track if content changed for auto-summary generation
+  const contentChanged = content !== undefined && content !== existing.content;
 
   try {
     if (isNumericId) {
-      db.prepare(`UPDATE documents SET ${updates.join(", ")} WHERE id = ?`).run(...values, parseInt(slug));
+      await db.update(documents).set(updates).where(eq(documents.id, parseInt(slug, 10))).run();
     } else {
-      db.prepare(`UPDATE documents SET ${updates.join(", ")} WHERE slug = ?`).run(...values, slug);
+      await db.update(documents).set(updates).where(eq(documents.slug, slug)).run();
     }
 
     // Fetch updated document
     let updated: DocumentRow | undefined;
     if (isNumericId) {
-      updated = db.prepare("SELECT * FROM documents WHERE id = ?").get(parseInt(slug)) as DocumentRow | undefined;
+      updated = await getDocumentBySlugOrId(db, slug);
     } else if (title) {
-      updated = db.prepare("SELECT * FROM documents WHERE slug = ?").get(slugify(title)) as DocumentRow | undefined;
+      updated = await getDocumentBySlugOrId(db, slugify(title));
     } else {
-      updated = db.prepare("SELECT * FROM documents WHERE slug = ?").get(slug) as DocumentRow | undefined;
+      updated = await getDocumentBySlugOrId(db, slug);
     }
 
     if (!updated) {
       throw new DatabaseError("Failed to retrieve updated document");
     }
 
-    return NextResponse.json(parseDocumentMetadata(updated));
+    const parsedDoc = parseDocumentMetadata(updated);
+
+    // Auto-generate summary if content changed and summary not explicitly provided
+    if (contentChanged && summary === undefined) {
+      try {
+        const contentToSummarize = updated.content || "";
+        if (contentToSummarize.length > 20) {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+          const summaryResponse = await fetch(`${baseUrl}/api/ai/summarize`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "document",
+              content: contentToSummarize,
+              title: updated.title,
+              metadata: parsedDoc.metadata,
+            }),
+          });
+
+          if (summaryResponse.ok) {
+            const summaryData = await summaryResponse.json();
+            if (summaryData.summary) {
+              // Update document with generated summary
+              await db
+                .update(documents)
+                .set({ summary: summaryData.summary })
+                .where(eq(documents.id, updated.id))
+                .run();
+              parsedDoc.summary = summaryData.summary;
+            }
+          }
+        }
+      } catch (summaryError) {
+        // Don't fail the update if summary generation fails
+        console.warn("Failed to generate summary for updated document:", summaryError);
+      }
+    }
+
+    return NextResponse.json(toApiDocument(parsedDoc));
   } catch (error) {
     if (error instanceof NotFoundError || error instanceof ConflictError || error instanceof DatabaseError) {
       throw error;
@@ -226,17 +278,17 @@ export const DELETE = withErrorHandler<{ slug: string }>(async (
 ) => {
   const { params } = context!;
   const { slug } = await params;
-  const db = getDatabase();
+  const db = getDrizzleDb();
 
   // Support both slug and numeric ID
-  let result;
+  let result: { changes?: number } | undefined;
   if (/^\d+$/.test(slug)) {
-    result = db.prepare("DELETE FROM documents WHERE id = ?").run(parseInt(slug));
+    result = await db.delete(documents).where(eq(documents.id, parseInt(slug, 10))).run();
   } else {
-    result = db.prepare("DELETE FROM documents WHERE slug = ?").run(slug);
+    result = await db.delete(documents).where(eq(documents.slug, slug)).run();
   }
 
-  if (result.changes === 0) {
+  if (!result?.changes) {
     throw new NotFoundError("Document not found");
   }
 

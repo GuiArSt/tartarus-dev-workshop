@@ -196,56 +196,79 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
   );
 
   // Register resources for observability
-  server.registerResource(
-    'observability://chats',
-    'Kronus Chat History',
-    async () => {
-      const chats = getRecentKronusChats(50);
-      return {
-        contents: [
-          {
-            uri: 'observability://chats',
-            mimeType: 'application/json',
-            text: JSON.stringify(chats, null, 2),
-          },
-        ],
-      };
-    }
-  );
+  try {
+    server.registerResource(
+      'observability-chats',
+      'observability://chats',
+      {
+        title: 'Kronus Chat History',
+        description: 'Recent Kronus conversations',
+        mimeType: 'application/json',
+      },
+      async () => {
+        const chats = getRecentKronusChats(50);
+        return {
+          contents: [
+            {
+              uri: 'observability://chats',
+              mimeType: 'application/json',
+              text: JSON.stringify(chats, null, 2),
+            },
+          ],
+        };
+      }
+    );
+    logger.debug('Registered resource: observability://chats');
 
-  server.registerResource(
-    'observability://traces',
-    'AI Traces (Recent)',
-    async () => {
-      const traces = getRecentTraces(50);
-      return {
-        contents: [
-          {
-            uri: 'observability://traces',
-            mimeType: 'application/json',
-            text: JSON.stringify(traces, null, 2),
-          },
-        ],
-      };
-    }
-  );
+    server.registerResource(
+      'observability-traces',
+      'observability://traces',
+      {
+        title: 'AI Traces (Recent)',
+        description: 'Recent AI operation traces',
+        mimeType: 'application/json',
+      },
+      async () => {
+        const traces = getRecentTraces(50);
+        return {
+          contents: [
+            {
+              uri: 'observability://traces',
+              mimeType: 'application/json',
+              text: JSON.stringify(traces, null, 2),
+            },
+          ],
+        };
+      }
+    );
+    logger.debug('Registered resource: observability://traces');
 
-  server.registerResource(
-    'observability://stats',
-    'AI Usage Statistics',
-    async () => {
-      const stats = getTraceStats(7);
-      return {
-        contents: [
-          {
-            uri: 'observability://stats',
-            mimeType: 'application/json',
-            text: JSON.stringify(stats, null, 2),
-          },
-        ],
-      };
-    }
-  );
+    server.registerResource(
+      'observability-stats',
+      'observability://stats',
+      {
+        title: 'AI Usage Statistics',
+        description: 'AI usage statistics and metrics',
+        mimeType: 'application/json',
+      },
+      async () => {
+        const stats = getTraceStats(7);
+        return {
+          contents: [
+            {
+              uri: 'observability://stats',
+              mimeType: 'application/json',
+              text: JSON.stringify(stats, null, 2),
+            },
+          ],
+        };
+      }
+    );
+    logger.debug('Registered resource: observability://stats');
+  } catch (error) {
+    logger.error('Failed to register observability resources:', error);
+    throw error;
+  }
 
   logger.success('Kronus tools registered (3 tools, 3 resources)');
 }

@@ -148,6 +148,21 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
   const [stats, setStats] = useState<SectionStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [agentName, setAgentName] = useState<string>("Kronus");
+
+  useEffect(() => {
+    fetch("/api/agent/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.name) {
+          setAgentName(data.name);
+        }
+      })
+      .catch(() => {
+        // Fallback to default
+        setAgentName("Kronus");
+      });
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -292,7 +307,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
           >
             <div>
               <h4 style={headerStyles.title}>Soul Repository</h4>
-              <p style={headerStyles.subtitle}>Context for Kronus</p>
+              <p style={headerStyles.subtitle}>Context for {agentName}</p>
             </div>
             <div className="flex gap-1">
               <button

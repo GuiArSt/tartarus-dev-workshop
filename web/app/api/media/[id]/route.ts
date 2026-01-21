@@ -17,6 +17,7 @@ const updateMediaSchema = z.object({
   destination: z.enum(["journal", "repository", "media"]).optional(),
   commit_hash: z.string().optional().nullable(),
   document_id: z.number().optional().nullable(),
+  summary: z.string().nullable().optional(), // AI-generated summary for indexing
 });
 
 /**
@@ -35,7 +36,7 @@ export const GET = withErrorHandler(async (
   const db = getDatabase();
   const columns = include_data
     ? "*"
-    : "id, filename, mime_type, file_size, description, prompt, model, tags, destination, commit_hash, document_id, created_at, updated_at";
+    : "id, filename, mime_type, file_size, description, prompt, model, tags, summary, destination, commit_hash, document_id, created_at, updated_at";
 
   const asset = db.prepare(`SELECT ${columns} FROM media_assets WHERE id = ?`).get(id);
 
@@ -74,6 +75,7 @@ export const PATCH = withErrorHandler(async (
   if (body.destination !== undefined) { updates.push("destination = ?"); values.push(body.destination); }
   if (body.commit_hash !== undefined) { updates.push("commit_hash = ?"); values.push(body.commit_hash); }
   if (body.document_id !== undefined) { updates.push("document_id = ?"); values.push(body.document_id); }
+  if (body.summary !== undefined) { updates.push("summary = ?"); values.push(body.summary ?? null); }
 
   if (updates.length === 0) {
     throw new ValidationError("No fields to update");

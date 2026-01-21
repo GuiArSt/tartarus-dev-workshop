@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDatabase } from "@/lib/db";
+import { and, count, desc, eq, sql } from "drizzle-orm";
+import { getDrizzleDb, documents } from "@/lib/db/drizzle";
 import { withErrorHandler } from "@/lib/api-handler";
 import { requireQuery, requireBody, documentQuerySchema, createDocumentSchema } from "@/lib/validations";
 import { ConflictError, DatabaseError } from "@/lib/errors";
 
-interface DocumentRow {
-  id: number;
-  slug: string;
-  type: string;
-  title: string;
-  content: string;
-  language: string;
-  metadata: string;
-  summary: string | null;
-  created_at: string;
-  updated_at: string;
-}
+type DocumentRow = typeof documents.$inferSelect;
 
 function slugify(text: string): string {
   return text
@@ -26,16 +16,18 @@ function slugify(text: string): string {
     .trim();
 }
 
-function parseDocumentMetadata(doc: DocumentRow): Omit<DocumentRow, 'metadata'> & { metadata: Record<string, unknown> } {
+function parseDocumentMetadata(
+  doc: DocumentRow
+): Omit<DocumentRow, "metadata"> & { metadata: Record<string, unknown> } {
   try {
     const metadata = JSON.parse(doc.metadata || "{}") as Record<string, unknown>;
-    
+
     // Normalize: migrate legacy 'year' field to 'writtenDate' if needed
     if (metadata.year && !metadata.writtenDate) {
       metadata.writtenDate = metadata.year;
       delete metadata.year;
     }
-    
+
     return {
       ...doc,
       metadata,
@@ -48,74 +40,68 @@ function parseDocumentMetadata(doc: DocumentRow): Omit<DocumentRow, 'metadata'> 
   }
 }
 
+function toApiDocument(doc: ReturnType<typeof parseDocumentMetadata>) {
+  return {
+    id: doc.id,
+    slug: doc.slug,
+    type: doc.type,
+    title: doc.title,
+    content: doc.content,
+    language: doc.language,
+    metadata: doc.metadata,
+    summary: doc.summary,
+    created_at: doc.createdAt,
+    updated_at: doc.updatedAt,
+  };
+}
+
 /**
  * GET /api/documents
  * List documents with optional filtering
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const { type, search, year, limit, offset } = requireQuery(documentQuerySchema, request);
-  const db = getDatabase();
+  const db = getDrizzleDb();
 
-  // Build query with conditions
-  // Documents can appear in multiple tabs via metadata.alsoShownIn array
-  let query = "SELECT * FROM documents WHERE 1=1";
-  const params: (string | number)[] = [];
-
+  const conditions = [];
   if (type) {
-    // Match primary type OR documents where alsoShownIn includes this type
-    query += " AND (type = ? OR json_extract(metadata, '$.alsoShownIn') LIKE ?)";
-    params.push(type, `%"${type}"%`);
-  }
-
-  if (year) {
-    query += " AND json_extract(metadata, '$.year') = ?";
-    params.push(year);
-  }
-
-  if (search) {
-    query += " AND (title LIKE ? OR content LIKE ?)";
-    const searchTerm = `%${search}%`;
-    params.push(searchTerm, searchTerm);
-  }
-
-  query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-  params.push(limit, offset);
-
-  const documents = db.prepare(query).all(...params) as DocumentRow[];
-  console.log(`[Documents API] Query: ${query.substring(0, 100)}...`);
-  console.log(`[Documents API] Found ${documents.length} documents`);
-
-  // Parse metadata JSON
-  const documentsWithParsedMetadata = documents.map(parseDocumentMetadata);
-
-  // Get total count with same filters
-  let countQuery = "SELECT COUNT(*) as count FROM documents WHERE 1=1";
-  const countParams: (string | number)[] = [];
-
-  if (type) {
-    countQuery += " AND (type = ? OR json_extract(metadata, '$.alsoShownIn') LIKE ?)";
-    countParams.push(type, `%"${type}"%`);
+    conditions.push(
+      sql`(${documents.type} = ${type} OR (json_valid(${documents.metadata}) = 1 AND json_extract(${documents.metadata}, '$.alsoShownIn') LIKE ${`%"${type}"%`}))`
+    );
   }
   if (year) {
-    countQuery += " AND json_extract(metadata, '$.year') = ?";
-    countParams.push(year);
+    conditions.push(
+      sql`json_valid(${documents.metadata}) = 1 AND json_extract(${documents.metadata}, '$.year') = ${year}`
+    );
   }
   if (search) {
-    countQuery += " AND (title LIKE ? OR content LIKE ?)";
     const searchTerm = `%${search}%`;
-    countParams.push(searchTerm, searchTerm);
+    conditions.push(
+      sql`(${documents.title} LIKE ${searchTerm} OR ${documents.content} LIKE ${searchTerm})`
+    );
   }
 
-  const totalRow = db.prepare(countQuery).get(...countParams) as { count: number };
-  const total = totalRow.count;
+  const documentsRows = await db
+    .select()
+    .from(documents)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(documents.createdAt))
+    .limit(limit)
+    .offset(offset);
 
-  console.log(`[Documents API] Returning ${documentsWithParsedMetadata.length} documents`);
+  const documentsWithParsedMetadata = documentsRows.map(parseDocumentMetadata);
+
+  const [totalResult] = await db
+    .select({ count: count() })
+    .from(documents)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+  const total = totalResult?.count ?? 0;
   return NextResponse.json({
-    documents: documentsWithParsedMetadata,
+    documents: documentsWithParsedMetadata.map(toApiDocument),
     total,
     limit,
     offset,
-    has_more: offset + documents.length < total,
+    has_more: offset + documentsRows.length < total,
   });
 });
 
@@ -125,7 +111,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
   const { title, content, type, language, metadata, slug: providedSlug } = await requireBody(createDocumentSchema, request);
-  const db = getDatabase();
+  const db = getDrizzleDb();
 
   const slug = providedSlug || slugify(title);
   
@@ -139,25 +125,37 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     delete normalizedMetadata.year;
   }
   
-  const metadataJson = JSON.stringify(normalizedMetadata);
-
   // Check if slug already exists
-  const existing = db.prepare("SELECT id FROM documents WHERE slug = ?").get(slug);
+  const [existing] = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.slug, slug))
+    .limit(1);
   if (existing) {
     throw new ConflictError("Document with this title already exists");
   }
 
   try {
-    const result = db
-      .prepare(
-        `INSERT INTO documents (slug, type, title, content, language, metadata, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-      )
-      .run(slug, type, title, content, language, metadataJson);
+    await db.insert(documents).values({
+      slug,
+      type,
+      title,
+      content,
+      language,
+      metadata: JSON.stringify(normalizedMetadata),
+    }).run();
 
-    const document = db.prepare("SELECT * FROM documents WHERE id = ?").get(result.lastInsertRowid) as DocumentRow;
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.slug, slug))
+      .limit(1);
 
-    return NextResponse.json(parseDocumentMetadata(document));
+    if (!document) {
+      throw new DatabaseError("Failed to retrieve created document");
+    }
+
+    return NextResponse.json(toApiDocument(parseDocumentMetadata(document)));
   } catch (error) {
     if (error instanceof Error && error.message?.includes("UNIQUE constraint")) {
       throw new ConflictError("Document with this title already exists");

@@ -206,6 +206,7 @@ export const mediaAssets = sqliteTable("media_assets", {
   prompt: text("prompt"), // AI generation prompt if applicable
   model: text("model"), // AI model used if applicable
   tags: text("tags").default("[]"),
+  summary: text("summary"), // AI-generated 3-sentence summary for indexing
   // Storage URLs
   driveUrl: text("drive_url"), // Google Drive long-term archival URL
   supabaseUrl: text("supabase_url"), // Supabase Storage CDN URL

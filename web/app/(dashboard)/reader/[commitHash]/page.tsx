@@ -28,6 +28,7 @@ import {
   Save,
   X,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 import { formatDateShort } from "@/lib/utils";
 
@@ -45,6 +46,7 @@ interface JournalEntry {
   decisions: string;
   technologies: string;
   kronus_wisdom: string | null;
+  summary: string | null;
   raw_agent_report: string;
   created_at: string;
   attachments?: Array<{
@@ -173,6 +175,7 @@ export default function EntryDetailPage() {
   const [editData, setEditData] = useState<Partial<JournalEntry>>({});
   const [saving, setSaving] = useState(false);
   const [newTech, setNewTech] = useState("");
+  const [regeneratingSummary, setRegeneratingSummary] = useState(false);
 
   useEffect(() => {
     fetchEntry();
@@ -242,6 +245,49 @@ export default function EntryDetailPage() {
     router.push("/chat");
   };
 
+  const regenerateSummary = async () => {
+    if (!entry) return;
+    setRegeneratingSummary(true);
+    try {
+      // Build content for summarization
+      const content = `${entry.why}\n\n${entry.what_changed}\n\n${entry.decisions}\n\nTechnologies: ${entry.technologies}`;
+      
+      const response = await fetch("/api/ai/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "journal_entry",
+          content: content,
+          title: `${entry.repository}/${entry.branch} - ${entry.commit_hash.substring(0, 7)}`,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.summary) {
+          // Update entry with new summary
+          const updateResponse = await fetch(`/api/entries/${commitHash}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              summary: data.summary,
+            }),
+          });
+
+          if (updateResponse.ok) {
+            const updated = await updateResponse.json();
+            setEntry({ ...entry, summary: data.summary });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to regenerate summary:", error);
+      alert("Failed to regenerate summary. Please try again.");
+    } finally {
+      setRegeneratingSummary(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-full flex-col">
@@ -294,6 +340,18 @@ export default function EntryDetailPage() {
             </>
           ) : (
             <>
+              {/* Regenerate Summary Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={regenerateSummary}
+                disabled={regeneratingSummary}
+                className="text-muted-foreground hover:bg-muted"
+                title="Regenerate AI Summary"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${regeneratingSummary ? "animate-spin" : ""}`} />
+                {regeneratingSummary ? "Regenerating..." : "Regenerate Summary"}
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit

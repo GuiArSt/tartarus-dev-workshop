@@ -22,7 +22,8 @@ import remarkBreaks from "remark-breaks";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { Edit, Save, X, ArrowLeft, Tag, Plus, FileText, Settings, Check, ImagePlus, Trash2, Image, Loader2, Eye, EyeOff, Brain } from "lucide-react";
+import { Edit, Save, X, ArrowLeft, Tag, Plus, FileText, Settings, Check, ImagePlus, Trash2, Image, Loader2, Eye, EyeOff, Brain, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import { compressImage, formatBytes } from "@/lib/image-compression";
 import { formatFlexibleDate } from "@/lib/utils";
@@ -80,6 +81,13 @@ export default function DocumentDetailPage() {
   const [editedAlsoShownIn, setEditedAlsoShownIn] = useState<string[]>([]);
   const [editedWrittenDate, setEditedWrittenDate] = useState("");
   const [newTag, setNewTag] = useState("");
+  
+  // Prompt-specific fields
+  const [editedPurpose, setEditedPurpose] = useState("");
+  const [editedRole, setEditedRole] = useState<"system" | "user" | "assistant" | "chat">("system");
+  const [editedInputSchema, setEditedInputSchema] = useState("");
+  const [editedOutputSchema, setEditedOutputSchema] = useState("");
+  const [editedConfig, setEditedConfig] = useState("");
 
   // Media attachments
   const [attachments, setAttachments] = useState<MediaAsset[]>([]);
@@ -89,6 +97,12 @@ export default function DocumentDetailPage() {
 
   // Index summary visibility
   const [showIndexSummary, setShowIndexSummary] = useState(false);
+  
+  // Prompt metadata visibility
+  const [showPromptMetadata, setShowPromptMetadata] = useState(false);
+  
+  // Regenerate summary state
+  const [regeneratingSummary, setRegeneratingSummary] = useState(false);
 
   useEffect(() => {
     fetchDocument();
@@ -202,12 +216,70 @@ export default function DocumentDetailPage() {
     setEditedAlsoShownIn(doc.metadata?.alsoShownIn || []);
     // Support both new writtenDate and legacy year field
     setEditedWrittenDate(doc.metadata?.writtenDate || doc.metadata?.year || "");
+    
+    // Prompt-specific fields - load if type is prompt OR if alsoShownIn includes "prompt"
+    const isPromptOrShownAsPrompt = doc.type === "prompt" || doc.metadata?.alsoShownIn?.includes("prompt");
+    if (isPromptOrShownAsPrompt || doc.metadata?.purpose || doc.metadata?.role) {
+      setEditedPurpose(doc.metadata?.purpose || "");
+      setEditedRole(doc.metadata?.role || "system");
+      setEditedInputSchema(doc.metadata?.inputSchema ? (typeof doc.metadata.inputSchema === 'string' ? doc.metadata.inputSchema : JSON.stringify(doc.metadata.inputSchema, null, 2)) : "");
+      setEditedOutputSchema(doc.metadata?.outputSchema ? (typeof doc.metadata.outputSchema === 'string' ? doc.metadata.outputSchema : JSON.stringify(doc.metadata.outputSchema, null, 2)) : "");
+      setEditedConfig(doc.metadata?.config ? JSON.stringify(doc.metadata.config, null, 2) : "");
+    } else {
+      setEditedPurpose("");
+      setEditedRole("system");
+      setEditedInputSchema("");
+      setEditedOutputSchema("");
+      setEditedConfig("");
+    }
   };
 
   const handleSave = async () => {
     if (!document) return;
     setSaving(true);
     try {
+      // Validate JSON fields for prompts (or documents shown as prompts)
+      let parsedInputSchema: string | null = null;
+      let parsedOutputSchema: string | null = null;
+      let parsedConfig: Record<string, unknown> | null = null;
+
+      // Check if this is a prompt or shown in prompts tab
+      const isPromptOrShownAsPrompt = editedPrimaryType === "prompt" || editedAlsoShownIn.includes("prompt");
+
+      if (isPromptOrShownAsPrompt) {
+        if (editedInputSchema.trim()) {
+          try {
+            JSON.parse(editedInputSchema); // Validate JSON
+            parsedInputSchema = editedInputSchema.trim();
+          } catch (e) {
+            alert("Invalid JSON in Input Schema. Please fix before saving.");
+            setSaving(false);
+            return;
+          }
+        }
+        
+        if (editedOutputSchema.trim()) {
+          try {
+            JSON.parse(editedOutputSchema); // Validate JSON
+            parsedOutputSchema = editedOutputSchema.trim();
+          } catch (e) {
+            alert("Invalid JSON in Output Schema. Please fix before saving.");
+            setSaving(false);
+            return;
+          }
+        }
+        
+        if (editedConfig.trim()) {
+          try {
+            parsedConfig = JSON.parse(editedConfig); // Parse and validate JSON
+          } catch (e) {
+            alert("Invalid JSON in Configuration. Please fix before saving.");
+            setSaving(false);
+            return;
+          }
+        }
+      }
+      
       const res = await fetch(`/api/documents/${slug}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -222,6 +294,21 @@ export default function DocumentDetailPage() {
             writtenDate: editedWrittenDate || null,
             year: undefined, // Remove legacy field
             alsoShownIn: editedAlsoShownIn.length > 0 ? editedAlsoShownIn : undefined,
+            // Prompt-specific fields (if type is prompt OR shown in prompts tab)
+            ...(isPromptOrShownAsPrompt ? {
+              purpose: editedPurpose.trim() || null,
+              role: editedRole || "system",
+              inputSchema: parsedInputSchema,
+              outputSchema: parsedOutputSchema,
+              config: parsedConfig,
+            } : {
+              // Remove prompt fields if not a prompt and not shown as prompt
+              purpose: undefined,
+              role: undefined,
+              inputSchema: undefined,
+              outputSchema: undefined,
+              config: undefined,
+            }),
           },
         }),
       });
@@ -265,6 +352,47 @@ export default function DocumentDetailPage() {
     router.push("/chat");
   };
 
+  const regenerateSummary = async () => {
+    if (!document) return;
+    setRegeneratingSummary(true);
+    try {
+      const response = await fetch("/api/ai/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "document",
+          content: document.content,
+          title: document.title,
+          metadata: document.metadata,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.summary) {
+          // Update document with new summary
+          const updateResponse = await fetch(`/api/documents/${slug}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              summary: data.summary,
+            }),
+          });
+
+          if (updateResponse.ok) {
+            const updated = await updateResponse.json();
+            setDocument(updated);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to regenerate summary:", error);
+      alert("Failed to regenerate summary. Please try again.");
+    } finally {
+      setRegeneratingSummary(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-full flex-col p-6 bg-[var(--tartarus-void)]">
@@ -301,6 +429,16 @@ export default function DocumentDetailPage() {
           {document.metadata?.type && (
             <Badge variant="outline" className="border-[var(--tartarus-border)] text-[var(--tartarus-ivory-muted)]">
               {document.metadata.type}
+            </Badge>
+          )}
+          {document.type === "prompt" && document.metadata?.purpose && (
+            <Badge variant="outline" className="border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)] text-xs">
+              {document.metadata.purpose}
+            </Badge>
+          )}
+          {document.type === "prompt" && document.metadata?.role && (
+            <Badge variant="outline" className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] text-xs capitalize">
+              {document.metadata.role}
             </Badge>
           )}
         </div>
@@ -340,6 +478,18 @@ export default function DocumentDetailPage() {
                   {showIndexSummary ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               )}
+              {/* Regenerate Summary Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={regenerateSummary}
+                disabled={regeneratingSummary}
+                className="text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)]"
+                title="Regenerate AI Summary"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${regeneratingSummary ? "animate-spin" : ""}`} />
+                {regeneratingSummary ? "Regenerating..." : "Regenerate Summary"}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -423,7 +573,25 @@ export default function DocumentDetailPage() {
                       {/* Primary Type (writing/prompt/note) */}
                       <div>
                         <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Primary Tab</Label>
-                        <Select value={editedPrimaryType} onValueChange={(v) => setEditedPrimaryType(v as "writing" | "prompt" | "note")}>
+                        <Select value={editedPrimaryType} onValueChange={(v) => {
+                          const newType = v as "writing" | "prompt" | "note";
+                          setEditedPrimaryType(newType);
+                          // Reset prompt-specific fields if changing away from prompt
+                          if (newType !== "prompt") {
+                            setEditedPurpose("");
+                            setEditedRole("system");
+                            setEditedInputSchema("");
+                            setEditedOutputSchema("");
+                            setEditedConfig("");
+                          } else if (document?.type !== "prompt") {
+                            // Initialize prompt fields if changing TO prompt
+                            setEditedPurpose("");
+                            setEditedRole("system");
+                            setEditedInputSchema("");
+                            setEditedOutputSchema("");
+                            setEditedConfig("");
+                          }
+                        }}>
                           <SelectTrigger className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
                             <SelectValue />
                           </SelectTrigger>
@@ -572,6 +740,88 @@ export default function DocumentDetailPage() {
                         </Button>
                       </div>
                     </div>
+
+                    {/* Prompt-Specific Fields - show if type is prompt OR shown in prompts tab */}
+                    {(editedPrimaryType === "prompt" || editedAlsoShownIn.includes("prompt")) && (
+                      <div className="space-y-4 pt-4 border-t border-[var(--tartarus-border)]">
+                        <h3 className="text-sm font-medium text-[var(--tartarus-ivory)]">Prompt Configuration</h3>
+                        
+                        {/* Purpose */}
+                        <div>
+                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Purpose</Label>
+                          <Input
+                            value={editedPurpose}
+                            onChange={(e) => setEditedPurpose(e.target.value)}
+                            placeholder="What this prompt is for (e.g., 'System prompt for Kronus oracle mode')"
+                            className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                          />
+                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                            Brief description of what this prompt does
+                          </p>
+                        </div>
+
+                        {/* Role */}
+                        <div>
+                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Role</Label>
+                          <Select value={editedRole} onValueChange={(v) => setEditedRole(v as "system" | "user" | "assistant" | "chat")}>
+                            <SelectTrigger className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
+                              <SelectItem value="system" className="text-[var(--tartarus-ivory)]">System</SelectItem>
+                              <SelectItem value="user" className="text-[var(--tartarus-ivory)]">User</SelectItem>
+                              <SelectItem value="assistant" className="text-[var(--tartarus-ivory)]">Assistant</SelectItem>
+                              <SelectItem value="chat" className="text-[var(--tartarus-ivory)]">Chat (Multi-turn)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                            Message role type for this prompt
+                          </p>
+                        </div>
+
+                        {/* Input Schema */}
+                        <div>
+                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Input Schema (JSON)</Label>
+                          <Textarea
+                            value={editedInputSchema}
+                            onChange={(e) => setEditedInputSchema(e.target.value)}
+                            placeholder='{"type":"object","properties":{"question":{"type":"string"}}}'
+                            className="min-h-[80px] font-mono text-xs bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                          />
+                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                            Zod schema for input validation (JSON format)
+                          </p>
+                        </div>
+
+                        {/* Output Schema */}
+                        <div>
+                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Output Schema (JSON)</Label>
+                          <Textarea
+                            value={editedOutputSchema}
+                            onChange={(e) => setEditedOutputSchema(e.target.value)}
+                            placeholder='{"type":"object","properties":{"answer":{"type":"string"}}}'
+                            className="min-h-[80px] font-mono text-xs bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                          />
+                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                            Zod schema for expected output (JSON format)
+                          </p>
+                        </div>
+
+                        {/* Config */}
+                        <div>
+                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Configuration (JSON)</Label>
+                          <Textarea
+                            value={editedConfig}
+                            onChange={(e) => setEditedConfig(e.target.value)}
+                            placeholder='{"model":"claude-sonnet-4","temperature":0.7,"max_tokens":2000}'
+                            className="min-h-[80px] font-mono text-xs bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                          />
+                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                            Configuration metadata (model, temperature, max_tokens, etc.)
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -618,6 +868,7 @@ export default function DocumentDetailPage() {
                         <span className="text-sm text-[var(--tartarus-ivory-faded)] italic">No tags</span>
                       )}
                     </div>
+
                   </div>
                 )}
               </div>
@@ -634,13 +885,127 @@ export default function DocumentDetailPage() {
                   />
                 </div>
               ) : (
-                <div className="prose prose-sm max-w-none prose-invert prose-headings:text-[var(--tartarus-ivory)] prose-p:text-[var(--tartarus-ivory)] prose-strong:text-[var(--tartarus-ivory)] prose-a:text-[var(--tartarus-teal)]">
-                  {document.type === "prompt" ? (
-                    <pre className="whitespace-pre-wrap break-words bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] p-4 rounded-lg border border-[var(--tartarus-border)] font-mono text-sm leading-relaxed">{document.content}</pre>
-                  ) : (
-                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]} rehypePlugins={[rehypeKatex]}>{document.content}</ReactMarkdown>
+                <>
+                  {/* Main Content - Prompt Text */}
+                  <div className="prose prose-sm max-w-none prose-invert prose-headings:text-[var(--tartarus-ivory)] prose-p:text-[var(--tartarus-ivory)] prose-strong:text-[var(--tartarus-ivory)] prose-a:text-[var(--tartarus-teal)]">
+                    {document.type === "prompt" ? (
+                      <pre className="whitespace-pre-wrap break-words bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] p-4 rounded-lg border border-[var(--tartarus-border)] font-mono text-sm leading-relaxed">{document.content}</pre>
+                    ) : (
+                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]} rehypePlugins={[rehypeKatex]}>{document.content}</ReactMarkdown>
+                    )}
+                  </div>
+
+                  {/* Collapsible Prompt Metadata Section - Show for prompts, alsoShownIn prompts, OR writings with prompt metadata */}
+                  {(document.type === "prompt" ||
+                    document.metadata?.alsoShownIn?.includes("prompt") ||
+                    document.metadata?.purpose ||
+                    document.metadata?.role ||
+                    document.metadata?.inputSchema ||
+                    document.metadata?.outputSchema ||
+                    document.metadata?.config) && (
+                    <div className="mt-6 pt-6 border-t border-[var(--tartarus-border)]">
+                      <Collapsible open={showPromptMetadata} onOpenChange={setShowPromptMetadata}>
+                        <div className="rounded-lg border border-[var(--tartarus-border)] hover:border-[var(--tartarus-teal-dim)] transition-colors overflow-hidden">
+                          <CollapsibleTrigger asChild>
+                            <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--tartarus-elevated)] transition-colors text-left group">
+                              {showPromptMetadata ? (
+                                <ChevronDown className="h-4 w-4 text-[var(--tartarus-teal)] transition-transform" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-[var(--tartarus-ivory-muted)] group-hover:text-[var(--tartarus-teal)] transition-colors" />
+                              )}
+                              <Settings className={`h-4 w-4 ${showPromptMetadata ? "text-[var(--tartarus-teal)]" : "text-[var(--tartarus-ivory-muted)]"}`} />
+                              <span className={`text-sm font-medium ${showPromptMetadata ? "text-[var(--tartarus-ivory)]" : "text-[var(--tartarus-ivory-muted)]"}`}>
+                                Prompt Configuration & Metadata
+                              </span>
+                              {/* Show count of available fields */}
+                              {(document.metadata?.purpose || document.metadata?.role || document.metadata?.inputSchema || document.metadata?.outputSchema || document.metadata?.config) && (
+                                <Badge variant="outline" className="ml-auto border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] text-xs">
+                                  {[
+                                    document.metadata?.purpose,
+                                    document.metadata?.role,
+                                    document.metadata?.inputSchema,
+                                    document.metadata?.outputSchema,
+                                    document.metadata?.config
+                                  ].filter(Boolean).length} fields
+                                </Badge>
+                              )}
+                            </button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="px-3 pb-3 pt-3 border-t border-[var(--tartarus-border)]/50 space-y-4">
+                              {/* Purpose */}
+                              {document.metadata?.purpose ? (
+                                <div>
+                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] block mb-1.5 font-medium">Purpose:</span>
+                                  <p className="text-sm text-[var(--tartarus-ivory)] leading-relaxed">{document.metadata.purpose}</p>
+                                </div>
+                              ) : null}
+                              
+                              {/* Role */}
+                              {document.metadata?.role ? (
+                                <div>
+                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] block mb-1.5 font-medium">Role:</span>
+                                  <Badge variant="outline" className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] capitalize text-xs">
+                                    {document.metadata.role}
+                                  </Badge>
+                                </div>
+                              ) : null}
+                              
+                              {/* Input Schema */}
+                              {document.metadata?.inputSchema ? (
+                                <div>
+                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block font-medium">Input Schema:</span>
+                                  <pre className="text-xs font-mono bg-[var(--tartarus-deep)] p-3 rounded border border-[var(--tartarus-border)] overflow-x-auto text-[var(--tartarus-ivory)] leading-relaxed">
+                                    {typeof document.metadata.inputSchema === 'string' 
+                                      ? document.metadata.inputSchema 
+                                      : JSON.stringify(document.metadata.inputSchema, null, 2)}
+                                  </pre>
+                                </div>
+                              ) : null}
+                              
+                              {/* Output Schema */}
+                              {document.metadata?.outputSchema ? (
+                                <div>
+                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block font-medium">Output Schema:</span>
+                                  <pre className="text-xs font-mono bg-[var(--tartarus-deep)] p-3 rounded border border-[var(--tartarus-border)] overflow-x-auto text-[var(--tartarus-ivory)] leading-relaxed">
+                                    {typeof document.metadata.outputSchema === 'string' 
+                                      ? document.metadata.outputSchema 
+                                      : JSON.stringify(document.metadata.outputSchema, null, 2)}
+                                  </pre>
+                                </div>
+                              ) : null}
+                              
+                              {/* Configuration */}
+                              {document.metadata?.config ? (
+                                <div>
+                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block font-medium">Configuration:</span>
+                                  <pre className="text-xs font-mono bg-[var(--tartarus-deep)] p-3 rounded border border-[var(--tartarus-border)] overflow-x-auto text-[var(--tartarus-ivory)] leading-relaxed">
+                                    {typeof document.metadata.config === 'string' 
+                                      ? document.metadata.config 
+                                      : JSON.stringify(document.metadata.config, null, 2)}
+                                  </pre>
+                                </div>
+                              ) : null}
+                              
+                              {/* Prompt configuration hint - show if no metadata fields exist yet */}
+                              {!document.metadata?.purpose &&
+                               !document.metadata?.role &&
+                               !document.metadata?.inputSchema &&
+                               !document.metadata?.outputSchema &&
+                               !document.metadata?.config && (
+                                <p className="text-xs text-[var(--tartarus-ivory-faded)] italic">
+                                  {document.type === "prompt"
+                                    ? "Legacy prompt - no structured configuration available. Edit to add purpose, role, schemas, and config."
+                                    : "This document appears in the Prompts tab. Edit to add prompt metadata (purpose, role, schemas, config)."}
+                                </p>
+                              )}
+                            </div>
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </CardContent>
 

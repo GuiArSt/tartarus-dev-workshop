@@ -30,6 +30,7 @@ import {
   Sparkles,
   BookOpen,
   Filter,
+  RefreshCw,
 } from "lucide-react";
 import { formatDateShort } from "@/lib/utils";
 
@@ -59,9 +60,11 @@ interface MediaAsset {
   mime_type: string;
   file_size: number;
   description?: string;
+  alt?: string; // Alt text for accessibility
   prompt?: string;
   model?: string;
   tags: string;
+  summary?: string | null;
   destination: string;
   commit_hash?: string;
   document_id?: number;
@@ -92,6 +95,7 @@ export default function MultimediaPage() {
   const [selectedMedia, setSelectedMedia] = useState<MediaAsset | null>(null);
   const [mediaImageData, setMediaImageData] = useState<string | null>(null);
   const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
+  const [regeneratingMediaSummary, setRegeneratingMediaSummary] = useState(false);
 
   useEffect(() => {
     checkStorage();
@@ -194,6 +198,65 @@ export default function MultimediaPage() {
       setSelectedMedia(null);
     } catch (error) {
       console.error("Failed to delete:", error);
+    }
+  };
+
+  const regenerateMediaSummary = async () => {
+    if (!selectedMedia) return;
+    setRegeneratingMediaSummary(true);
+    try {
+      // Build content for summarization (description, prompt, alt text)
+      const content = [
+        selectedMedia.description,
+        selectedMedia.prompt,
+        selectedMedia.alt,
+      ].filter(Boolean).join("\n\n") || selectedMedia.filename;
+
+      const response = await fetch("/api/ai/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "media",
+          content: content,
+          title: selectedMedia.filename,
+          metadata: {
+            mime_type: selectedMedia.mime_type,
+            prompt: selectedMedia.prompt,
+            model: selectedMedia.model,
+            tags: selectedMedia.tags,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.summary) {
+          // Update media asset with new summary
+          const updateResponse = await fetch(`/api/media/${selectedMedia.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              summary: data.summary,
+            }),
+          });
+
+          if (updateResponse.ok) {
+            // Reload media assets to get updated summary
+            await loadMediaAssets();
+            // Refresh selected media with updated summary
+            const refreshResponse = await fetch(`/api/media/${selectedMedia.id}`);
+            if (refreshResponse.ok) {
+              const refreshed = await refreshResponse.json();
+              setSelectedMedia({ ...selectedMedia, summary: refreshed.summary });
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to regenerate summary:", error);
+      alert("Failed to regenerate summary. Please try again.");
+    } finally {
+      setRegeneratingMediaSummary(false);
     }
   };
 
@@ -465,10 +528,28 @@ export default function MultimediaPage() {
             <div>
               {selectedMedia.description && <p className="text-sm text-muted-foreground mb-2">{selectedMedia.description}</p>}
               {selectedMedia.prompt && <p className="text-sm italic text-muted-foreground mb-4 bg-muted p-2 rounded"><span className="font-medium not-italic">Prompt:</span> {selectedMedia.prompt}</p>}
+              {selectedMedia.summary && (
+                <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-muted">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">AI Summary (for Kronus indexing):</p>
+                  <p className="text-sm italic text-muted-foreground">{selectedMedia.summary}</p>
+                </div>
+              )}
               {mediaImageData ? <img src={`data:${selectedMedia.mime_type};base64,${mediaImageData}`} alt={selectedMedia.filename} className="max-w-full rounded-lg" /> : <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}
               <div className="flex items-center justify-between mt-4 pt-4 border-t">
                 <div className="text-sm text-muted-foreground">{selectedMedia.commit_hash && <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />Linked: <code className="bg-muted px-1 rounded">{selectedMedia.commit_hash.substring(0, 7)}</code></span>}</div>
                 <div className="flex gap-2">
+                  {/* Regenerate Summary Button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={regenerateMediaSummary}
+                    disabled={regeneratingMediaSummary}
+                    className="text-muted-foreground hover:bg-muted"
+                    title="Regenerate AI Summary"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-1 ${regeneratingMediaSummary ? "animate-spin" : ""}`} />
+                    {regeneratingMediaSummary ? "Regenerating..." : "Regenerate Summary"}
+                  </Button>
                   {selectedMedia.commit_hash && <Button variant="outline" size="sm" asChild><a href={`/reader/${selectedMedia.commit_hash}`}><ExternalLink className="h-4 w-4 mr-1" />Entry</a></Button>}
                   {mediaImageData && <Button variant="outline" size="sm" asChild><a href={`data:${selectedMedia.mime_type};base64,${mediaImageData}`} download={selectedMedia.filename}><Download className="h-4 w-4 mr-1" />Download</a></Button>}
                   <Button variant="destructive" size="sm" onClick={() => deleteMediaAsset(selectedMedia.id)}><Trash2 className="h-4 w-4 mr-1" />Delete</Button>

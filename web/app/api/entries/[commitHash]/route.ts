@@ -114,6 +114,10 @@ export const PATCH = withErrorHandler<{ commitHash: string }>(async (
     fields.push("kronus_wisdom = ?");
     values.push(updates.kronus_wisdom ?? null);
   }
+  if (updates.summary !== undefined) {
+    fields.push("summary = ?");
+    values.push(updates.summary ?? null);
+  }
   // Attribution fields
   if (updates.author !== undefined) {
     fields.push("author = ?");

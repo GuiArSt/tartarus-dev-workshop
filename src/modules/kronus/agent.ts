@@ -70,15 +70,15 @@ function getProjectRoot(): string {
 }
 
 /**
- * Load Soul.xml (Kronus personality) - minimal version for oracle mode
+ * Load Agent Soul (personality) - minimal version for oracle mode
  */
 function loadKronusSoulMinimal(): string {
   const projectRoot = getProjectRoot();
-
-  const soulPathEnv = process.env.SOUL_XML_PATH;
-  const soulPath = soulPathEnv
+  const agentName = process.env.AGENT_NAME || 'Kronus';
+  const soulPathEnv = process.env.SOUL_XML_PATH || process.env.AGENT_SOUL_PATH || 'Soul.xml';
+  const soulPath = soulPathEnv.startsWith('/') || soulPathEnv.startsWith('~')
     ? path.resolve(soulPathEnv.replace(/^~/, os.homedir()))
-    : path.join(projectRoot, 'Soul.xml');
+    : path.join(projectRoot, soulPathEnv);
 
   try {
     const soulContent = fs.readFileSync(soulPath, 'utf-8');
@@ -86,12 +86,12 @@ function loadKronusSoulMinimal(): string {
     const coreMatch = soulContent.match(/<soul[^>]*>([\s\S]*?)<\/soul>/i);
     if (coreMatch) {
       // Return abbreviated soul - just identity and voice
-      return `You are Kronus, a knowledge oracle from the Developer Journal system.
+      return `You are ${agentName}, a knowledge oracle from the Developer Journal system.
 Your voice is wise, empathetic, with subtle humor. You speak with precision.`;
     }
     return soulContent.substring(0, 500);
   } catch {
-    return 'You are Kronus, a knowledge oracle for the Developer Journal system.';
+    return `You are ${agentName}, a knowledge oracle for the Developer Journal system.`;
   }
 }
 
@@ -100,7 +100,7 @@ Your voice is wise, empathetic, with subtle humor. You speak with precision.`;
  */
 async function fetchDocumentSummaries(): Promise<DocumentIndex[]> {
   try {
-    const tartarusUrl = process.env.TARTARUS_URL || 'http://localhost:3000';
+    const tartarusUrl = process.env.TARTARUS_URL || 'http://localhost:3777';
     const response = await fetch(`${tartarusUrl}/api/documents?limit=50`);
     if (!response.ok) return [];
 
@@ -138,7 +138,7 @@ export async function buildSummariesIndex(repository?: string): Promise<Summarie
   // Journal entries - get recent entries (last 30)
   let journalEntries: JournalEntryIndex[] = [];
   if (repository) {
-    const entries = getEntriesByRepositoryPaginated(repository, 30, 0, false);
+    const { entries } = getEntriesByRepositoryPaginated(repository, 30, 0, false);
     journalEntries = entries.map(e => ({
       commit_hash: e.commit_hash,
       repository: e.repository,
@@ -150,7 +150,7 @@ export async function buildSummariesIndex(repository?: string): Promise<Summarie
   } else {
     // Get entries from all repos (limited)
     for (const ps of projectSummaries.slice(0, 5)) {
-      const entries = getEntriesByRepositoryPaginated(ps.repository, 10, 0, false);
+      const { entries } = getEntriesByRepositoryPaginated(ps.repository, 10, 0, false);
       journalEntries.push(...entries.map(e => ({
         commit_hash: e.commit_hash,
         repository: e.repository,
@@ -285,7 +285,7 @@ function formatIndexForPrompt(index: SummariesIndex): string {
  */
 async function fetchDocument(slug: string): Promise<string | null> {
   try {
-    const tartarusUrl = process.env.TARTARUS_URL || 'http://localhost:3000';
+    const tartarusUrl = process.env.TARTARUS_URL || 'http://localhost:3777';
     const response = await fetch(`${tartarusUrl}/api/documents/${slug}`);
     if (!response.ok) return null;
     const doc = await response.json();
@@ -302,7 +302,7 @@ function createDeepModeTools() {
   return {
     readJournalEntry: tool({
       description: 'Read full content of a specific journal entry by commit hash. Use when summary lacks detail.',
-      parameters: z.object({
+      inputSchema: z.object({
         commit_hash: z.string().min(7).describe('The commit hash (7+ chars)'),
       }),
       execute: async ({ commit_hash }) => {
@@ -324,7 +324,7 @@ function createDeepModeTools() {
 
     readProjectSummary: tool({
       description: 'Read full Entry 0 (project summary) for a repository. Use for architecture, tech stack, patterns.',
-      parameters: z.object({
+      inputSchema: z.object({
         repository: z.string().describe('Repository name'),
       }),
       execute: async ({ repository }) => {
@@ -352,7 +352,7 @@ function createDeepModeTools() {
 
     readLinearIssue: tool({
       description: 'Read full Linear issue details by identifier (e.g., ENG-123).',
-      parameters: z.object({
+      inputSchema: z.object({
         identifier: z.string().describe('Linear issue identifier (e.g., ENG-123)'),
       }),
       execute: async ({ identifier }) => {
@@ -374,7 +374,7 @@ function createDeepModeTools() {
 
     readLinearProject: tool({
       description: 'Read full Linear project details by ID.',
-      parameters: z.object({
+      inputSchema: z.object({
         id: z.string().describe('Linear project ID'),
       }),
       execute: async ({ id }) => {
@@ -395,7 +395,7 @@ function createDeepModeTools() {
 
     readDocument: tool({
       description: 'Read full document content from repository (writings, prompts, notes) by slug.',
-      parameters: z.object({
+      inputSchema: z.object({
         slug: z.string().describe('Document slug'),
       }),
       execute: async ({ slug }) => {
@@ -449,6 +449,7 @@ export async function askKronus(
 - Entry 0 (project_summaries) may be outdated - cross-check with recent journal entries dates
 - Be concise and direct
 - Cite sources by identifier (commit_hash, slug, ENG-XXX, project name)
+- For repository documents, include slug/ID, type (writing/prompt/note), and direct path: repository://document/{slug_or_id}
 - For dates, note recency - newest entries are most accurate for current state
 - If the index doesn't have enough information, say so clearly
 - Do not make up information not in the index`;

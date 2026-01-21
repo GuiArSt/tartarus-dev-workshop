@@ -11,6 +11,7 @@ import {
   linearIssues,
 } from "@/lib/db/drizzle";
 import { eq, desc } from "drizzle-orm";
+import { getAgentConfig } from "@/lib/ai/kronus";
 
 /**
  * Estimate token count from text (rough: ~4 chars per token for English)
@@ -245,7 +246,8 @@ export async function GET() {
       totalTokensWithCompleted,
     });
   } catch (error: any) {
-    console.error("Failed to fetch Kronus stats:", error);
+    const agentConfig = getAgentConfig();
+    console.error(`Failed to fetch ${agentConfig.name} stats:`, error);
     return NextResponse.json(
       { error: error.message || "Failed to fetch stats" },
       { status: 500 }

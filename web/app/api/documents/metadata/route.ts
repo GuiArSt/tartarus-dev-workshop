@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDatabase } from "@/lib/db";
+import { getDrizzleDb, documents } from "@/lib/db/drizzle";
 import { withErrorHandler } from "@/lib/api-handler";
 
 /**
@@ -7,17 +7,19 @@ import { withErrorHandler } from "@/lib/api-handler";
  * Get all unique metadata values (tags, types, alsoShownIn) currently used in documents
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
-  const db = getDatabase();
+  const db = getDrizzleDb();
 
   // Fetch all documents with metadata
-  const documents = db.prepare("SELECT metadata FROM documents").all() as Array<{ metadata: string }>;
+  const documentRows = await db
+    .select({ metadata: documents.metadata })
+    .from(documents);
 
   // Extract all unique values
   const tagSet = new Set<string>();
   const typeSet = new Set<string>();
   const alsoShownInSet = new Set<string>();
   
-  for (const doc of documents) {
+  for (const doc of documentRows) {
     try {
       const metadata = JSON.parse(doc.metadata || "{}") as Record<string, unknown>;
       
