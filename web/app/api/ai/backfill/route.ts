@@ -4,7 +4,18 @@
  * Streams progress updates as NDJSON (newline-delimited JSON)
  */
 
-import { getDrizzleDb, documents, linearProjects, linearIssues, journalEntries, projectSummaries } from "@/lib/db/drizzle";
+import {
+  getDrizzleDb,
+  documents,
+  linearProjects,
+  linearIssues,
+  journalEntries,
+  projectSummaries,
+  skills,
+  workExperience,
+  education,
+  portfolioProjects,
+} from "@/lib/db/drizzle";
 import { isNull, eq, or, and, isNotNull } from "drizzle-orm";
 
 // Types for streaming
@@ -81,12 +92,9 @@ export async function POST() {
 
       try {
         // === Documents ===
-        const docsToBackfill = await db
-          .select()
-          .from(documents)
-          .where(isNull(documents.summary));
+        const docsToBackfill = await db.select().from(documents).where(isNull(documents.summary));
 
-        let docProgress = {
+        const docProgress = {
           total: docsToBackfill.length,
           processed: 0,
           succeeded: 0,
@@ -105,10 +113,7 @@ export async function POST() {
 
             if (summary) {
               // Update in database
-              await db
-                .update(documents)
-                .set({ summary })
-                .where(eq(documents.id, doc.id));
+              await db.update(documents).set({ summary }).where(eq(documents.id, doc.id));
               docProgress.succeeded++;
             } else {
               docProgress.failed++;
@@ -146,7 +151,7 @@ export async function POST() {
           .from(linearProjects)
           .where(isNull(linearProjects.summary));
 
-        let projectProgress = {
+        const projectProgress = {
           total: projectsToBackfill.length,
           processed: 0,
           succeeded: 0,
@@ -154,16 +159,10 @@ export async function POST() {
         };
 
         for (const project of projectsToBackfill) {
-          const content = [project.description, project.content]
-            .filter(Boolean)
-            .join("\n\n");
+          const content = [project.description, project.content].filter(Boolean).join("\n\n");
 
           if (content.length > 20 && project.id) {
-            const summary = await generateSummary(
-              "linear_project",
-              content,
-              project.name
-            );
+            const summary = await generateSummary("linear_project", content, project.name);
 
             if (summary) {
               await db
@@ -209,7 +208,7 @@ export async function POST() {
           .from(linearIssues)
           .where(isNull(linearIssues.summary));
 
-        let issueProgress = {
+        const issueProgress = {
           total: issuesToBackfill.length,
           processed: 0,
           succeeded: 0,
@@ -218,17 +217,10 @@ export async function POST() {
 
         for (const issue of issuesToBackfill) {
           if (issue.description && issue.description.length > 20 && issue.id) {
-            const summary = await generateSummary(
-              "linear_issue",
-              issue.description,
-              issue.title
-            );
+            const summary = await generateSummary("linear_issue", issue.description, issue.title);
 
             if (summary) {
-              await db
-                .update(linearIssues)
-                .set({ summary })
-                .where(eq(linearIssues.id, issue.id));
+              await db.update(linearIssues).set({ summary }).where(eq(linearIssues.id, issue.id));
               issueProgress.succeeded++;
             } else {
               issueProgress.failed++;
@@ -241,20 +233,12 @@ export async function POST() {
           send({
             type: "progress",
             progress: {
-              total:
-                docProgress.total + projectProgress.total + issueProgress.total,
+              total: docProgress.total + projectProgress.total + issueProgress.total,
               processed:
-                docProgress.processed +
-                projectProgress.processed +
-                issueProgress.processed,
+                docProgress.processed + projectProgress.processed + issueProgress.processed,
               succeeded:
-                docProgress.succeeded +
-                projectProgress.succeeded +
-                issueProgress.succeeded,
-              failed:
-                docProgress.failed +
-                projectProgress.failed +
-                issueProgress.failed,
+                docProgress.succeeded + projectProgress.succeeded + issueProgress.succeeded,
+              failed: docProgress.failed + projectProgress.failed + issueProgress.failed,
               currentItem: `Issue: ${issue.identifier}`,
             },
           });
@@ -274,8 +258,10 @@ export async function POST() {
 
         // Running totals for progress
         let runningTotal = docProgress.total + projectProgress.total + issueProgress.total;
-        let runningProcessed = docProgress.processed + projectProgress.processed + issueProgress.processed;
-        let runningSucceeded = docProgress.succeeded + projectProgress.succeeded + issueProgress.succeeded;
+        let runningProcessed =
+          docProgress.processed + projectProgress.processed + issueProgress.processed;
+        let runningSucceeded =
+          docProgress.succeeded + projectProgress.succeeded + issueProgress.succeeded;
         let runningFailed = docProgress.failed + projectProgress.failed + issueProgress.failed;
 
         // === Journal Entries ===
@@ -284,7 +270,7 @@ export async function POST() {
           .from(journalEntries)
           .where(isNull(journalEntries.summary));
 
-        let entryProgress = {
+        const entryProgress = {
           total: entriesToBackfill.length,
           processed: 0,
           succeeded: 0,
@@ -381,7 +367,7 @@ export async function POST() {
             )
           );
 
-        let summaryProgress = {
+        const summaryProgress = {
           total: summariesToBackfill.length,
           processed: 0,
           succeeded: 0,
@@ -412,11 +398,7 @@ export async function POST() {
             .join("\n\n");
 
           if (content.length > 20) {
-            const summary = await generateSummary(
-              "project_summary",
-              content,
-              proj.repository
-            );
+            const summary = await generateSummary("project_summary", content, proj.repository);
 
             if (summary) {
               await db
@@ -453,6 +435,356 @@ export async function POST() {
             total: summaryProgress.total,
             succeeded: summaryProgress.succeeded,
             failed: summaryProgress.failed,
+          },
+        });
+
+        // Update running totals
+        runningTotal += summaryProgress.total;
+        runningProcessed += summaryProgress.processed;
+        runningSucceeded += summaryProgress.succeeded;
+        runningFailed += summaryProgress.failed;
+
+        // === Skills ===
+        const skillsToBackfill = await db.select().from(skills).where(isNull(skills.summary));
+
+        const skillProgress = {
+          total: skillsToBackfill.length,
+          processed: 0,
+          succeeded: 0,
+          failed: 0,
+        };
+
+        send({
+          type: "progress",
+          progress: {
+            total: runningTotal + skillProgress.total,
+            processed: runningProcessed,
+            succeeded: runningSucceeded,
+            failed: runningFailed,
+            currentItem: "Starting skills...",
+          },
+        });
+
+        for (const skill of skillsToBackfill) {
+          const tags = skill.tags ? JSON.parse(skill.tags) : [];
+          const content = [
+            `Skill: ${skill.name}`,
+            `Category: ${skill.category}`,
+            `Proficiency: ${skill.magnitude}/5`,
+            skill.description ? `Description: ${skill.description}` : null,
+            tags.length ? `Tags: ${tags.join(", ")}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+
+          if (content.length > 20 && skill.id) {
+            const summary = await generateSummary("skill", content, skill.name);
+
+            if (summary) {
+              await db.update(skills).set({ summary }).where(eq(skills.id, skill.id));
+              skillProgress.succeeded++;
+            } else {
+              skillProgress.failed++;
+            }
+          } else {
+            skillProgress.failed++;
+          }
+
+          skillProgress.processed++;
+          send({
+            type: "progress",
+            progress: {
+              total: runningTotal + skillProgress.total,
+              processed: runningProcessed + skillProgress.processed,
+              succeeded: runningSucceeded + skillProgress.succeeded,
+              failed: runningFailed + skillProgress.failed,
+              currentItem: `Skill: ${skill.name}`,
+            },
+          });
+
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        send({
+          type: "result",
+          result: {
+            type: "Skills",
+            total: skillProgress.total,
+            succeeded: skillProgress.succeeded,
+            failed: skillProgress.failed,
+          },
+        });
+
+        // Update running totals
+        runningTotal += skillProgress.total;
+        runningProcessed += skillProgress.processed;
+        runningSucceeded += skillProgress.succeeded;
+        runningFailed += skillProgress.failed;
+
+        // === Work Experience ===
+        const experienceToBackfill = await db
+          .select()
+          .from(workExperience)
+          .where(isNull(workExperience.summary));
+
+        const expProgress = {
+          total: experienceToBackfill.length,
+          processed: 0,
+          succeeded: 0,
+          failed: 0,
+        };
+
+        send({
+          type: "progress",
+          progress: {
+            total: runningTotal + expProgress.total,
+            processed: runningProcessed,
+            succeeded: runningSucceeded,
+            failed: runningFailed,
+            currentItem: "Starting work experience...",
+          },
+        });
+
+        for (const exp of experienceToBackfill) {
+          const achievements = exp.achievements ? JSON.parse(exp.achievements) : [];
+          const content = [
+            `Title: ${exp.title}`,
+            `Company: ${exp.company}`,
+            exp.department ? `Department: ${exp.department}` : null,
+            exp.location ? `Location: ${exp.location}` : null,
+            `Period: ${exp.startDate} - ${exp.endDate || "Present"}`,
+            exp.tagline ? `Description: ${exp.tagline}` : null,
+            achievements.length
+              ? `Achievements:\n${achievements.map((a: string) => `- ${a}`).join("\n")}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+
+          if (content.length > 20 && exp.id) {
+            const summary = await generateSummary(
+              "work_experience",
+              content,
+              `${exp.title} at ${exp.company}`
+            );
+
+            if (summary) {
+              await db.update(workExperience).set({ summary }).where(eq(workExperience.id, exp.id));
+              expProgress.succeeded++;
+            } else {
+              expProgress.failed++;
+            }
+          } else {
+            expProgress.failed++;
+          }
+
+          expProgress.processed++;
+          send({
+            type: "progress",
+            progress: {
+              total: runningTotal + expProgress.total,
+              processed: runningProcessed + expProgress.processed,
+              succeeded: runningSucceeded + expProgress.succeeded,
+              failed: runningFailed + expProgress.failed,
+              currentItem: `Experience: ${exp.title} at ${exp.company}`,
+            },
+          });
+
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        send({
+          type: "result",
+          result: {
+            type: "Work Experience",
+            total: expProgress.total,
+            succeeded: expProgress.succeeded,
+            failed: expProgress.failed,
+          },
+        });
+
+        // Update running totals
+        runningTotal += expProgress.total;
+        runningProcessed += expProgress.processed;
+        runningSucceeded += expProgress.succeeded;
+        runningFailed += expProgress.failed;
+
+        // === Education ===
+        const educationToBackfill = await db
+          .select()
+          .from(education)
+          .where(isNull(education.summary));
+
+        const eduProgress = {
+          total: educationToBackfill.length,
+          processed: 0,
+          succeeded: 0,
+          failed: 0,
+        };
+
+        send({
+          type: "progress",
+          progress: {
+            total: runningTotal + eduProgress.total,
+            processed: runningProcessed,
+            succeeded: runningSucceeded,
+            failed: runningFailed,
+            currentItem: "Starting education...",
+          },
+        });
+
+        for (const edu of educationToBackfill) {
+          const focusAreas = edu.focusAreas ? JSON.parse(edu.focusAreas) : [];
+          const achievements = edu.achievements ? JSON.parse(edu.achievements) : [];
+          const content = [
+            `Degree: ${edu.degree}`,
+            `Field: ${edu.field}`,
+            `Institution: ${edu.institution}`,
+            edu.location ? `Location: ${edu.location}` : null,
+            `Period: ${edu.startDate} - ${edu.endDate || "Present"}`,
+            edu.tagline ? `Description: ${edu.tagline}` : null,
+            focusAreas.length ? `Focus Areas: ${focusAreas.join(", ")}` : null,
+            achievements.length
+              ? `Achievements:\n${achievements.map((a: string) => `- ${a}`).join("\n")}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+
+          if (content.length > 20 && edu.id) {
+            const summary = await generateSummary(
+              "education",
+              content,
+              `${edu.degree} in ${edu.field}`
+            );
+
+            if (summary) {
+              await db.update(education).set({ summary }).where(eq(education.id, edu.id));
+              eduProgress.succeeded++;
+            } else {
+              eduProgress.failed++;
+            }
+          } else {
+            eduProgress.failed++;
+          }
+
+          eduProgress.processed++;
+          send({
+            type: "progress",
+            progress: {
+              total: runningTotal + eduProgress.total,
+              processed: runningProcessed + eduProgress.processed,
+              succeeded: runningSucceeded + eduProgress.succeeded,
+              failed: runningFailed + eduProgress.failed,
+              currentItem: `Education: ${edu.degree} at ${edu.institution}`,
+            },
+          });
+
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        send({
+          type: "result",
+          result: {
+            type: "Education",
+            total: eduProgress.total,
+            succeeded: eduProgress.succeeded,
+            failed: eduProgress.failed,
+          },
+        });
+
+        // Update running totals
+        runningTotal += eduProgress.total;
+        runningProcessed += eduProgress.processed;
+        runningSucceeded += eduProgress.succeeded;
+        runningFailed += eduProgress.failed;
+
+        // === Portfolio Projects ===
+        const portfolioToBackfill = await db
+          .select()
+          .from(portfolioProjects)
+          .where(isNull(portfolioProjects.summary));
+
+        const portfolioProgress = {
+          total: portfolioToBackfill.length,
+          processed: 0,
+          succeeded: 0,
+          failed: 0,
+        };
+
+        send({
+          type: "progress",
+          progress: {
+            total: runningTotal + portfolioProgress.total,
+            processed: runningProcessed,
+            succeeded: runningSucceeded,
+            failed: runningFailed,
+            currentItem: "Starting portfolio projects...",
+          },
+        });
+
+        for (const proj of portfolioToBackfill) {
+          const technologies = proj.technologies ? JSON.parse(proj.technologies) : [];
+          const metrics = proj.metrics ? JSON.parse(proj.metrics) : {};
+          const tags = proj.tags ? JSON.parse(proj.tags) : [];
+          const content = [
+            `Project: ${proj.title}`,
+            `Category: ${proj.category}`,
+            proj.company ? `Company: ${proj.company}` : null,
+            proj.role ? `Role: ${proj.role}` : null,
+            `Status: ${proj.status}`,
+            proj.dateCompleted ? `Completed: ${proj.dateCompleted}` : null,
+            proj.excerpt ? `Summary: ${proj.excerpt}` : null,
+            proj.description ? `Description: ${proj.description}` : null,
+            technologies.length ? `Technologies: ${technologies.join(", ")}` : null,
+            Object.keys(metrics).length
+              ? `Metrics: ${Object.entries(metrics)
+                  .map(([k, v]) => `${k}: ${v}`)
+                  .join(", ")}`
+              : null,
+            tags.length ? `Tags: ${tags.join(", ")}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+
+          if (content.length > 20 && proj.id) {
+            const summary = await generateSummary("portfolio_project", content, proj.title);
+
+            if (summary) {
+              await db
+                .update(portfolioProjects)
+                .set({ summary })
+                .where(eq(portfolioProjects.id, proj.id));
+              portfolioProgress.succeeded++;
+            } else {
+              portfolioProgress.failed++;
+            }
+          } else {
+            portfolioProgress.failed++;
+          }
+
+          portfolioProgress.processed++;
+          send({
+            type: "progress",
+            progress: {
+              total: runningTotal + portfolioProgress.total,
+              processed: runningProcessed + portfolioProgress.processed,
+              succeeded: runningSucceeded + portfolioProgress.succeeded,
+              failed: runningFailed + portfolioProgress.failed,
+              currentItem: `Portfolio: ${proj.title}`,
+            },
+          });
+
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        send({
+          type: "result",
+          result: {
+            type: "Portfolio Projects",
+            total: portfolioProgress.total,
+            succeeded: portfolioProgress.succeeded,
+            failed: portfolioProgress.failed,
           },
         });
 

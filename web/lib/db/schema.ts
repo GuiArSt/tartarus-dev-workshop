@@ -53,20 +53,20 @@ export const projectSummaries = sqliteTable("project_summaries", {
   linearIssueId: text("linear_issue_id"),
   updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
   // Living Project Summary (Entry 0) - Enhanced fields
-  fileStructure: text("file_structure"),       // Git-style file tree (agent-provided)
-  techStack: text("tech_stack"),               // Frameworks, libraries, versions (indicative)
-  frontend: text("frontend"),                   // FE patterns, components, state management
-  backend: text("backend"),                     // BE routes, middleware, auth patterns
-  databaseInfo: text("database_info"),         // Schema, ORM patterns, migrations
-  services: text("services"),                   // External APIs, integrations
-  customTooling: text("custom_tooling"),       // Project-specific utilities
-  dataFlow: text("data_flow"),                 // How data is processed
-  patterns: text("patterns"),                   // Naming conventions, code style
-  commands: text("commands"),                   // Dev, deploy, make commands
-  extendedNotes: text("extended_notes"),       // Gotchas, TODOs, historical context
+  fileStructure: text("file_structure"), // Git-style file tree (agent-provided)
+  techStack: text("tech_stack"), // Frameworks, libraries, versions (indicative)
+  frontend: text("frontend"), // FE patterns, components, state management
+  backend: text("backend"), // BE routes, middleware, auth patterns
+  databaseInfo: text("database_info"), // Schema, ORM patterns, migrations
+  services: text("services"), // External APIs, integrations
+  customTooling: text("custom_tooling"), // Project-specific utilities
+  dataFlow: text("data_flow"), // How data is processed
+  patterns: text("patterns"), // Naming conventions, code style
+  commands: text("commands"), // Dev, deploy, make commands
+  extendedNotes: text("extended_notes"), // Gotchas, TODOs, historical context
   // Sync tracking
-  lastSyncedEntry: text("last_synced_entry"),  // Last journal entry hash used for update
-  entriesSynced: integer("entries_synced"),    // Count of entries analyzed
+  lastSyncedEntry: text("last_synced_entry"), // Last journal entry hash used for update
+  entriesSynced: integer("entries_synced"), // Count of entries analyzed
 });
 
 /**
@@ -143,6 +143,7 @@ export const skills = sqliteTable("skills", {
   tags: text("tags").default("[]"),
   firstUsed: text("firstUsed"),
   lastUsed: text("lastUsed"),
+  summary: text("summary"), // AI-generated 3-sentence summary for Kronus indexing
 });
 
 /**
@@ -160,6 +161,7 @@ export const workExperience = sqliteTable("work_experience", {
   note: text("note"),
   achievements: text("achievements").default("[]"),
   logo: text("logo"),
+  summary: text("summary"), // AI-generated 3-sentence summary for Kronus indexing
 });
 
 /**
@@ -178,6 +180,7 @@ export const education = sqliteTable("education", {
   focusAreas: text("focusAreas").default("[]"),
   achievements: text("achievements").default("[]"),
   logo: text("logo"),
+  summary: text("summary"), // AI-generated 3-sentence summary for Kronus indexing
 });
 
 // ============================================================================
@@ -211,10 +214,14 @@ export const mediaAssets = sqliteTable("media_assets", {
   driveUrl: text("drive_url"), // Google Drive long-term archival URL
   supabaseUrl: text("supabase_url"), // Supabase Storage CDN URL
   // Relationships
-  destination: text("destination", { enum: ["journal", "repository", "media", "portfolio"] }).notNull(),
+  destination: text("destination", {
+    enum: ["journal", "repository", "media", "portfolio"],
+  }).notNull(),
   commitHash: text("commit_hash"),
   documentId: integer("document_id").references(() => documents.id, { onDelete: "set null" }),
-  portfolioProjectId: text("portfolio_project_id").references(() => portfolioProjects.id, { onDelete: "set null" }),
+  portfolioProjectId: text("portfolio_project_id").references(() => portfolioProjects.id, {
+    onDelete: "set null",
+  }),
   // Metadata
   width: integer("width"), // Image dimensions
   height: integer("height"),
@@ -321,7 +328,9 @@ export const hermesTranslations = sqliteTable("hermes_translations", {
   translatedText: text("translated_text").notNull(),
   sourceLanguage: text("source_language").notNull(), // e.g., "en", "es", "de"
   targetLanguage: text("target_language").notNull(),
-  tone: text("tone", { enum: ["formal", "neutral", "slang"] }).notNull().default("neutral"),
+  tone: text("tone", { enum: ["formal", "neutral", "slang"] })
+    .notNull()
+    .default("neutral"),
   hadChanges: integer("had_changes", { mode: "boolean" }).default(true),
   clarificationQuestions: text("clarification_questions").default("[]"), // JSON array
   sourceContext: text("source_context"), // e.g., "document:slug", "chat:123", "standalone"
@@ -425,7 +434,9 @@ export const portfolioProjects = sqliteTable("portfolio_projects", {
   category: text("category").notNull(), // 'AI Software', 'Web Design', 'Data Engineering', etc.
   company: text("company"), // Company or 'Personal Project'
   dateCompleted: text("date_completed"), // YYYY-MM format or null for WIP
-  status: text("status", { enum: ["shipped", "wip", "archived"] }).notNull().default("shipped"),
+  status: text("status", { enum: ["shipped", "wip", "archived"] })
+    .notNull()
+    .default("shipped"),
   featured: integer("featured", { mode: "boolean" }).default(false),
   image: text("image"), // Path to project image
   excerpt: text("excerpt"), // Short description for cards
@@ -436,6 +447,7 @@ export const portfolioProjects = sqliteTable("portfolio_projects", {
   links: text("links").default("{}"), // JSON object: { live, github, caseStudy }
   tags: text("tags").default("[]"), // JSON array for filtering
   sortOrder: integer("sort_order").default(0), // Manual ordering
+  summary: text("summary"), // AI-generated 3-sentence summary for Kronus indexing
   createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
   updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
 });
@@ -499,6 +511,106 @@ export const linearIssues = sqliteTable("linear_issues", {
   isDeleted: integer("is_deleted", { mode: "boolean" }).default(false), // Soft delete flag
   createdAt: text("created_at").default("CURRENT_TIMESTAMP"), // When we first cached it
   updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
+});
+
+// ============================================================================
+// PROMPT MANAGEMENT SYSTEM
+// ============================================================================
+
+/**
+ * Prompt Projects - groups of related prompts
+ * e.g., 'kronus-oracle', 'tartarus-system', 'langfuse-integration'
+ */
+export const promptProjects = sqliteTable("prompt_projects", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status", { enum: ["active", "archived", "draft"] })
+    .notNull()
+    .default("active"),
+  tags: text("tags").default("[]"),
+  metadata: text("metadata").default("{}"),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
+});
+
+/**
+ * Prompts - first-class prompt entities with versioning
+ * Stores prompts in chat format (## System, ## User, ## Assistant)
+ */
+export const prompts = sqliteTable("prompts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug").notNull().unique(),
+  projectId: text("project_id").references(() => promptProjects.id, { onDelete: "set null" }),
+  // Core content
+  name: text("name").notNull(),
+  content: text("content").notNull(),
+  role: text("role", { enum: ["system", "user", "assistant", "chat"] })
+    .notNull()
+    .default("system"),
+  // Prompt metadata
+  purpose: text("purpose"),
+  inputSchema: text("input_schema"),
+  outputSchema: text("output_schema"),
+  config: text("config"), // JSON: {model, temperature, max_tokens, ...}
+  // Versioning
+  version: integer("version").notNull().default(1),
+  isLatest: integer("is_latest", { mode: "boolean" }).notNull().default(true),
+  parentVersionId: integer("parent_version_id"),
+  // Status
+  status: text("status", { enum: ["active", "draft", "deprecated", "archived"] })
+    .notNull()
+    .default("active"),
+  // Classification
+  tags: text("tags").default("[]"),
+  language: text("language").default("en"),
+  // AI summary for Kronus indexing
+  summary: text("summary"),
+  // Legacy document link (for migration)
+  legacyDocumentId: integer("legacy_document_id").references(() => documents.id, {
+    onDelete: "set null",
+  }),
+  // Timestamps
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
+});
+
+/**
+ * Prompt-Journal Entry Links
+ * Connect prompts to journal entries
+ */
+export const promptEntryLinks = sqliteTable("prompt_entry_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  promptId: integer("prompt_id")
+    .notNull()
+    .references(() => prompts.id, { onDelete: "cascade" }),
+  commitHash: text("commit_hash").notNull(),
+  linkType: text("link_type", { enum: ["reference", "used_by", "created_for"] })
+    .notNull()
+    .default("reference"),
+  notes: text("notes"),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
+});
+
+/**
+ * Prompt-Trace Links
+ * Connect prompts to AI traces for observability
+ */
+export const promptTraceLinks = sqliteTable("prompt_trace_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  promptId: integer("prompt_id")
+    .notNull()
+    .references(() => prompts.id, { onDelete: "cascade" }),
+  traceId: text("trace_id").notNull(),
+  promptVersion: integer("prompt_version").notNull(),
+  // Performance metrics (copied from trace for quick access)
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+  latencyMs: integer("latency_ms"),
+  costUsd: real("cost_usd"),
+  status: text("status"),
+  // Timestamps
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
 });
 
 // ============================================================================
@@ -573,3 +685,15 @@ export type NewLinearProject = typeof linearProjects.$inferInsert;
 
 export type LinearIssue = typeof linearIssues.$inferSelect;
 export type NewLinearIssue = typeof linearIssues.$inferInsert;
+
+export type PromptProject = typeof promptProjects.$inferSelect;
+export type NewPromptProject = typeof promptProjects.$inferInsert;
+
+export type Prompt = typeof prompts.$inferSelect;
+export type NewPrompt = typeof prompts.$inferInsert;
+
+export type PromptEntryLink = typeof promptEntryLinks.$inferSelect;
+export type NewPromptEntryLink = typeof promptEntryLinks.$inferInsert;
+
+export type PromptTraceLink = typeof promptTraceLinks.$inferSelect;
+export type NewPromptTraceLink = typeof promptTraceLinks.$inferInsert;

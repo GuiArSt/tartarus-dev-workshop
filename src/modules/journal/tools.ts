@@ -1,14 +1,17 @@
-import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { z } from 'zod';
+import {
+  McpServer,
+  ResourceTemplate,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { z } from "zod";
 
-import { toMcpError } from '../../shared/errors.js';
-import { logger } from '../../shared/logger.js';
-import type { JournalConfig } from '../../shared/types.js';
-import { generateJournalEntry } from './ai/generate-entry.js';
-import { normalizeReport, mergeSummaryUpdates } from './ai/normalize-report.js';
+import { toMcpError } from "../../shared/errors.js";
+import { logger } from "../../shared/logger.js";
+import type { JournalConfig } from "../../shared/types.js";
+import { generateJournalEntry } from "./ai/generate-entry.js";
+import { normalizeReport, mergeSummaryUpdates } from "./ai/normalize-report.js";
 import {
   commitHasEntry,
   exportToSQL,
@@ -32,8 +35,12 @@ import {
   listLinearIssues,
   getLinearIssue,
   getLinearCacheStats,
-} from './db/database.js';
-import { AgentInputSchema, ProjectSummaryInputSchema, AttachmentInputSchema } from './types.js';
+} from "./db/database.js";
+import {
+  AgentInputSchema,
+  ProjectSummaryInputSchema,
+  AttachmentInputSchema,
+} from "./types.js";
 
 /**
  * Get MCP server installation directory (where the code is located)
@@ -43,33 +50,37 @@ function getProjectRoot(): string {
   // Use import.meta.url to find where this module is located
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  
+
   // Walk up from dist/modules/journal/tools.js to find project root
   let currentDir = __dirname;
   for (let i = 0; i < 5; i++) {
     // Look for Developer Journal Workspace directory with package.json or Soul.xml
-    if (path.basename(currentDir) === 'Developer Journal Workspace' && 
-        (fs.existsSync(path.join(currentDir, 'package.json')) || 
-         fs.existsSync(path.join(currentDir, 'Soul.xml')))) {
+    if (
+      path.basename(currentDir) === "Developer Journal Workspace" &&
+      (fs.existsSync(path.join(currentDir, "package.json")) ||
+        fs.existsSync(path.join(currentDir, "Soul.xml")))
+    ) {
       return currentDir;
     }
     const parent = path.dirname(currentDir);
     if (parent === currentDir) break; // Reached filesystem root
     currentDir = parent;
   }
-  
+
   // Fallback: if we can't find it, use __dirname and walk up to find package.json
   currentDir = __dirname;
   for (let i = 0; i < 10; i++) {
-    if (fs.existsSync(path.join(currentDir, 'package.json')) || 
-        fs.existsSync(path.join(currentDir, 'Soul.xml'))) {
+    if (
+      fs.existsSync(path.join(currentDir, "package.json")) ||
+      fs.existsSync(path.join(currentDir, "Soul.xml"))
+    ) {
       return currentDir;
     }
     const parent = path.dirname(currentDir);
     if (parent === currentDir) break;
     currentDir = parent;
   }
-  
+
   // Last resort: return __dirname (shouldn't happen)
   return currentDir;
 }
@@ -83,17 +94,19 @@ function autoBackup() {
     // Ensure database is initialized before backing up
     // Database is always at project root now
     initDatabase();
-    
+
     const projectRoot = getProjectRoot();
     // Always backup to project root
-    const backupPath = path.join(projectRoot, 'journal_backup.sql');
-    
-    logger.info(`Auto-backup: projectRoot=${projectRoot}, backupPath=${backupPath}`);
+    const backupPath = path.join(projectRoot, "journal_backup.sql");
+
+    logger.info(
+      `Auto-backup: projectRoot=${projectRoot}, backupPath=${backupPath}`,
+    );
     exportToSQL(backupPath);
     logger.success(`Auto-backup completed successfully to ${backupPath}`);
   } catch (error) {
     // Don't fail silently - log the error clearly
-    logger.error('Failed to auto-backup journal:', error);
+    logger.error("Failed to auto-backup journal:", error);
     if (error instanceof Error) {
       logger.error(`Backup error: ${error.message}`);
       if (error.stack) {
@@ -115,7 +128,10 @@ const MAX_SAFE_BYTES = 9000; // Conservative limit (10 KiB - buffer)
 /**
  * Format entry for display, optionally excluding large fields
  */
-function formatEntrySummary(entry: any, includeRawReport: boolean = false): any {
+function formatEntrySummary(
+  entry: any,
+  includeRawReport: boolean = false,
+): any {
   const formatted: any = {
     id: entry.id,
     commit_hash: entry.commit_hash,
@@ -150,47 +166,47 @@ function formatEntrySummary(entry: any, includeRawReport: boolean = false): any 
  * Puts a clear warning at the TOP of the output for better visibility
  */
 function truncateOutput(text: string): string {
-  const lines = text.split('\n');
-  const bytes = Buffer.byteLength(text, 'utf8');
-  
+  const lines = text.split("\n");
+  const bytes = Buffer.byteLength(text, "utf8");
+
   // If already within limits, return as-is
   if (lines.length <= MAX_SAFE_LINES && bytes <= MAX_SAFE_BYTES) {
     return text;
   }
-  
+
   const totalLines = lines.length;
   const totalBytes = bytes;
-  
+
   // Create warning message (will be at top and bottom)
   const warningTop = `⚠️ OUTPUT TRUNCATED ⚠️\nShowing partial results due to MCP size limits (~256 lines / 10 KiB).\nTotal: ${totalLines} lines, ${(totalBytes / 1024).toFixed(2)} KiB\n\nUse pagination (limit/offset) or specific filters to see more.\n────────────────────────────────────────\n\n`;
   const warningBottom = `\n\n────────────────────────────────────────\n⚠️ END OF TRUNCATED OUTPUT ⚠️\nShowing ${totalLines} total lines, ${(totalBytes / 1024).toFixed(2)} KiB total. Use pagination to see more.`;
-  
+
   // Reserve space for warnings (top + bottom)
-  const warningTopBytes = Buffer.byteLength(warningTop, 'utf8');
-  const warningBottomBytes = Buffer.byteLength(warningBottom, 'utf8');
+  const warningTopBytes = Buffer.byteLength(warningTop, "utf8");
+  const warningBottomBytes = Buffer.byteLength(warningBottom, "utf8");
   const totalWarningBytes = warningTopBytes + warningBottomBytes;
-  
+
   const safeLineLimit = MAX_SAFE_LINES - 10; // Reserve lines for warnings
   const safeByteLimit = MAX_SAFE_BYTES - totalWarningBytes;
-  
+
   // Truncate by lines first (more predictable)
-  let truncated = lines.slice(0, safeLineLimit).join('\n');
-  
+  let truncated = lines.slice(0, safeLineLimit).join("\n");
+
   // Then check byte size
-  if (Buffer.byteLength(truncated, 'utf8') > safeByteLimit) {
+  if (Buffer.byteLength(truncated, "utf8") > safeByteLimit) {
     // Truncate by bytes
-    const buffer = Buffer.from(truncated, 'utf8');
-    truncated = buffer.slice(0, safeByteLimit).toString('utf8');
+    const buffer = Buffer.from(truncated, "utf8");
+    truncated = buffer.slice(0, safeByteLimit).toString("utf8");
     // Try to end at a safe point (not mid-character)
-    const lastNewline = truncated.lastIndexOf('\n');
+    const lastNewline = truncated.lastIndexOf("\n");
     if (lastNewline > safeByteLimit * 0.9) {
       truncated = truncated.slice(0, lastNewline);
     }
   }
-  
-  const shownLines = truncated.split('\n').length;
-  const shownBytes = Buffer.byteLength(truncated, 'utf8');
-  
+
+  const shownLines = truncated.split("\n").length;
+  const shownBytes = Buffer.byteLength(truncated, "utf8");
+
   // Put warning at top and bottom
   return warningTop + truncated + warningBottom;
 }
@@ -198,18 +214,21 @@ function truncateOutput(text: string): string {
 /**
  * Register Journal tools with the MCP server
  */
-export async function registerJournalTools(server: McpServer, journalConfig?: JournalConfig) {
-  logger.info('Registering Journal tools...');
-  
+export async function registerJournalTools(
+  server: McpServer,
+  journalConfig?: JournalConfig,
+) {
+  logger.info("Registering Journal tools...");
+
   if (!journalConfig) {
-    throw new Error('JournalConfig is required for journal tools');
+    throw new Error("JournalConfig is required for journal tools");
   }
 
   // Tool 1: Create Journal Entry
   server.registerTool(
-    'journal_create_entry',
+    "journal_create_entry",
     {
-      title: 'Create Journal Entry',
+      title: "Create Journal Entry",
       description: `Create a developer journal entry for a git commit. This tool documents the work done, decisions made, and context behind code changes.
 
 ## What You Provide (Required Metadata)
@@ -247,14 +266,21 @@ Example file mentions in report:
         raw_agent_report: AgentInputSchema.shape.raw_agent_report,
       },
     },
-    async ({ commit_hash, repository, branch, author, date, raw_agent_report }) => {
+    async ({
+      commit_hash,
+      repository,
+      branch,
+      author,
+      date,
+      raw_agent_report,
+    }) => {
       try {
         // Check if entry already exists
         if (commitHasEntry(commit_hash)) {
           return {
             content: [
               {
-                type: 'text' as const,
+                type: "text" as const,
                 text: `⚠️ Journal entry already exists for commit ${commit_hash}`,
               },
             ],
@@ -262,14 +288,17 @@ Example file mentions in report:
         }
 
         // Generate AI analysis
-        const aiOutput = await generateJournalEntry({
-          commit_hash,
-          repository,
-          branch,
-          author,
-          date,
-          raw_agent_report,
-        }, journalConfig);
+        const aiOutput = await generateJournalEntry(
+          {
+            commit_hash,
+            repository,
+            branch,
+            author,
+            date,
+            raw_agent_report,
+          },
+          journalConfig,
+        );
 
         // Insert into database
         const entryId = insertJournalEntry({
@@ -305,11 +334,11 @@ Example file mentions in report:
         };
 
         const text = `✅ Journal entry created for ${repository}/${branch} (${commit_hash})\n\n${JSON.stringify(summary, null, 2)}`;
-        
+
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(text),
             },
           ],
@@ -317,34 +346,55 @@ Example file mentions in report:
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 2 removed - use resource journal://entry/{commit_hash} instead
 
   // Tool 3: List Entries by Repository
   server.registerTool(
-    'journal_list_by_repository',
+    "journal_list_by_repository",
     {
-      title: 'List Journal Entries by Repository',
-      description: '**SEARCH/QUERY TOOL** - List journal entries for a repository with pagination control. Returns 20 entries by default (max 50). Each entry includes attachment_count showing how many files (images, diagrams, etc.) are attached. Large fields (raw_agent_report) excluded by default to comply with MCP truncation limits (~256 lines / 10 KiB). Use journal://attachments/{commit_hash} resource to see attachment details for a specific commit.',
+      title: "List Journal Entries by Repository",
+      description:
+        "**SEARCH/QUERY TOOL** - List journal entries for a repository with pagination control. Returns 20 entries by default (max 50). Each entry includes attachment_count showing how many files (images, diagrams, etc.) are attached. Large fields (raw_agent_report) excluded by default to comply with MCP truncation limits (~256 lines / 10 KiB). Use journal://attachments/{commit_hash} resource to see attachment details for a specific commit.",
       inputSchema: {
         repository: AgentInputSchema.shape.repository,
-        limit: z.number().optional().default(20).describe('Maximum number of entries to return (default: 20, max: 50)'),
-        offset: z.number().optional().default(0).describe('Number of entries to skip for pagination (default: 0)'),
-        include_raw_report: z.boolean().optional().default(false).describe('Include raw_agent_report in each entry (significantly increases output size, default: false)'),
+        limit: z
+          .number()
+          .optional()
+          .default(20)
+          .describe(
+            "Maximum number of entries to return (default: 20, max: 50)",
+          ),
+        offset: z
+          .number()
+          .optional()
+          .default(0)
+          .describe("Number of entries to skip for pagination (default: 0)"),
+        include_raw_report: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe(
+            "Include raw_agent_report in each entry (significantly increases output size, default: false)",
+          ),
       },
     },
     async ({ repository, limit, offset, include_raw_report }) => {
       try {
         const safeLimit = Math.min(limit || 20, 50); // Cap at 50
-        const { entries, total } = getEntriesByRepositoryPaginated(repository, safeLimit, offset || 0);
-        
+        const { entries, total } = getEntriesByRepositoryPaginated(
+          repository,
+          safeLimit,
+          offset || 0,
+        );
+
         // Get attachment counts for all entries in this batch
-        const commitHashes = entries.map(e => e.commit_hash);
+        const commitHashes = entries.map((e) => e.commit_hash);
         const attachmentCounts = getAttachmentCountsForCommits(commitHashes);
-        
-        const summaries = entries.map(e => {
+
+        const summaries = entries.map((e) => {
           const summary = formatEntrySummary(e, include_raw_report);
           const attachmentCount = attachmentCounts.get(e.commit_hash) || 0;
           return {
@@ -353,7 +403,7 @@ Example file mentions in report:
             has_attachments: attachmentCount > 0,
           };
         });
-        
+
         // Check if output will be truncated before stringifying
         const testOutput = {
           repository,
@@ -363,11 +413,13 @@ Example file mentions in report:
           entries: summaries,
         };
         const testText = `Found ${total} total entries for ${repository}:\n\n${JSON.stringify(testOutput, null, 2)}`;
-        const willTruncate = testText.split('\n').length > MAX_SAFE_LINES || Buffer.byteLength(testText, 'utf8') > MAX_SAFE_BYTES;
-        
+        const willTruncate =
+          testText.split("\n").length > MAX_SAFE_LINES ||
+          Buffer.byteLength(testText, "utf8") > MAX_SAFE_BYTES;
+
         // Build output object with warning FIRST if truncated (JavaScript preserves insertion order)
         const output: any = {};
-        
+
         // Add clear truncation warning at top of JSON FIRST if needed
         if (willTruncate) {
           output.warning = `⚠️ OUTPUT TRUNCATED ⚠️ Response exceeds MCP size limits (~256 lines / 10 KiB). Showing ${summaries.length} of ${total} entries. Use pagination (limit/offset) to see more entries.`;
@@ -375,20 +427,20 @@ Example file mentions in report:
           output.entries_returned = summaries.length;
           output.entries_total = total;
         }
-        
+
         // Then add the rest of the fields
         output.repository = repository;
         output.total_entries = total;
         output.showing = `${offset || 0} to ${(offset || 0) + summaries.length}`;
         output.has_more = (offset || 0) + summaries.length < total;
         output.entries = summaries;
-        
+
         const text = `Found ${total} total entries for ${repository}:\n\n${JSON.stringify(output, null, 2)}`;
-        
+
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(text),
             },
           ],
@@ -396,33 +448,55 @@ Example file mentions in report:
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 4: List Entries by Branch
   server.registerTool(
-    'journal_list_by_branch',
+    "journal_list_by_branch",
     {
-      title: 'List Journal Entries by Branch',
-      description: '**SEARCH/QUERY TOOL** - List journal entries for a repository and branch with pagination control. Returns 20 entries by default (max 50). Each entry includes attachment_count showing how many files (images, diagrams, etc.) are attached. Large fields (raw_agent_report) excluded by default to comply with MCP truncation limits (~256 lines / 10 KiB). Use journal://attachments/{commit_hash} resource to see attachment details for a specific commit.',
+      title: "List Journal Entries by Branch",
+      description:
+        "**SEARCH/QUERY TOOL** - List journal entries for a repository and branch with pagination control. Returns 20 entries by default (max 50). Each entry includes attachment_count showing how many files (images, diagrams, etc.) are attached. Large fields (raw_agent_report) excluded by default to comply with MCP truncation limits (~256 lines / 10 KiB). Use journal://attachments/{commit_hash} resource to see attachment details for a specific commit.",
       inputSchema: {
         repository: AgentInputSchema.shape.repository,
         branch: AgentInputSchema.shape.branch,
-        limit: z.number().optional().default(20).describe('Maximum number of entries to return (default: 20, max: 50)'),
-        offset: z.number().optional().default(0).describe('Number of entries to skip for pagination (default: 0)'),
-        include_raw_report: z.boolean().optional().default(false).describe('Include raw_agent_report in each entry (significantly increases output size, default: false)'),
+        limit: z
+          .number()
+          .optional()
+          .default(20)
+          .describe(
+            "Maximum number of entries to return (default: 20, max: 50)",
+          ),
+        offset: z
+          .number()
+          .optional()
+          .default(0)
+          .describe("Number of entries to skip for pagination (default: 0)"),
+        include_raw_report: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe(
+            "Include raw_agent_report in each entry (significantly increases output size, default: false)",
+          ),
       },
     },
     async ({ repository, branch, limit, offset, include_raw_report }) => {
       try {
         const safeLimit = Math.min(limit || 20, 50); // Cap at 50
-        const { entries, total } = getEntriesByBranchPaginated(repository, branch, safeLimit, offset || 0);
-        
+        const { entries, total } = getEntriesByBranchPaginated(
+          repository,
+          branch,
+          safeLimit,
+          offset || 0,
+        );
+
         // Get attachment counts for all entries in this batch
-        const commitHashes = entries.map(e => e.commit_hash);
+        const commitHashes = entries.map((e) => e.commit_hash);
         const attachmentCounts = getAttachmentCountsForCommits(commitHashes);
-        
-        const summaries = entries.map(e => {
+
+        const summaries = entries.map((e) => {
           const summary = formatEntrySummary(e, include_raw_report);
           const attachmentCount = attachmentCounts.get(e.commit_hash) || 0;
           return {
@@ -431,7 +505,7 @@ Example file mentions in report:
             has_attachments: attachmentCount > 0,
           };
         });
-        
+
         // Check if output will be truncated before stringifying
         const testOutput = {
           repository,
@@ -442,11 +516,13 @@ Example file mentions in report:
           entries: summaries,
         };
         const testText = `Found ${total} total entries for ${repository}/${branch}:\n\n${JSON.stringify(testOutput, null, 2)}`;
-        const willTruncate = testText.split('\n').length > MAX_SAFE_LINES || Buffer.byteLength(testText, 'utf8') > MAX_SAFE_BYTES;
-        
+        const willTruncate =
+          testText.split("\n").length > MAX_SAFE_LINES ||
+          Buffer.byteLength(testText, "utf8") > MAX_SAFE_BYTES;
+
         // Build output object with warning FIRST if truncated (JavaScript preserves insertion order)
         const output: any = {};
-        
+
         // Add clear truncation warning at top of JSON FIRST if needed
         if (willTruncate) {
           output.warning = `⚠️ OUTPUT TRUNCATED ⚠️ Response exceeds MCP size limits (~256 lines / 10 KiB). Showing ${summaries.length} of ${total} entries. Use pagination (limit/offset) to see more entries.`;
@@ -454,7 +530,7 @@ Example file mentions in report:
           output.entries_returned = summaries.length;
           output.entries_total = total;
         }
-        
+
         // Then add the rest of the fields
         output.repository = repository;
         output.branch = branch;
@@ -462,13 +538,13 @@ Example file mentions in report:
         output.showing = `${offset || 0} to ${(offset || 0) + summaries.length}`;
         output.has_more = (offset || 0) + summaries.length < total;
         output.entries = summaries;
-        
+
         const text = `Found ${total} total entries for ${repository}/${branch}:\n\n${JSON.stringify(output, null, 2)}`;
-        
+
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(text),
             },
           ],
@@ -476,7 +552,7 @@ Example file mentions in report:
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 5 removed - use resource journal://repositories instead
@@ -487,9 +563,9 @@ Example file mentions in report:
 
   // Tool 8: Create Project Summary (Entry 0 Initial Creation)
   server.registerTool(
-    'journal_create_project_summary',
+    "journal_create_project_summary",
     {
-      title: 'Create Project Summary (Entry 0)',
+      title: "Create Project Summary (Entry 0)",
       description: `Create the initial Entry 0 (Living Project Summary) for a repository.
 Entry 0 is synthesized from TWO sources:
 1. **Your raw_report** - The primary source, your free-form observations about the project
@@ -555,10 +631,31 @@ needed), and Kronus (Claude) to help me reflect on my work. Structure: src/ for
 MCP server, web/ for Next.js app. Important: dates are European (dd/mm/yyyy).
 The file_structure discovery: modules/journal/ handles entries, ai/ does the magic."`,
       inputSchema: {
-        repository: z.string().min(1).describe('Repository name (must NOT have an existing project summary)'),
-        git_url: z.string().optional().describe('Optional Git repository URL (e.g., "https://github.com/user/repo")'),
-        raw_report: z.string().min(50).describe('Your free-form report - the PRIMARY source for Entry 0. Include technical discoveries, narrative, context, file structure, tech stack, patterns, etc. Kronus will also analyze recent journal entries (if any exist) to enrich this report.'),
-        include_recent_entries: z.number().optional().default(5).describe('Number of recent journal entries to analyze for ADDITIONAL context when creating Entry 0. These entries complement your raw_report (default: 5, max: 20).'),
+        repository: z
+          .string()
+          .min(1)
+          .describe(
+            "Repository name (must NOT have an existing project summary)",
+          ),
+        git_url: z
+          .string()
+          .optional()
+          .describe(
+            'Optional Git repository URL (e.g., "https://github.com/user/repo")',
+          ),
+        raw_report: z
+          .string()
+          .min(50)
+          .describe(
+            "Your free-form report - the PRIMARY source for Entry 0. Include technical discoveries, narrative, context, file structure, tech stack, patterns, etc. Kronus will also analyze recent journal entries (if any exist) to enrich this report.",
+          ),
+        include_recent_entries: z
+          .number()
+          .optional()
+          .default(5)
+          .describe(
+            "Number of recent journal entries to analyze for ADDITIONAL context when creating Entry 0. These entries complement your raw_report (default: 5, max: 20).",
+          ),
       },
     },
     async ({ repository, git_url, raw_report, include_recent_entries }) => {
@@ -570,7 +667,7 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
           return {
             content: [
               {
-                type: 'text' as const,
+                type: "text" as const,
                 text: `⚠️ Project summary (Entry 0) already exists for "${repository}". Use journal_submit_summary_report to update it instead.`,
               },
             ],
@@ -580,9 +677,15 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
         // 2. Get recent journal entries for additional context (if any exist)
         // Entry 0 is synthesized from: raw_report (primary) + recentEntries (additional context)
         const entriesLimit = Math.min(include_recent_entries || 5, 20); // Cap at 20
-        const { entries: recentEntries } = getEntriesByRepositoryPaginated(repository, entriesLimit, 0);
+        const { entries: recentEntries } = getEntriesByRepositoryPaginated(
+          repository,
+          entriesLimit,
+          0,
+        );
 
-        logger.info(`Creating Entry 0 for ${repository} from agent report + ${recentEntries.length} recent journal entries`);
+        logger.info(
+          `Creating Entry 0 for ${repository} from agent report + ${recentEntries.length} recent journal entries`,
+        );
 
         // 3. Call Kronus to normalize the report and journal entries into structured Entry 0
         // normalizeReport combines: raw_report (agent's observations) + recentEntries (historical context)
@@ -590,7 +693,7 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
           raw_report, // Primary source: agent's free-form report
           null, // No existing summary - this is initial creation
           recentEntries, // Additional context: recent journal entries
-          journalConfig
+          journalConfig,
         );
 
         // 4. Merge updates (will just return the updates since there's no existing summary)
@@ -600,12 +703,12 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
         upsertProjectSummary({
           repository,
           git_url: git_url || null,
-          summary: mergedUpdates.summary || 'Project summary',
-          purpose: mergedUpdates.purpose || 'To be documented',
-          architecture: mergedUpdates.architecture || 'To be documented',
-          key_decisions: mergedUpdates.key_decisions || 'To be documented',
-          technologies: mergedUpdates.technologies || 'To be documented',
-          status: mergedUpdates.status || 'In development',
+          summary: mergedUpdates.summary || "Project summary",
+          purpose: mergedUpdates.purpose || "To be documented",
+          architecture: mergedUpdates.architecture || "To be documented",
+          key_decisions: mergedUpdates.key_decisions || "To be documented",
+          technologies: mergedUpdates.technologies || "To be documented",
+          status: mergedUpdates.status || "In development",
           linear_project_id: null,
           linear_issue_id: null,
           // Living Project Summary fields
@@ -620,7 +723,8 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
           patterns: mergedUpdates.patterns || null,
           commands: mergedUpdates.commands || null,
           extended_notes: mergedUpdates.extended_notes || null,
-          last_synced_entry: recentEntries.length > 0 ? recentEntries[0].commit_hash : null,
+          last_synced_entry:
+            recentEntries.length > 0 ? recentEntries[0].commit_hash : null,
           entries_synced: recentEntries.length,
         });
 
@@ -630,7 +734,11 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
         // 6. Track what fields were created
         const createdFields: string[] = [];
         for (const [key, value] of Object.entries(mergedUpdates)) {
-          if (value !== null && value !== undefined && String(value).trim().length > 0) {
+          if (
+            value !== null &&
+            value !== undefined &&
+            String(value).trim().length > 0
+          ) {
             createdFields.push(key);
           }
         }
@@ -641,7 +749,7 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
           created_fields: createdFields,
           fields_count: createdFields.length,
           entries_analyzed: recentEntries.length,
-          message: `Entry 0 (Living Project Summary) created for ${repository} with ${createdFields.length} field(s): ${createdFields.join(', ')}`,
+          message: `Entry 0 (Living Project Summary) created for ${repository} with ${createdFields.length} field(s): ${createdFields.join(", ")}`,
         };
 
         const text = `✅ Entry 0 (Living Project Summary) created for ${repository}\n\n${JSON.stringify(output, null, 2)}`;
@@ -649,7 +757,7 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(text),
             },
           ],
@@ -657,14 +765,14 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 9: Submit Summary Report (Entry 0 Update)
   server.registerTool(
-    'journal_submit_summary_report',
+    "journal_submit_summary_report",
     {
-      title: 'Submit Project Summary Report',
+      title: "Submit Project Summary Report",
       description: `Submit a chaotic report about a project to update Entry 0 (Living Project Summary).
 Kronus (Sonnet 4.5) normalizes messy observations into structured sections.
 
@@ -709,9 +817,23 @@ needed), and Kronus (Claude) to help me reflect on my work. Structure: src/ for
 MCP server, web/ for Next.js app. Important: dates are European (dd/mm/yyyy).
 The file_structure discovery: modules/journal/ handles entries, ai/ does the magic."`,
       inputSchema: {
-        repository: z.string().min(1).describe('Repository name (must have an existing project summary)'),
-        raw_report: z.string().min(50).describe('Your free-form report - the soul/spirit of the project, technical discoveries, narrative, context. Write freely, Kronus extracts structure.'),
-        include_recent_entries: z.number().optional().default(5).describe('Also analyze N recent journal entries for additional context (default: 5)'),
+        repository: z
+          .string()
+          .min(1)
+          .describe("Repository name (must have an existing project summary)"),
+        raw_report: z
+          .string()
+          .min(50)
+          .describe(
+            "Your free-form report - the soul/spirit of the project, technical discoveries, narrative, context. Write freely, Kronus extracts structure.",
+          ),
+        include_recent_entries: z
+          .number()
+          .optional()
+          .default(5)
+          .describe(
+            "Also analyze N recent journal entries for additional context (default: 5)",
+          ),
       },
     },
     async ({ repository, raw_report, include_recent_entries }) => {
@@ -723,7 +845,7 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
           return {
             content: [
               {
-                type: 'text' as const,
+                type: "text" as const,
                 text: `❌ No project summary found for "${repository}". Create a project summary first using the web UI or API before submitting Entry 0 reports.`,
               },
             ],
@@ -732,20 +854,29 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
 
         // 2. Get recent journal entries for context
         const entriesLimit = Math.min(include_recent_entries || 5, 20); // Cap at 20
-        const { entries: recentEntries } = getEntriesByRepositoryPaginated(repository, entriesLimit, 0);
+        const { entries: recentEntries } = getEntriesByRepositoryPaginated(
+          repository,
+          entriesLimit,
+          0,
+        );
 
-        logger.info(`Normalizing report for ${repository} (${recentEntries.length} recent entries for context)`);
+        logger.info(
+          `Normalizing report for ${repository} (${recentEntries.length} recent entries for context)`,
+        );
 
         // 3. Call Kronus (Sonnet 4.5) to normalize the chaotic report
         const normalizedUpdates = await normalizeReport(
           raw_report,
           existingSummary,
           recentEntries,
-          journalConfig
+          journalConfig,
         );
 
         // 4. Merge updates with existing summary
-        const mergedUpdates = mergeSummaryUpdates(existingSummary, normalizedUpdates);
+        const mergedUpdates = mergeSummaryUpdates(
+          existingSummary,
+          normalizedUpdates,
+        );
 
         // 5. Track what fields were updated
         const updatedFields: string[] = [];
@@ -756,33 +887,42 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
         }
 
         // 6. Save updated Entry 0
-        const latestCommitHash = recentEntries.length > 0 ? recentEntries[0].commit_hash : null;
+        const latestCommitHash =
+          recentEntries.length > 0 ? recentEntries[0].commit_hash : null;
 
         upsertProjectSummary({
           repository: existingSummary.repository,
           git_url: existingSummary.git_url,
           summary: mergedUpdates.summary || existingSummary.summary,
           purpose: mergedUpdates.purpose || existingSummary.purpose,
-          architecture: mergedUpdates.architecture || existingSummary.architecture,
-          key_decisions: mergedUpdates.key_decisions || existingSummary.key_decisions,
-          technologies: mergedUpdates.technologies || existingSummary.technologies,
+          architecture:
+            mergedUpdates.architecture || existingSummary.architecture,
+          key_decisions:
+            mergedUpdates.key_decisions || existingSummary.key_decisions,
+          technologies:
+            mergedUpdates.technologies || existingSummary.technologies,
           status: mergedUpdates.status || existingSummary.status,
           linear_project_id: existingSummary.linear_project_id,
           linear_issue_id: existingSummary.linear_issue_id,
           // Living Project Summary fields
-          file_structure: mergedUpdates.file_structure || existingSummary.file_structure,
+          file_structure:
+            mergedUpdates.file_structure || existingSummary.file_structure,
           tech_stack: mergedUpdates.tech_stack || existingSummary.tech_stack,
           frontend: mergedUpdates.frontend || existingSummary.frontend,
           backend: mergedUpdates.backend || existingSummary.backend,
-          database_info: mergedUpdates.database_info || existingSummary.database_info,
+          database_info:
+            mergedUpdates.database_info || existingSummary.database_info,
           services: mergedUpdates.services || existingSummary.services,
-          custom_tooling: mergedUpdates.custom_tooling || existingSummary.custom_tooling,
+          custom_tooling:
+            mergedUpdates.custom_tooling || existingSummary.custom_tooling,
           data_flow: mergedUpdates.data_flow || existingSummary.data_flow,
           patterns: mergedUpdates.patterns || existingSummary.patterns,
           commands: mergedUpdates.commands || existingSummary.commands,
-          extended_notes: mergedUpdates.extended_notes || existingSummary.extended_notes,
+          extended_notes:
+            mergedUpdates.extended_notes || existingSummary.extended_notes,
           last_synced_entry: latestCommitHash,
-          entries_synced: (existingSummary.entries_synced || 0) + recentEntries.length,
+          entries_synced:
+            (existingSummary.entries_synced || 0) + recentEntries.length,
         });
 
         // Auto-backup
@@ -796,9 +936,10 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
           fields_count: updatedFields.length,
           entries_analyzed: recentEntries.length,
           last_synced_entry: latestCommitHash,
-          message: updatedFields.length > 0
-            ? `Entry 0 updated with ${updatedFields.length} field(s): ${updatedFields.join(', ')}`
-            : 'No fields were updated (existing content was better or no new info)',
+          message:
+            updatedFields.length > 0
+              ? `Entry 0 updated with ${updatedFields.length} field(s): ${updatedFields.join(", ")}`
+              : "No fields were updated (existing content was better or no new info)",
         };
 
         const text = `✅ Entry 0 (Living Project Summary) processed for ${repository}\n\n${JSON.stringify(output, null, 2)}`;
@@ -806,7 +947,7 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(text),
             },
           ],
@@ -814,25 +955,39 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 9: List All Project Summaries
   server.registerTool(
-    'journal_list_project_summaries',
+    "journal_list_project_summaries",
     {
-      title: 'List All Project Summaries',
-      description: '**SEARCH/QUERY TOOL** - List project summaries across all repositories with pagination control. Returns 30 summaries by default (max 50). Each summary includes journal entry statistics (entry_count, last_entry_date) and optional Linear integration fields (linear_project_id, linear_issue_id) if linked to Linear projects/issues. Output complies with MCP truncation limits (~256 lines / 10 KiB). Use limit/offset for pagination.',
+      title: "List All Project Summaries",
+      description:
+        "**SEARCH/QUERY TOOL** - List project summaries across all repositories with pagination control. Returns 30 summaries by default (max 50). Each summary includes journal entry statistics (entry_count, last_entry_date) and optional Linear integration fields (linear_project_id, linear_issue_id) if linked to Linear projects/issues. Output complies with MCP truncation limits (~256 lines / 10 KiB). Use limit/offset for pagination.",
       inputSchema: {
-        limit: z.number().optional().default(30).describe('Maximum number of summaries to return (default: 30, max: 50)'),
-        offset: z.number().optional().default(0).describe('Number of summaries to skip for pagination (default: 0)'),
+        limit: z
+          .number()
+          .optional()
+          .default(30)
+          .describe(
+            "Maximum number of summaries to return (default: 30, max: 50)",
+          ),
+        offset: z
+          .number()
+          .optional()
+          .default(0)
+          .describe("Number of summaries to skip for pagination (default: 0)"),
       },
     },
     async ({ limit, offset }) => {
       try {
         const safeLimit = Math.min(limit || 30, 50); // Cap at 50
-        const { summaries, total } = listAllProjectSummariesPaginated(safeLimit, offset || 0);
-        
+        const { summaries, total } = listAllProjectSummariesPaginated(
+          safeLimit,
+          offset || 0,
+        );
+
         // Check if output will be truncated before stringifying
         const testOutput = {
           total_summaries: total,
@@ -841,11 +996,13 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
           summaries,
         };
         const testText = `📚 ${total} total project summaries:\n\n${JSON.stringify(testOutput, null, 2)}`;
-        const willTruncate = testText.split('\n').length > MAX_SAFE_LINES || Buffer.byteLength(testText, 'utf8') > MAX_SAFE_BYTES;
-        
+        const willTruncate =
+          testText.split("\n").length > MAX_SAFE_LINES ||
+          Buffer.byteLength(testText, "utf8") > MAX_SAFE_BYTES;
+
         // Build output object with warning FIRST if truncated (JavaScript preserves insertion order)
         const output: any = {};
-        
+
         // Add clear truncation warning at top of JSON FIRST if needed
         if (willTruncate) {
           output.warning = `⚠️ OUTPUT TRUNCATED ⚠️ Response exceeds MCP size limits (~256 lines / 10 KiB). Showing ${summaries.length} of ${total} summaries. Use pagination (limit/offset) to see more.`;
@@ -853,27 +1010,30 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
           output.summaries_returned = summaries.length;
           output.summaries_total = total;
         }
-        
+
         // Add explanation about fields
-        output.note = 'Each summary includes:';
+        output.note = "Each summary includes:";
         output.fields_explanation = {
-          journal_entry_stats: 'entry_count (number of journal entries) and last_entry_date (ISO date of last entry)',
-          linear_integration: 'linear_project_id and/or linear_issue_id (optional Linear project/issue IDs if linked)',
-          linear_usage: 'If linear_project_id or linear_issue_id is present, use linear_list_projects or linear_list_issues to fetch Linear data',
+          journal_entry_stats:
+            "entry_count (number of journal entries) and last_entry_date (ISO date of last entry)",
+          linear_integration:
+            "linear_project_id and/or linear_issue_id (optional Linear project/issue IDs if linked)",
+          linear_usage:
+            "If linear_project_id or linear_issue_id is present, use linear_list_projects or linear_list_issues to fetch Linear data",
         };
-        
+
         // Then add the rest of the fields
         output.total_summaries = total;
         output.showing = `${offset || 0} to ${(offset || 0) + summaries.length}`;
         output.has_more = (offset || 0) + summaries.length < total;
         output.summaries = summaries;
-        
+
         const text = `📚 ${total} total project summaries:\n\n${JSON.stringify(output, null, 2)}`;
-        
+
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(text),
             },
           ],
@@ -881,7 +1041,7 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 9 removed - use resource journal://attachments/{commit_hash} instead
@@ -890,9 +1050,9 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
 
   // Tool 11: List Media Library (Unified)
   server.registerTool(
-    'journal_list_media_library',
+    "journal_list_media_library",
     {
-      title: 'List Media Library',
+      title: "List Media Library",
       description: `**SEARCH/QUERY TOOL** - Query media assets from the unified library (merges entry_attachments and media_assets tables) with advanced filtering and pagination.
 
 Returns a paginated index with download URLs that models can fetch directly, avoiding MCP truncation limits.
@@ -912,46 +1072,86 @@ Returns a paginated index with download URLs that models can fetch directly, avo
 2. Get assets for a repo: \`{ repository: "Developer Journal Workspace" }\`
 3. Find AI-generated images: \`{ destination: "media" }\``,
       inputSchema: {
-        repository: z.string().optional().describe('Filter by repository name (searches commit_hash links)'),
-        commit_hash: z.string().min(7).optional().describe('Filter by specific commit hash'),
-        destination: z.enum(['journal', 'repository', 'media', 'portfolio', 'all']).optional().default('all')
-          .describe('Filter by asset destination/category'),
-        mime_type_prefix: z.string().optional().describe('Filter by MIME type prefix (e.g., "image/", "application/pdf")'),
-        limit: z.number().optional().default(50).describe('Max items to return (default: 50, max: 100)'),
-        offset: z.number().optional().default(0).describe('Pagination offset'),
-        include_metadata: z.boolean().optional().default(true).describe('Include full metadata (alt, prompt, model, dimensions)'),
+        repository: z
+          .string()
+          .optional()
+          .describe("Filter by repository name (searches commit_hash links)"),
+        commit_hash: z
+          .string()
+          .min(7)
+          .optional()
+          .describe("Filter by specific commit hash"),
+        destination: z
+          .enum(["journal", "repository", "media", "portfolio", "all"])
+          .optional()
+          .default("all")
+          .describe("Filter by asset destination/category"),
+        mime_type_prefix: z
+          .string()
+          .optional()
+          .describe(
+            'Filter by MIME type prefix (e.g., "image/", "application/pdf")',
+          ),
+        limit: z
+          .number()
+          .optional()
+          .default(50)
+          .describe("Max items to return (default: 50, max: 100)"),
+        offset: z.number().optional().default(0).describe("Pagination offset"),
+        include_metadata: z
+          .boolean()
+          .optional()
+          .default(true)
+          .describe("Include full metadata (alt, prompt, model, dimensions)"),
       },
     },
-    async ({ repository, commit_hash, destination, mime_type_prefix, limit, offset, include_metadata }) => {
+    async ({
+      repository,
+      commit_hash,
+      destination,
+      mime_type_prefix,
+      limit,
+      offset,
+      include_metadata,
+    }) => {
       try {
         const result = getUnifiedMediaLibrary(
           {
             repository,
             commit_hash,
-            destination: destination as 'journal' | 'repository' | 'media' | 'portfolio' | 'all' | undefined,
+            destination: destination as
+              | "journal"
+              | "repository"
+              | "media"
+              | "portfolio"
+              | "all"
+              | undefined,
             mime_type_prefix,
           },
           limit ?? 50,
-          offset ?? 0
+          offset ?? 0,
         );
 
         const tartarusUrl = journalConfig.tartarusUrl;
 
         // Transform items with download URLs
-        const items = result.items.map(item => {
+        const items = result.items.map((item) => {
           // Generate download URL
           let downloadUrl: string | null = null;
           if (tartarusUrl) {
-            if (item.source === 'entry_attachments') {
+            if (item.source === "entry_attachments") {
               downloadUrl = `${tartarusUrl}/api/mcp/attachments/${item.source_id}/raw`;
             } else {
               // Prefer CDN URLs if available
-              downloadUrl = item.supabase_url || item.drive_url || `${tartarusUrl}/api/media/${item.source_id}/raw`;
+              downloadUrl =
+                item.supabase_url ||
+                item.drive_url ||
+                `${tartarusUrl}/api/media/${item.source_id}/raw`;
             }
           }
 
           const baseItem = {
-            id: `${item.source === 'entry_attachments' ? 'attachment' : 'media'}:${item.source_id}`,
+            id: `${item.source === "entry_attachments" ? "attachment" : "media"}:${item.source_id}`,
             source: item.source,
             source_id: item.source_id,
             filename: item.filename,
@@ -967,7 +1167,7 @@ Returns a paginated index with download URLs that models can fetch directly, avo
           };
 
           // Add metadata if requested
-          if (include_metadata && item.source === 'media_assets') {
+          if (include_metadata && item.source === "media_assets") {
             return {
               ...baseItem,
               metadata: {
@@ -1001,7 +1201,7 @@ Returns a paginated index with download URLs that models can fetch directly, avo
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(text),
             },
           ],
@@ -1009,7 +1209,7 @@ Returns a paginated index with download URLs that models can fetch directly, avo
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // ============================================
@@ -1052,43 +1252,45 @@ Returns a paginated index with download URLs that models can fetch directly, avo
   //   - Secondary: metadata.tags array (custom labels like 'poem', 'prompt', 'skill', etc.)
   //   - Use type filter for broad categories, search for specific labels/content
 
-  const tartarusUrl = journalConfig.tartarusUrl;
+  const tartarusUrl = journalConfig.tartarusUrl || "http://localhost:3005";
   const mcpApiKey = journalConfig.mcpApiKey;
 
   // Helper to fetch from Tartarus API
   async function fetchTartarus<T>(
     endpoint: string,
     options?: {
-      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+      method?: "GET" | "POST" | "PUT" | "DELETE";
       headers?: Record<string, string>;
       body?: string | object;
-    }
+    },
   ): Promise<T> {
     if (!tartarusUrl) {
-      throw new Error('TARTARUS_URL not configured. Set this env var to enable repository access.');
+      throw new Error(
+        "TARTARUS_URL not configured. Set this env var to enable repository access.",
+      );
     }
     const url = `${tartarusUrl}${endpoint}`;
-    const method = options?.method || 'GET';
+    const method = options?.method || "GET";
     logger.info(`${method} ${url}`);
 
     const headers: Record<string, string> = {
-      'Accept': 'application/json',
+      Accept: "application/json",
       ...(options?.headers || {}),
     };
 
     // Add MCP API key for authentication if configured
     if (mcpApiKey) {
-      headers['X-MCP-API-Key'] = mcpApiKey;
+      headers["X-MCP-API-Key"] = mcpApiKey;
     }
 
     // Handle body
     let body: string | undefined;
     if (options?.body) {
-      if (typeof options.body === 'string') {
+      if (typeof options.body === "string") {
         body = options.body;
       } else {
         body = JSON.stringify(options.body);
-        headers['Content-Type'] = 'application/json';
+        headers["Content-Type"] = "application/json";
       }
     }
 
@@ -1099,7 +1301,7 @@ Returns a paginated index with download URLs that models can fetch directly, avo
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error');
+      const errorText = await response.text().catch(() => "Unknown error");
       throw new Error(`Tartarus API error (${response.status}): ${errorText}`);
     }
 
@@ -1108,9 +1310,9 @@ Returns a paginated index with download URLs that models can fetch directly, avo
 
   // Tool 14: repository_search_documents (Search & Query Tool)
   server.registerTool(
-    'repository_search_documents',
+    "repository_search_documents",
     {
-      title: 'Search & List Repository Documents',
+      title: "Search & List Repository Documents",
       description: `Search and query documents from the repository (writings, prompts, notes) with advanced filtering and pagination.
 
 **This is a SEARCH TOOL** - Use this when you need to:
@@ -1153,20 +1355,38 @@ Full document content available via \`repository://document/{slug_or_id}\` resou
 
 Requires TARTARUS_URL to be configured.`,
       inputSchema: {
-        type: z.enum(['writing', 'prompt', 'note']).optional().describe('Filter by primary document type (writing/prompt/note)'),
-        search: z.string().optional().describe('Search in title and content (can find documents by keywords or tag names)'),
-        limit: z.number().optional().default(50).describe('Maximum number of documents to return (default: 50, max: 100)'),
-        offset: z.number().optional().default(0).describe('Number of documents to skip for pagination (default: 0)'),
+        type: z
+          .enum(["writing", "prompt", "note"])
+          .optional()
+          .describe("Filter by primary document type (writing/prompt/note)"),
+        search: z
+          .string()
+          .optional()
+          .describe(
+            "Search in title and content (can find documents by keywords or tag names)",
+          ),
+        limit: z
+          .number()
+          .optional()
+          .default(50)
+          .describe(
+            "Maximum number of documents to return (default: 50, max: 100)",
+          ),
+        offset: z
+          .number()
+          .optional()
+          .default(0)
+          .describe("Number of documents to skip for pagination (default: 0)"),
       },
     },
     async ({ type, search, limit = 50, offset = 0 }) => {
       try {
         const safeLimit = Math.min(limit, 100); // Cap at 100
         const params = new URLSearchParams();
-        if (type) params.set('type', type);
-        if (search) params.set('search', search);
-        params.set('limit', safeLimit.toString());
-        params.set('offset', offset.toString());
+        if (type) params.set("type", type);
+        if (search) params.set("search", search);
+        params.set("limit", safeLimit.toString());
+        params.set("offset", offset.toString());
 
         const queryString = params.toString();
         const response = await fetchTartarus<{
@@ -1178,14 +1398,17 @@ Requires TARTARUS_URL to be configured.`,
         }>(`/api/documents?${queryString}`);
 
         // Format response
-        const formatted = response.documents.map(doc => ({
+        const formatted = response.documents.map((doc) => ({
           id: doc.id,
           slug: doc.slug,
           type: doc.type,
           title: doc.title,
           language: doc.language,
           summary: doc.summary, // AI-generated summary for indexing
-          excerpt: doc.summary || (doc.content?.substring(0, 200) + (doc.content?.length > 200 ? '...' : '')),
+          excerpt:
+            doc.summary ||
+            doc.content?.substring(0, 200) +
+              (doc.content?.length > 200 ? "..." : ""),
           created_at: doc.createdAt,
           updated_at: doc.updatedAt,
         }));
@@ -1200,7 +1423,9 @@ Requires TARTARUS_URL to be configured.`,
 
         // Check if output will be truncated
         const testText = `📄 Documents (${response.total} total)\n\n${JSON.stringify(output, null, 2)}`;
-        const willTruncate = testText.split('\n').length > MAX_SAFE_LINES || Buffer.byteLength(testText, 'utf8') > MAX_SAFE_BYTES;
+        const willTruncate =
+          testText.split("\n").length > MAX_SAFE_LINES ||
+          Buffer.byteLength(testText, "utf8") > MAX_SAFE_BYTES;
 
         if (willTruncate) {
           output.warning = `⚠️ OUTPUT TRUNCATED ⚠️ Response exceeds MCP size limits (~256 lines / 10 KiB). Showing ${formatted.length} of ${response.total} documents. Use pagination (limit/offset) to see more.`;
@@ -1212,21 +1437,21 @@ Requires TARTARUS_URL to be configured.`,
         const text = `📄 Documents (${response.total} total)\n\n${JSON.stringify(output, null, 2)}`;
 
         return {
-          content: [{ type: 'text' as const, text: truncateOutput(text) }],
+          content: [{ type: "text" as const, text: truncateOutput(text) }],
         };
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 15 removed - use resource repository://document/{slug_or_id} instead
 
   // Tool 16: repository_list_skills
   server.registerTool(
-    'repository_list_skills',
+    "repository_list_skills",
     {
-      title: 'List Skills',
+      title: "List Skills",
       description: `List all skills from the CV/portfolio section of the repository.
 
 ## Repository Structure: Skills
@@ -1241,31 +1466,38 @@ Skills grouped by category with:
 - Description, tags
 - Useful for understanding technical capabilities and expertise areas.`,
       inputSchema: {
-        category: z.string().optional().describe('Filter by category (e.g., "Frontend", "Backend", "AI/ML")'),
+        category: z
+          .string()
+          .optional()
+          .describe(
+            'Filter by category (e.g., "Frontend", "Backend", "AI/ML")',
+          ),
       },
     },
     async ({ category }) => {
       try {
         const params = new URLSearchParams();
-        if (category) params.set('category', category);
+        if (category) params.set("category", category);
 
         const queryString = params.toString();
-        const skills = await fetchTartarus<any[]>(`/api/cv/skills${queryString ? `?${queryString}` : ''}`);
+        const skills = await fetchTartarus<any[]>(
+          `/api/cv/skills${queryString ? `?${queryString}` : ""}`,
+        );
 
         // Map magnitude to level names
         const levelMap: Record<number, string> = {
-          5: 'Expert',
-          4: 'Professional',
-          3: 'Intermediate',
-          2: 'Apprentice',
-          1: 'Beginner',
+          5: "Expert",
+          4: "Professional",
+          3: "Intermediate",
+          2: "Apprentice",
+          1: "Beginner",
         };
 
-        const formatted = skills.map(s => ({
+        const formatted = skills.map((s) => ({
           id: s.id,
           name: s.name,
           category: s.category,
-          level: levelMap[s.magnitude] || 'Unknown',
+          level: levelMap[s.magnitude] || "Unknown",
           magnitude: s.magnitude,
           description: s.description,
           tags: s.tags ? JSON.parse(s.tags) : [],
@@ -1274,7 +1506,7 @@ Skills grouped by category with:
         // Group by category
         const byCategory: Record<string, any[]> = {};
         for (const skill of formatted) {
-          const cat = skill.category || 'Other';
+          const cat = skill.category || "Other";
           if (!byCategory[cat]) byCategory[cat] = [];
           byCategory[cat].push(skill);
         }
@@ -1282,19 +1514,19 @@ Skills grouped by category with:
         const text = `🛠️ Skills (${formatted.length} total)\n\n${JSON.stringify(byCategory, null, 2)}`;
 
         return {
-          content: [{ type: 'text' as const, text: truncateOutput(text) }],
+          content: [{ type: "text" as const, text: truncateOutput(text) }],
         };
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 17: repository_list_experience
   server.registerTool(
-    'repository_list_experience',
+    "repository_list_experience",
     {
-      title: 'List Work Experience',
+      title: "List Work Experience",
       description: `List work experience history from the CV section of the repository.
 
 ## Repository Structure: Work Experience
@@ -1309,15 +1541,15 @@ Useful for understanding professional background and career history.`,
     },
     async () => {
       try {
-        const experience = await fetchTartarus<any[]>('/api/cv/experience');
+        const experience = await fetchTartarus<any[]>("/api/cv/experience");
 
-        const formatted = experience.map(job => ({
+        const formatted = experience.map((job) => ({
           id: job.id,
           title: job.title,
           company: job.company,
           department: job.department,
           location: job.location,
-          period: `${job.dateStart} → ${job.dateEnd || 'Present'}`,
+          period: `${job.dateStart} → ${job.dateEnd || "Present"}`,
           tagline: job.tagline,
           achievements: job.achievements ? JSON.parse(job.achievements) : [],
         }));
@@ -1325,19 +1557,19 @@ Useful for understanding professional background and career history.`,
         const text = `💼 Work Experience (${formatted.length} entries)\n\n${JSON.stringify(formatted, null, 2)}`;
 
         return {
-          content: [{ type: 'text' as const, text: truncateOutput(text) }],
+          content: [{ type: "text" as const, text: truncateOutput(text) }],
         };
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 18: repository_list_education
   server.registerTool(
-    'repository_list_education',
+    "repository_list_education",
     {
-      title: 'List Education',
+      title: "List Education",
       description: `List education history from the CV section of the repository.
 
 ## Repository Structure: Education
@@ -1352,15 +1584,15 @@ Useful for understanding academic background and qualifications.`,
     },
     async () => {
       try {
-        const education = await fetchTartarus<any[]>('/api/cv/education');
+        const education = await fetchTartarus<any[]>("/api/cv/education");
 
-        const formatted = education.map(edu => ({
+        const formatted = education.map((edu) => ({
           id: edu.id,
           degree: edu.degree,
           field: edu.field,
           institution: edu.institution,
           location: edu.location,
-          period: `${edu.dateStart} → ${edu.dateEnd || 'Present'}`,
+          period: `${edu.dateStart} → ${edu.dateEnd || "Present"}`,
           tagline: edu.tagline,
           focusAreas: edu.focusAreas ? JSON.parse(edu.focusAreas) : [],
           achievements: edu.achievements ? JSON.parse(edu.achievements) : [],
@@ -1369,19 +1601,19 @@ Useful for understanding academic background and qualifications.`,
         const text = `🎓 Education (${formatted.length} entries)\n\n${JSON.stringify(formatted, null, 2)}`;
 
         return {
-          content: [{ type: 'text' as const, text: truncateOutput(text) }],
+          content: [{ type: "text" as const, text: truncateOutput(text) }],
         };
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 19: repository_list_portfolio_projects
   server.registerTool(
-    'repository_list_portfolio_projects',
+    "repository_list_portfolio_projects",
     {
-      title: 'List Portfolio Projects',
+      title: "List Portfolio Projects",
       description: `List portfolio projects (shipped work, case studies) from the repository.
 
 ## Repository Structure: Portfolio Projects
@@ -1398,20 +1630,28 @@ These are DISTINCT from journal project_summaries:
 
 Returns projects with titles, categories, technologies, and metrics.`,
       inputSchema: {
-        status: z.enum(['shipped', 'wip', 'archived']).optional().describe('Filter by project status'),
-        featured: z.boolean().optional().describe('Only show featured projects'),
+        status: z
+          .enum(["shipped", "wip", "archived"])
+          .optional()
+          .describe("Filter by project status"),
+        featured: z
+          .boolean()
+          .optional()
+          .describe("Only show featured projects"),
       },
     },
     async ({ status, featured }) => {
       try {
         const params = new URLSearchParams();
-        if (status) params.set('status', status);
-        if (featured !== undefined) params.set('featured', featured.toString());
+        if (status) params.set("status", status);
+        if (featured !== undefined) params.set("featured", featured.toString());
 
         const queryString = params.toString();
-        const projects = await fetchTartarus<any[]>(`/api/portfolio-projects${queryString ? `?${queryString}` : ''}`);
+        const projects = await fetchTartarus<any[]>(
+          `/api/portfolio-projects${queryString ? `?${queryString}` : ""}`,
+        );
 
-        const formatted = projects.map(p => ({
+        const formatted = projects.map((p) => ({
           id: p.id,
           title: p.title,
           category: p.category,
@@ -1429,58 +1669,65 @@ Returns projects with titles, categories, technologies, and metrics.`,
         const text = `🚀 Portfolio Projects (${formatted.length} found)\n\n${JSON.stringify(formatted, null, 2)}`;
 
         return {
-          content: [{ type: 'text' as const, text: truncateOutput(text) }],
+          content: [{ type: "text" as const, text: truncateOutput(text) }],
         };
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 20 removed - use resource repository://portfolio-project/{id} instead
 
   // Fetch current metadata values for schema description (sync before tool registration)
-  let currentTagsDescription = 'Tags are free-form strings for categorization.';
-  let currentTypesDescription = 'Optional secondary category (different from primary type field).';
-  let currentAlsoShownInDescription = 'Array of document types to show this document in multiple tabs.';
-  
+  let currentTagsDescription = "Tags are free-form strings for categorization.";
+  let currentTypesDescription =
+    "Optional secondary category (different from primary type field).";
+  let currentAlsoShownInDescription =
+    "Array of document types to show this document in multiple tabs.";
+
   try {
     if (tartarusUrl) {
-      const metadataResponse = await fetchTartarus<{ 
-        tags: string[]; 
+      const metadataResponse = await fetchTartarus<{
+        tags: string[];
         types: string[];
         alsoShownIn: string[];
         counts: { tags: number; types: number; alsoShownIn: number };
-      }>('/api/documents/metadata');
-      
+      }>("/api/documents/metadata");
+
       if (metadataResponse.tags && metadataResponse.tags.length > 0) {
-        currentTagsDescription = `Current tags in use: ${metadataResponse.tags.join(', ')}. Use these for consistency, or add new ones as needed.`;
+        currentTagsDescription = `Current tags in use: ${metadataResponse.tags.join(", ")}. Use these for consistency, or add new ones as needed.`;
       }
-      
+
       if (metadataResponse.types && metadataResponse.types.length > 0) {
-        currentTypesDescription = `Current metadata types in use: ${metadataResponse.types.join(', ')}. This is a secondary category field (different from the primary type: writing/prompt/note).`;
+        currentTypesDescription = `Current metadata types in use: ${metadataResponse.types.join(", ")}. This is a secondary category field (different from the primary type: writing/prompt/note).`;
       }
-      
-      if (metadataResponse.alsoShownIn && metadataResponse.alsoShownIn.length > 0) {
-        currentAlsoShownInDescription = `Array of document types to show this document in multiple tabs. Current values in use: ${metadataResponse.alsoShownIn.join(', ')}. Must be valid document types: "writing", "prompt", or "note".`;
+
+      if (
+        metadataResponse.alsoShownIn &&
+        metadataResponse.alsoShownIn.length > 0
+      ) {
+        currentAlsoShownInDescription = `Array of document types to show this document in multiple tabs. Current values in use: ${metadataResponse.alsoShownIn.join(", ")}. Must be valid document types: "writing", "prompt", or "note".`;
       }
     }
   } catch (error) {
-    logger.warn('Failed to fetch metadata for schema description:', error);
+    logger.warn("Failed to fetch metadata for schema description:", error);
     // Fall back to default descriptions
   }
 
   // Tool 21: repository_create_document
   server.registerTool(
-    'repository_create_document',
+    "repository_create_document",
     {
-      title: 'Create Repository Document',
-      description: `Upload and save a document (writing, prompt, or note) to the Tartarus repository database.
+      title: "Create Repository Document",
+      description: `Upload and save a document (prompt or note) to the Tartarus repository database.
+
+**IMPORTANT: AI agents can only create "note" or "prompt" documents. "writing" type is user-curated and cannot be created by AI.**
 
 ## Document Types (Required)
-- **writing**: Creative works, essays, poems, philosophical pieces, fiction
 - **prompt**: System prompts, AI contexts, templates, instructions for AI
 - **note**: Quick notes, reference material, snippets
+- ~~**writing**: (User-curated only - AI cannot create writings)~~
 
 ## Required Fields
 - **title**: Document title
@@ -1562,24 +1809,118 @@ If \`slug\` is not provided, it will be auto-generated from the title (lowercase
 
 Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
       inputSchema: {
-        title: z.string().min(1).describe('Document title (required)'),
-        content: z.string().min(1).describe('Document content (required). For prompts, this is the prompt text.'),
-        type: z.enum(['writing', 'prompt', 'note']).default('writing').describe('Primary document type (default: writing)'),
-        slug: z.string().optional().describe('URL-friendly slug (auto-generated from title if not provided)'),
-        language: z.string().optional().default('en').describe('Language code (default: en)'),
-        tags: z.array(z.string()).optional().default([]).describe('Array of tags for categorization'),
-        metadataType: z.string().optional().describe('Secondary category (metadata.type) - free-form string for additional categorization beyond primary type'),
-        writtenDate: z.string().optional().describe('Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15" (year, year-month, or full date)'),
+        title: z.string().min(1).describe("Document title (required)"),
+        content: z
+          .string()
+          .min(1)
+          .describe(
+            "Document content (required). For prompts, this is the prompt text.",
+          ),
+        type: z
+          .enum(["writing", "prompt", "note"])
+          .default("writing")
+          .describe("Primary document type (default: writing)"),
+        slug: z
+          .string()
+          .optional()
+          .describe(
+            "URL-friendly slug (auto-generated from title if not provided)",
+          ),
+        language: z
+          .string()
+          .optional()
+          .default("en")
+          .describe("Language code (default: en)"),
+        tags: z
+          .array(z.string())
+          .optional()
+          .default([])
+          .describe("Array of tags for categorization"),
+        metadataType: z
+          .string()
+          .optional()
+          .describe(
+            "Secondary category (metadata.type) - free-form string for additional categorization beyond primary type",
+          ),
+        writtenDate: z
+          .string()
+          .optional()
+          .describe(
+            'Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15" (year, year-month, or full date)',
+          ),
         // Prompt-specific fields
-        purpose: z.string().optional().describe('For prompts: What this prompt is for (e.g., "System prompt for Kronus oracle mode")'),
-        role: z.enum(['system', 'user', 'assistant', 'chat']).optional().describe('For prompts: Message role type - "system" (default), "user", "assistant", or "chat" (multi-turn)'),
-        inputSchema: z.string().optional().describe('For prompts: JSON schema for input validation (Zod schema as JSON string)'),
-        outputSchema: z.string().optional().describe('For prompts: JSON schema for expected output (Zod schema as JSON string)'),
-        config: z.record(z.string(), z.unknown()).optional().describe('For prompts: Configuration metadata (model, temperature, max_tokens, etc.)'),
+        purpose: z
+          .string()
+          .optional()
+          .describe(
+            'For prompts: What this prompt is for (e.g., "System prompt for Kronus oracle mode")',
+          ),
+        role: z
+          .enum(["system", "user", "assistant", "chat"])
+          .optional()
+          .describe(
+            'For prompts: Message role type - "system" (default), "user", "assistant", or "chat" (multi-turn)',
+          ),
+        inputSchema: z
+          .string()
+          .optional()
+          .describe(
+            "For prompts: JSON schema for input validation (Zod schema as JSON string)",
+          ),
+        outputSchema: z
+          .string()
+          .optional()
+          .describe(
+            "For prompts: JSON schema for expected output (Zod schema as JSON string)",
+          ),
+        config: z
+          .record(z.string(), z.unknown())
+          .optional()
+          .describe(
+            "For prompts: Configuration metadata (model, temperature, max_tokens, etc.)",
+          ),
       },
     },
-    async ({ title, content, type, slug, language, tags, metadataType, writtenDate, purpose, role, inputSchema, outputSchema, config }) => {
+    async ({
+      title,
+      content,
+      type,
+      slug,
+      language,
+      tags,
+      metadataType,
+      writtenDate,
+      purpose,
+      role,
+      inputSchema,
+      outputSchema,
+      config,
+    }) => {
       try {
+        // RESTRICTION: AI can only create notes and prompts, not writings
+        // Writings are curated by the user and should not be auto-generated
+        if (type === "writing") {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    success: false,
+                    error:
+                      'Permission denied: AI agents can only create "note" or "prompt" documents. Writings are user-curated content.',
+                    suggestion:
+                      'Use type: "note" for quick notes, reference material, or snippets. Use type: "prompt" for system prompts and AI templates.',
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
+
         // Build metadata object from simplified fields
         const metadata: Record<string, unknown> = {};
         if (tags && tags.length > 0) {
@@ -1591,16 +1932,16 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         if (writtenDate && writtenDate.trim().length > 0) {
           metadata.writtenDate = writtenDate.trim();
         }
-        
+
         // Add prompt-specific fields to metadata when type is 'prompt'
-        if (type === 'prompt') {
+        if (type === "prompt") {
           if (purpose && purpose.trim().length > 0) {
             metadata.purpose = purpose.trim();
           }
           if (role) {
             metadata.role = role; // 'system', 'user', 'assistant', or 'chat'
           } else {
-            metadata.role = 'system'; // Default for prompts
+            metadata.role = "system"; // Default for prompts
           }
           if (inputSchema && inputSchema.trim().length > 0) {
             try {
@@ -1608,7 +1949,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
               JSON.parse(inputSchema);
               metadata.inputSchema = inputSchema;
             } catch (e) {
-              logger.warn('Invalid inputSchema JSON, skipping:', e);
+              logger.warn("Invalid inputSchema JSON, skipping:", e);
             }
           }
           if (outputSchema && outputSchema.trim().length > 0) {
@@ -1617,7 +1958,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
               JSON.parse(outputSchema);
               metadata.outputSchema = outputSchema;
             } catch (e) {
-              logger.warn('Invalid outputSchema JSON, skipping:', e);
+              logger.warn("Invalid outputSchema JSON, skipping:", e);
             }
           }
           if (config && Object.keys(config).length > 0) {
@@ -1628,8 +1969,8 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         const payload = {
           title,
           content,
-          type: type || 'writing',
-          language: language || 'en',
+          type: type || "writing",
+          language: language || "en",
           metadata,
         };
 
@@ -1649,8 +1990,8 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
           summary: string | null;
           created_at: string;
           updated_at: string;
-        }>('/api/documents', {
-          method: 'POST',
+        }>("/api/documents", {
+          method: "POST",
           body: payload,
         });
 
@@ -1659,38 +2000,41 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         let summary: string | null = null;
         if (response.id && content.length > 20) {
           try {
-              // Build metadata for summary generation
-              const summaryMetadata: Record<string, unknown> = {
-                tags: tags || [],
-                type: metadataType || undefined,
-                writtenDate: writtenDate || undefined,
-              };
-              
-              // Add prompt-specific fields for better summary generation
-              if (type === 'prompt') {
-                if (purpose) summaryMetadata.purpose = purpose;
-                if (role) summaryMetadata.role = role;
-                if (inputSchema) {
-                  try {
-                    summaryMetadata.inputSchema = JSON.parse(inputSchema);
-                  } catch {
-                    summaryMetadata.inputSchema = inputSchema; // Keep as string if invalid JSON
-                  }
+            // Build metadata for summary generation
+            const summaryMetadata: Record<string, unknown> = {
+              tags: tags || [],
+              type: metadataType || undefined,
+              writtenDate: writtenDate || undefined,
+            };
+
+            // Add prompt-specific fields for better summary generation
+            if (type === "prompt") {
+              if (purpose) summaryMetadata.purpose = purpose;
+              if (role) summaryMetadata.role = role;
+              if (inputSchema) {
+                try {
+                  summaryMetadata.inputSchema = JSON.parse(inputSchema);
+                } catch {
+                  summaryMetadata.inputSchema = inputSchema; // Keep as string if invalid JSON
                 }
-                if (outputSchema) {
-                  try {
-                    summaryMetadata.outputSchema = JSON.parse(outputSchema);
-                  } catch {
-                    summaryMetadata.outputSchema = outputSchema; // Keep as string if invalid JSON
-                  }
-                }
-                if (config) summaryMetadata.config = config;
               }
-              
-              const summaryResponse = await fetchTartarus<{ summary: string; type: string }>('/api/ai/summarize', {
-              method: 'POST',
+              if (outputSchema) {
+                try {
+                  summaryMetadata.outputSchema = JSON.parse(outputSchema);
+                } catch {
+                  summaryMetadata.outputSchema = outputSchema; // Keep as string if invalid JSON
+                }
+              }
+              if (config) summaryMetadata.config = config;
+            }
+
+            const summaryResponse = await fetchTartarus<{
+              summary: string;
+              type: string;
+            }>("/api/ai/summarize", {
+              method: "POST",
               body: {
-                type: 'document',
+                type: "document",
                 content: content,
                 title: title,
                 metadata: summaryMetadata,
@@ -1701,7 +2045,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
               summary = summaryResponse.summary;
               // Update document with summary via PUT endpoint
               await fetchTartarus(`/api/documents/${response.slug}`, {
-                method: 'PUT',
+                method: "PUT",
                 body: {
                   summary: summary,
                   // Preserve existing metadata
@@ -1715,7 +2059,10 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
               summaryGenerated = true;
             }
           } catch (summaryError) {
-            logger.warn('Failed to generate summary for document:', summaryError);
+            logger.warn(
+              "Failed to generate summary for document:",
+              summaryError,
+            );
             // Don't fail the whole operation if summary generation fails
           }
         }
@@ -1732,9 +2079,11 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
 
         if (summaryGenerated && summary) {
           responseText.summary = summary;
-          responseText.summary_note = 'AI summary generated for Kronus indexing';
+          responseText.summary_note =
+            "AI summary generated for Kronus indexing";
         } else if (!summaryGenerated) {
-          responseText.summary_note = 'Summary generation skipped (content too short or generation failed)';
+          responseText.summary_note =
+            "Summary generation skipped (content too short or generation failed)";
         }
 
         const text = `✅ Document created successfully\n\n${JSON.stringify(responseText, null, 2)}`;
@@ -1742,7 +2091,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(text),
             },
           ],
@@ -1750,15 +2099,17 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 22: repository_update_document
   server.registerTool(
-    'repository_update_document',
+    "repository_update_document",
     {
-      title: 'Update Repository Document',
-      description: `Update an existing document (writing, prompt, or note) in the Tartarus repository database.
+      title: "Update Repository Document",
+      description: `Update an existing document (prompt or note) in the Tartarus repository database.
+
+**IMPORTANT: AI agents can only update "note" or "prompt" documents. "writing" type is user-curated and cannot be updated by AI.**
 
 ## Document Identification
 - **slug**: Document slug (URL-friendly identifier) OR numeric ID
@@ -1815,30 +2166,142 @@ All fields are optional - only provide fields you want to update:
 
 Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
       inputSchema: {
-        slug: z.string().optional().describe('Document slug or numeric ID (required if id not provided)'),
-        id: z.number().optional().describe('Document numeric ID (required if slug not provided)'),
-        title: z.string().optional().describe('Document title (if changed, slug will be auto-updated)'),
-        content: z.string().optional().describe('Document content'),
-        type: z.enum(['writing', 'prompt', 'note']).optional().describe('Primary document type'),
-        language: z.string().optional().describe('Language code'),
-        tags: z.array(z.string()).optional().describe('Array of tags for categorization (replaces existing)'),
-        metadataType: z.string().optional().describe('Secondary category (metadata.type)'),
-        writtenDate: z.string().optional().describe('Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15"'),
+        slug: z
+          .string()
+          .optional()
+          .describe(
+            "Document slug or numeric ID (required if id not provided)",
+          ),
+        id: z
+          .number()
+          .optional()
+          .describe("Document numeric ID (required if slug not provided)"),
+        title: z
+          .string()
+          .optional()
+          .describe("Document title (if changed, slug will be auto-updated)"),
+        content: z.string().optional().describe("Document content"),
+        type: z
+          .enum(["writing", "prompt", "note"])
+          .optional()
+          .describe("Primary document type"),
+        language: z.string().optional().describe("Language code"),
+        tags: z
+          .array(z.string())
+          .optional()
+          .describe("Array of tags for categorization (replaces existing)"),
+        metadataType: z
+          .string()
+          .optional()
+          .describe("Secondary category (metadata.type)"),
+        writtenDate: z
+          .string()
+          .optional()
+          .describe(
+            'Date when document was originally written. Format: "2024", "2024-03", or "2024-03-15"',
+          ),
         // Prompt-specific fields
-        purpose: z.string().optional().describe('For prompts: What this prompt is for'),
-        role: z.enum(['system', 'user', 'assistant', 'chat']).optional().describe('For prompts: Message role type'),
-        inputSchema: z.string().optional().describe('For prompts: JSON schema for input validation (Zod schema as JSON string)'),
-        outputSchema: z.string().optional().describe('For prompts: JSON schema for expected output (Zod schema as JSON string)'),
-        config: z.record(z.string(), z.unknown()).optional().describe('For prompts: Configuration metadata (model, temperature, max_tokens, etc.)'),
+        purpose: z
+          .string()
+          .optional()
+          .describe("For prompts: What this prompt is for"),
+        role: z
+          .enum(["system", "user", "assistant", "chat"])
+          .optional()
+          .describe("For prompts: Message role type"),
+        inputSchema: z
+          .string()
+          .optional()
+          .describe(
+            "For prompts: JSON schema for input validation (Zod schema as JSON string)",
+          ),
+        outputSchema: z
+          .string()
+          .optional()
+          .describe(
+            "For prompts: JSON schema for expected output (Zod schema as JSON string)",
+          ),
+        config: z
+          .record(z.string(), z.unknown())
+          .optional()
+          .describe(
+            "For prompts: Configuration metadata (model, temperature, max_tokens, etc.)",
+          ),
       },
     },
-    async ({ slug, id, title, content, type, language, tags, metadataType, writtenDate, purpose, role, inputSchema, outputSchema, config }) => {
+    async ({
+      slug,
+      id,
+      title,
+      content,
+      type,
+      language,
+      tags,
+      metadataType,
+      writtenDate,
+      purpose,
+      role,
+      inputSchema,
+      outputSchema,
+      config,
+    }) => {
       try {
         if (!slug && !id) {
-          throw new Error('Either slug or id is required');
+          throw new Error("Either slug or id is required");
         }
 
         const identifier = id ? String(id) : slug!;
+
+        // RESTRICTION: AI can only update notes and prompts, not writings
+        // First, fetch the existing document to check its type
+        const existingDoc = await fetchTartarus<{ type: string }>(
+          `/api/documents/${identifier}`,
+        );
+
+        // Block updates to writings
+        if (existingDoc.type === "writing") {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    success: false,
+                    error:
+                      'Permission denied: AI agents cannot update "writing" documents. Writings are user-curated content.',
+                    suggestion:
+                      'You can only update documents of type "note" or "prompt".',
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        // Also block changing type to 'writing'
+        if (type === "writing") {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    success: false,
+                    error:
+                      'Permission denied: AI agents cannot set document type to "writing". Writings are user-curated content.',
+                    suggestion: 'Keep the type as "note" or "prompt".',
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
 
         // Validate JSON fields for prompts
         let parsedInputSchema: string | null = null;
@@ -1850,7 +2313,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
             JSON.parse(inputSchema); // Validate JSON
             parsedInputSchema = inputSchema.trim();
           } catch (e) {
-            throw new Error('Invalid JSON in inputSchema');
+            throw new Error("Invalid JSON in inputSchema");
           }
         }
 
@@ -1859,15 +2322,16 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
             JSON.parse(outputSchema); // Validate JSON
             parsedOutputSchema = outputSchema.trim();
           } catch (e) {
-            throw new Error('Invalid JSON in outputSchema');
+            throw new Error("Invalid JSON in outputSchema");
           }
         }
 
         if (config) {
           try {
-            parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
+            parsedConfig =
+              typeof config === "string" ? JSON.parse(config) : config;
           } catch (e) {
-            throw new Error('Invalid JSON in config');
+            throw new Error("Invalid JSON in config");
           }
         }
 
@@ -1880,12 +2344,20 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         if (language !== undefined) updatePayload.language = language;
 
         // Build metadata object
-        if (tags !== undefined || metadataType !== undefined || writtenDate !== undefined || 
-            purpose !== undefined || role !== undefined || parsedInputSchema !== null || 
-            parsedOutputSchema !== null || parsedConfig !== null) {
-          
+        if (
+          tags !== undefined ||
+          metadataType !== undefined ||
+          writtenDate !== undefined ||
+          purpose !== undefined ||
+          role !== undefined ||
+          parsedInputSchema !== null ||
+          parsedOutputSchema !== null ||
+          parsedConfig !== null
+        ) {
           // Fetch existing document to merge metadata
-          const existingDoc = await fetchTartarus<{ metadata: Record<string, unknown> }>(`/api/documents/${identifier}`);
+          const existingDoc = await fetchTartarus<{
+            metadata: Record<string, unknown>;
+          }>(`/api/documents/${identifier}`);
           const existingMetadata = existingDoc.metadata || {};
 
           const metadata: Record<string, unknown> = { ...existingMetadata };
@@ -1893,19 +2365,22 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
           // Update basic metadata fields
           if (tags !== undefined) metadata.tags = tags;
           if (metadataType !== undefined) metadata.type = metadataType || null;
-          if (writtenDate !== undefined) metadata.writtenDate = writtenDate || null;
+          if (writtenDate !== undefined)
+            metadata.writtenDate = writtenDate || null;
 
           // Update prompt-specific metadata
           if (purpose !== undefined) metadata.purpose = purpose || null;
           if (role !== undefined) metadata.role = role || null;
-          if (parsedInputSchema !== null) metadata.inputSchema = parsedInputSchema;
-          if (parsedOutputSchema !== null) metadata.outputSchema = parsedOutputSchema;
+          if (parsedInputSchema !== null)
+            metadata.inputSchema = parsedInputSchema;
+          if (parsedOutputSchema !== null)
+            metadata.outputSchema = parsedOutputSchema;
           if (parsedConfig !== null) metadata.config = parsedConfig;
 
           // Remove prompt fields if explicitly set to null/empty and not a prompt
-          if (type && type !== 'prompt') {
-            if (purpose === null || purpose === '') delete metadata.purpose;
-            if (role === null || role === '') delete metadata.role;
+          if (type && type !== "prompt") {
+            if (purpose === null || purpose === "") delete metadata.purpose;
+            if (role === null || role === "") delete metadata.role;
             if (parsedInputSchema === null) delete metadata.inputSchema;
             if (parsedOutputSchema === null) delete metadata.outputSchema;
             if (parsedConfig === null) delete metadata.config;
@@ -1927,23 +2402,29 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
           created_at: string;
           updated_at: string;
         }>(`/api/documents/${identifier}`, {
-          method: 'PUT',
+          method: "PUT",
           body: updatePayload,
         });
 
-        const responseText = `✅ Document updated successfully\n\n${JSON.stringify({
-          id: response.id,
-          slug: response.slug,
-          type: response.type,
-          title: response.title,
-          summary: response.summary ? 'AI summary updated' : 'No summary change',
-          url: `${tartarusUrl}/repository/${response.slug}`,
-        }, null, 2)}`;
+        const responseText = `✅ Document updated successfully\n\n${JSON.stringify(
+          {
+            id: response.id,
+            slug: response.slug,
+            type: response.type,
+            title: response.title,
+            summary: response.summary
+              ? "AI summary updated"
+              : "No summary change",
+            url: `${tartarusUrl}/repository/${response.slug}`,
+          },
+          null,
+          2,
+        )}`;
 
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(responseText),
             },
           ],
@@ -1951,15 +2432,17 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 23: repository_create_from_report (unified document/prompt creation from agent report)
   server.registerTool(
-    'repository_create_from_report',
+    "repository_create_from_report",
     {
-      title: 'Create Document or Prompt from Agent Report',
-      description: `Create a document (writing, prompt, or note) or update an existing one by providing a free-form agent report. Kronus will extract all structured information automatically.
+      title: "Create Document or Prompt from Agent Report",
+      description: `Create a document (prompt or note) or update an existing one by providing a free-form agent report. Kronus will extract all structured information automatically.
+
+**IMPORTANT: AI agents can only create/update "note" or "prompt" documents. "writing" type is user-curated and cannot be created/updated by AI.**
 
 ## How It Works
 
@@ -2018,22 +2501,117 @@ If you provide a \`slug\` or \`id\` of an existing document, it will be updated 
 
 Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
       inputSchema: {
-        raw_agent_report: z.string().min(10).describe('Your detailed report describing the document or prompt to create/update'),
-        document_type: z.enum(['writing', 'prompt', 'note']).optional().describe('Document type - if not provided, will be auto-detected from report'),
-        slug: z.string().optional().describe('Slug or ID of existing document to update (if provided, updates instead of creates)'),
-        id: z.number().optional().describe('Numeric ID of existing document to update (if provided, updates instead of creates)'),
+        raw_agent_report: z
+          .string()
+          .min(10)
+          .describe(
+            "Your detailed report describing the document or prompt to create/update",
+          ),
+        document_type: z
+          .enum(["writing", "prompt", "note"])
+          .optional()
+          .describe(
+            "Document type - if not provided, will be auto-detected from report",
+          ),
+        slug: z
+          .string()
+          .optional()
+          .describe(
+            "Slug or ID of existing document to update (if provided, updates instead of creates)",
+          ),
+        id: z
+          .number()
+          .optional()
+          .describe(
+            "Numeric ID of existing document to update (if provided, updates instead of creates)",
+          ),
       },
     },
     async ({ raw_agent_report, document_type, slug, id }) => {
       try {
+        // RESTRICTION: AI can only create/update notes and prompts, not writings
+        if (document_type === "writing") {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    success: false,
+                    error:
+                      'Permission denied: AI agents can only create "note" or "prompt" documents. Writings are user-curated content.',
+                    suggestion:
+                      'Use document_type: "note" for quick notes, or "prompt" for system prompts and AI templates. Or omit document_type to auto-detect.',
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        // If updating, check the existing document type
+        if (slug || id) {
+          const identifier = id ? String(id) : slug!;
+          const existingDoc = await fetchTartarus<{ type: string }>(
+            `/api/documents/${identifier}`,
+          );
+          if (existingDoc.type === "writing") {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify(
+                    {
+                      success: false,
+                      error:
+                        'Permission denied: AI agents cannot update "writing" documents. Writings are user-curated content.',
+                      suggestion:
+                        'You can only update documents of type "note" or "prompt".',
+                    },
+                    null,
+                    2,
+                  ),
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+
         // Import the generateDocument function
-        const { generateDocument } = await import('./ai/generate-document.js');
+        const { generateDocument } = await import("./ai/generate-document.js");
 
         // Generate structured data from agent report
         const aiOutput = await generateDocument(
           { raw_agent_report, document_type },
-          journalConfig!
+          journalConfig!,
         );
+
+        // RESTRICTION: Also block if AI extracted type as 'writing'
+        if (aiOutput.type === "writing") {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    success: false,
+                    error:
+                      'Permission denied: AI agents can only create "note" or "prompt" documents. The extracted type was "writing" which is user-curated content.',
+                    suggestion:
+                      'Adjust your report to clearly indicate this is a "note" (quick notes, reference material) or "prompt" (system prompts, AI templates).',
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
 
         // Validate JSON fields for prompts
         let parsedInputSchema: string | null = null;
@@ -2045,7 +2623,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
             JSON.parse(aiOutput.inputSchema); // Validate JSON
             parsedInputSchema = aiOutput.inputSchema.trim();
           } catch (e) {
-            logger.warn('Invalid JSON in extracted inputSchema, skipping');
+            logger.warn("Invalid JSON in extracted inputSchema, skipping");
           }
         }
 
@@ -2054,15 +2632,18 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
             JSON.parse(aiOutput.outputSchema); // Validate JSON
             parsedOutputSchema = aiOutput.outputSchema.trim();
           } catch (e) {
-            logger.warn('Invalid JSON in extracted outputSchema, skipping');
+            logger.warn("Invalid JSON in extracted outputSchema, skipping");
           }
         }
 
         if (aiOutput.config) {
           try {
-            parsedConfig = typeof aiOutput.config === 'string' ? JSON.parse(aiOutput.config) : aiOutput.config;
+            parsedConfig =
+              typeof aiOutput.config === "string"
+                ? JSON.parse(aiOutput.config)
+                : aiOutput.config;
           } catch (e) {
-            logger.warn('Invalid JSON in extracted config, skipping');
+            logger.warn("Invalid JSON in extracted config, skipping");
           }
         }
 
@@ -2075,7 +2656,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         if (aiOutput.writtenDate) metadata.writtenDate = aiOutput.writtenDate;
 
         // Add prompt-specific metadata if type is prompt
-        if (aiOutput.type === 'prompt') {
+        if (aiOutput.type === "prompt") {
           if (aiOutput.purpose) metadata.purpose = aiOutput.purpose;
           if (aiOutput.role) metadata.role = aiOutput.role;
           if (parsedInputSchema) metadata.inputSchema = parsedInputSchema;
@@ -2111,13 +2692,13 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
           };
 
           response = await fetchTartarus(`/api/documents/${identifier}`, {
-            method: 'PUT',
+            method: "PUT",
             body: updatePayload,
           });
         } else {
           // Create new document
-          response = await fetchTartarus('/api/documents', {
-            method: 'POST',
+          response = await fetchTartarus("/api/documents", {
+            method: "POST",
             body: {
               title: aiOutput.title,
               content: aiOutput.content,
@@ -2131,20 +2712,23 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
           try {
             const contentToSummarize = aiOutput.content || "";
             if (contentToSummarize.length > 20) {
-              const summaryResponse = await fetchTartarus<{ summary: string }>('/api/ai/summarize', {
-                method: 'POST',
-                body: {
-                  type: 'document',
-                  content: contentToSummarize,
-                  title: aiOutput.title,
-                  metadata,
+              const summaryResponse = await fetchTartarus<{ summary: string }>(
+                "/api/ai/summarize",
+                {
+                  method: "POST",
+                  body: {
+                    type: "document",
+                    content: contentToSummarize,
+                    title: aiOutput.title,
+                    metadata,
+                  },
                 },
-              });
+              );
 
               if (summaryResponse.summary) {
                 // Update document with summary
                 await fetchTartarus(`/api/documents/${response.slug}`, {
-                  method: 'PUT',
+                  method: "PUT",
                   body: {
                     summary: summaryResponse.summary,
                   },
@@ -2153,36 +2737,45 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
               }
             }
           } catch (summaryError) {
-            logger.warn('Failed to generate summary for document:', summaryError);
+            logger.warn(
+              "Failed to generate summary for document:",
+              summaryError,
+            );
           }
         }
 
-        const action = isUpdate ? 'updated' : 'created';
-        const responseText = `✅ Document ${action} successfully from agent report\n\n${JSON.stringify({
-          id: response.id,
-          slug: response.slug,
-          type: response.type,
-          title: response.title,
-          extracted_fields: {
-            tags: aiOutput.tags?.length || 0,
-            metadataType: aiOutput.metadataType || null,
-            writtenDate: aiOutput.writtenDate || null,
-            ...(aiOutput.type === 'prompt' ? {
-              purpose: aiOutput.purpose || null,
-              role: aiOutput.role || null,
-              hasInputSchema: !!parsedInputSchema,
-              hasOutputSchema: !!parsedOutputSchema,
-              hasConfig: !!parsedConfig,
-            } : {}),
+        const action = isUpdate ? "updated" : "created";
+        const responseText = `✅ Document ${action} successfully from agent report\n\n${JSON.stringify(
+          {
+            id: response.id,
+            slug: response.slug,
+            type: response.type,
+            title: response.title,
+            extracted_fields: {
+              tags: aiOutput.tags?.length || 0,
+              metadataType: aiOutput.metadataType || null,
+              writtenDate: aiOutput.writtenDate || null,
+              ...(aiOutput.type === "prompt"
+                ? {
+                    purpose: aiOutput.purpose || null,
+                    role: aiOutput.role || null,
+                    hasInputSchema: !!parsedInputSchema,
+                    hasOutputSchema: !!parsedOutputSchema,
+                    hasConfig: !!parsedConfig,
+                  }
+                : {}),
+            },
+            summary: response.summary ? "AI summary generated" : "No summary",
+            url: `${tartarusUrl}/repository/${response.slug}`,
           },
-          summary: response.summary ? 'AI summary generated' : 'No summary',
-          url: `${tartarusUrl}/repository/${response.slug}`,
-        }, null, 2)}`;
+          null,
+          2,
+        )}`;
 
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(responseText),
             },
           ],
@@ -2190,15 +2783,17 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
   // Tool 24: repository_upload_media
   server.registerTool(
-    'repository_upload_media',
+    "repository_upload_media",
     {
-      title: 'Upload Media Asset',
-      description: `Upload an image or media file to the Tartarus repository database.
+      title: "Upload Media Asset",
+      description: `**DISABLED: AI agents cannot upload media directly. Media uploads are user-controlled.**
+
+Upload an image or media file to the Tartarus repository database.
 
 ## Upload Methods
 1. **From URL**: Provide \`url\` parameter - file will be downloaded and stored
@@ -2229,30 +2824,104 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
 
 Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
       inputSchema: {
-        filename: z.string().min(1).describe('Filename (e.g., "image.png", "diagram.svg")'),
-        url: z.string().url().optional().describe('URL to download file from (either url or data required)'),
-        data: z.string().optional().describe('Base64-encoded file data (either url or data required)'),
-        description: z.string().optional().describe('Human-readable description'),
-        alt: z.string().optional().describe('Alt text for accessibility (images)'),
-        tags: z.array(z.string()).optional().default([]).describe('Array of tags for categorization'),
-        prompt: z.string().optional().describe('AI generation prompt (if AI-generated)'),
-        model: z.string().optional().describe('AI model used (if AI-generated)'),
-        destination: z.enum(['journal', 'repository', 'media', 'portfolio']).default('media').describe('Where this media belongs'),
-        commit_hash: z.string().optional().describe('Link to journal entry (for destination: journal)'),
-        document_id: z.number().optional().describe('Link to document (for destination: repository)'),
-        portfolio_project_id: z.string().optional().describe('Link to portfolio project (for destination: portfolio)'),
+        filename: z
+          .string()
+          .min(1)
+          .describe('Filename (e.g., "image.png", "diagram.svg")'),
+        url: z
+          .string()
+          .url()
+          .optional()
+          .describe("URL to download file from (either url or data required)"),
+        data: z
+          .string()
+          .optional()
+          .describe("Base64-encoded file data (either url or data required)"),
+        description: z
+          .string()
+          .optional()
+          .describe("Human-readable description"),
+        alt: z
+          .string()
+          .optional()
+          .describe("Alt text for accessibility (images)"),
+        tags: z
+          .array(z.string())
+          .optional()
+          .default([])
+          .describe("Array of tags for categorization"),
+        prompt: z
+          .string()
+          .optional()
+          .describe("AI generation prompt (if AI-generated)"),
+        model: z
+          .string()
+          .optional()
+          .describe("AI model used (if AI-generated)"),
+        destination: z
+          .enum(["journal", "repository", "media", "portfolio"])
+          .default("media")
+          .describe("Where this media belongs"),
+        commit_hash: z
+          .string()
+          .optional()
+          .describe("Link to journal entry (for destination: journal)"),
+        document_id: z
+          .number()
+          .optional()
+          .describe("Link to document (for destination: repository)"),
+        portfolio_project_id: z
+          .string()
+          .optional()
+          .describe("Link to portfolio project (for destination: portfolio)"),
       },
     },
-    async ({ filename, url, data, description, alt, tags, prompt, model, destination, commit_hash, document_id, portfolio_project_id }) => {
+    async ({
+      filename,
+      url,
+      data,
+      description,
+      alt,
+      tags,
+      prompt,
+      model,
+      destination,
+      commit_hash,
+      document_id,
+      portfolio_project_id,
+    }) => {
       try {
+        // RESTRICTION: AI agents cannot upload media directly
+        // Media uploads are user-controlled to prevent unauthorized content
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error:
+                    "Permission denied: AI agents cannot upload media directly. Media uploads are user-controlled.",
+                  suggestion:
+                    "Media can only be uploaded through the web interface by the user.",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+          isError: true,
+        };
+
+        // Original code below (unreachable due to restriction)
         // Validate that either url or data is provided
         if (!url && !data) {
-          throw new Error('Either url or data must be provided');
+          throw new Error("Either url or data must be provided");
         }
 
         const payload: any = {
           filename,
-          destination: destination || 'media',
+          destination: destination || "media",
           tags: tags || [],
         };
 
@@ -2268,7 +2937,8 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         if (model) payload.model = model;
         if (commit_hash) payload.commit_hash = commit_hash;
         if (document_id) payload.document_id = document_id;
-        if (portfolio_project_id) payload.portfolio_project_id = portfolio_project_id;
+        if (portfolio_project_id)
+          payload.portfolio_project_id = portfolio_project_id;
 
         const response = await fetchTartarus<{
           id: number;
@@ -2281,28 +2951,32 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
           portfolio_project_id?: string;
           created_at: string;
           message: string;
-        }>('/api/media', {
-          method: 'POST',
+        }>("/api/media", {
+          method: "POST",
           body: payload,
         });
 
-        const text = `✅ Media uploaded successfully\n\n${JSON.stringify({
-          id: response.id,
-          filename: response.filename,
-          mime_type: response.mime_type,
-          file_size: response.file_size,
-          destination: response.destination,
-          commit_hash: response.commit_hash,
-          document_id: response.document_id,
-          portfolio_project_id: response.portfolio_project_id,
-          created_at: response.created_at,
-          download_url: `${tartarusUrl}/api/media/${response.id}/raw`,
-        }, null, 2)}`;
+        const text = `✅ Media uploaded successfully\n\n${JSON.stringify(
+          {
+            id: response.id,
+            filename: response.filename,
+            mime_type: response.mime_type,
+            file_size: response.file_size,
+            destination: response.destination,
+            commit_hash: response.commit_hash,
+            document_id: response.document_id,
+            portfolio_project_id: response.portfolio_project_id,
+            created_at: response.created_at,
+            download_url: `${tartarusUrl}/api/media/${response.id}/raw`,
+          },
+          null,
+          2,
+        )}`;
 
         return {
           content: [
             {
-              type: 'text' as const,
+              type: "text" as const,
               text: truncateOutput(text),
             },
           ],
@@ -2310,225 +2984,196 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
       } catch (error) {
         throw toMcpError(error);
       }
-    }
+    },
   );
 
-  logger.success('Journal tools registered (7 tools) + Repository tools (9 tools via Tartarus API)');
+  logger.success(
+    "Journal tools registered (7 tools) + Repository tools (9 tools via Tartarus API)",
+  );
 
   // ============================================
   // MCP Resources - Expose journal data as resources
-  // MCP Resources provide read-only data access via URIs
+  // AI SDK 6.0 feature: Resources provide read-only data access
   // ============================================
 
-  try {
-    // Resource: List of all repositories
-    server.registerResource(
-      'repositories',
-      'journal://repositories',
-      {
-        description: 'List of all repositories with journal entries',
-        mimeType: 'application/json',
-      },
-      async () => {
-        const repositories = listRepositories();
-        return {
-          contents: [{
-            uri: 'journal://repositories',
-            mimeType: 'application/json',
+  // Resource: List of all repositories
+  server.registerResource(
+    "repositories",
+    "journal://repositories",
+    {
+      description: "List of all repositories with journal entries",
+      mimeType: "application/json",
+    },
+    async () => {
+      const repositories = listRepositories();
+      return {
+        contents: [
+          {
+            uri: "journal://repositories",
+            mimeType: "application/json",
             text: JSON.stringify(repositories, null, 2),
-          }],
-        };
-      }
-    );
-    logger.debug('Registered resource: journal://repositories');
-  } catch (error) {
-    logger.error('Failed to register repositories resource:', error);
-    throw error;
-  }
+          },
+        ],
+      };
+    },
+  );
 
   // Resource Template: Project summary by repository
   server.registerResource(
-    'project-summary',
-    new ResourceTemplate('journal://summary/{repository}', { 
-      list: async () => {
-        const repositories = listRepositories();
-        return {
-          resources: repositories.map(repo => ({
-            uri: `journal://summary/${repo}`,
-            name: repo,
-          })),
-        };
-      }
-    }),
+    "project-summary",
+    new ResourceTemplate("journal://summary/{repository}", { list: undefined }),
     {
-      description: 'Get Entry 0 (Living Project Summary) for a repository',
-      mimeType: 'application/json',
+      description: "Get Entry 0 (Living Project Summary) for a repository",
+      mimeType: "application/json",
     },
     async (uri, { repository }) => {
       const summary = getProjectSummary(repository as string);
       if (!summary) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ error: `No project summary found for ${repository}` }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `No project summary found for ${repository}`,
+              }),
+            },
+          ],
         };
       }
       return {
-        contents: [{
-          uri: uri.href,
-          mimeType: 'application/json',
-          text: JSON.stringify(summary, null, 2),
-        }],
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: "application/json",
+            text: JSON.stringify(summary, null, 2),
+          },
+        ],
       };
-    }
+    },
   );
 
   // Resource Template: Get journal entry by commit hash
   server.registerResource(
-    'journal-entry',
-    new ResourceTemplate('journal://entry/{commit_hash}', { 
-      list: async () => {
-        // Return recent entries (last 50) as concrete resources
-        const repositories = listRepositories();
-        const entries: Array<{ uri: string; name: string }> = [];
-        for (const repo of repositories.slice(0, 5)) { // Limit to 5 repos to avoid too many
-          const { entries: repoEntries } = getEntriesByRepositoryPaginated(repo, 10, 0, false);
-          for (const entry of repoEntries) {
-            entries.push({
-              uri: `journal://entry/${entry.commit_hash}`,
-              name: `${entry.commit_hash.substring(0, 7)} - ${repo}`,
-            });
-          }
-        }
-        return {
-          resources: entries.slice(0, 50), // Limit total to 50
-        };
-      }
-    }),
+    "journal-entry",
+    new ResourceTemplate("journal://entry/{commit_hash}", { list: undefined }),
     {
-      description: 'Get a journal entry by commit hash. By default excludes raw_agent_report. Add ?include_raw_report=true to URI query to include full report.',
-      mimeType: 'application/json',
+      description:
+        "Get a journal entry by commit hash. By default excludes raw_agent_report. Add ?include_raw_report=true to URI query to include full report.",
+      mimeType: "application/json",
     },
     async (uri, { commit_hash }) => {
       try {
         // Check for query parameter
         const url = new URL(uri.href);
-        const includeRawReport = url.searchParams.get('include_raw_report') === 'true';
+        const includeRawReport =
+          url.searchParams.get("include_raw_report") === "true";
 
         const entry = getEntryByCommit(commit_hash as string);
         if (!entry) {
           return {
-            contents: [{
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify({ error: `No journal entry found for commit ${commit_hash}` }),
-            }],
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  error: `No journal entry found for commit ${commit_hash}`,
+                }),
+              },
+            ],
           };
         }
 
         const summary = formatEntrySummary(entry, includeRawReport);
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify(summary, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(summary, null, 2),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ 
-              error: `Failed to fetch entry: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch entry: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource Template: List branches for a repository
   server.registerResource(
-    'journal-branches',
-    new ResourceTemplate('journal://branches/{repository}', { 
-      list: async () => {
-        const repositories = listRepositories();
-        return {
-          resources: repositories.map(repo => ({
-            uri: `journal://branches/${repo}`,
-            name: `${repo} branches`,
-          })),
-        };
-      }
+    "journal-branches",
+    new ResourceTemplate("journal://branches/{repository}", {
+      list: undefined,
     }),
     {
-      description: 'List all branches in a repository that have journal entries. Returns a simple list of branch names.',
-      mimeType: 'application/json',
+      description:
+        "List all branches in a repository that have journal entries. Returns a simple list of branch names.",
+      mimeType: "application/json",
     },
     async (uri, { repository }) => {
       try {
         const branches = listBranches(repository as string);
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              repository: repository,
-              branch_count: branches.length,
-              branches: branches,
-            }, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  repository: repository,
+                  branch_count: branches.length,
+                  branches: branches,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ 
-              error: `Failed to fetch branches: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch branches: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource Template: List attachments for a journal entry
   server.registerResource(
-    'journal-attachments',
-    new ResourceTemplate('journal://attachments/{commit_hash}', { 
-      list: async () => {
-        // Return recent entries that have attachments
-        const repositories = listRepositories();
-        const entries: Array<{ uri: string; name: string }> = [];
-        for (const repo of repositories.slice(0, 5)) {
-          const { entries: repoEntries } = getEntriesByRepositoryPaginated(repo, 20, 0, false);
-          for (const entry of repoEntries) {
-            const attachments = getAttachmentMetadataByCommit(entry.commit_hash);
-            if (attachments.length > 0) {
-              entries.push({
-                uri: `journal://attachments/${entry.commit_hash}`,
-                name: `${entry.commit_hash.substring(0, 7)} - ${repo} (${attachments.length} files)`,
-              });
-            }
-          }
-        }
-        return {
-          resources: entries.slice(0, 30), // Limit to 30 entries with attachments
-        };
-      }
+    "journal-attachments",
+    new ResourceTemplate("journal://attachments/{commit_hash}", {
+      list: undefined,
     }),
     {
-      description: 'List attachment metadata for a journal entry by commit hash. Binary file data is excluded. Use journal://attachment/{attachment_id} resource to get individual attachment details.',
-      mimeType: 'application/json',
+      description:
+        "List attachment metadata for a journal entry by commit hash. Binary file data is excluded. Use journal://attachment/{attachment_id} resource to get individual attachment details.",
+      mimeType: "application/json",
     },
     async (uri, { commit_hash }) => {
       try {
         // Use metadata-only function (no binary data)
-        const attachments = getAttachmentMetadataByCommit(commit_hash as string);
+        const attachments = getAttachmentMetadataByCommit(
+          commit_hash as string,
+        );
 
         const stats = getAttachmentStats(commit_hash as string);
 
@@ -2550,57 +3195,73 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
 
         // Add helpful note about download URLs
         if (journalConfig.tartarusUrl) {
-          output.download_note = 'Use download_url to fetch full file content via HTTP (bypasses MCP truncation limits)';
+          output.download_note =
+            "Use download_url to fetch full file content via HTTP (bypasses MCP truncation limits)";
         } else {
-          output.download_note = 'Set TARTARUS_URL env var to enable direct download URLs';
+          output.download_note =
+            "Set TARTARUS_URL env var to enable direct download URLs";
         }
 
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify(output, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(output, null, 2),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ 
-              error: `Failed to fetch attachments: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch attachments: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource Template: Get attachment by ID
   server.registerResource(
-    'journal-attachment',
-    new ResourceTemplate('journal://attachment/{attachment_id}', { list: undefined }),
+    "journal-attachment",
+    new ResourceTemplate("journal://attachment/{attachment_id}", {
+      list: undefined,
+    }),
     {
-      description: 'Get attachment metadata by attachment ID. **Base64 data is excluded by default** to avoid heavy payloads (especially for images). Use download_url to fetch binary files via HTTP. Add ?include_data=true&max_chars=500 to URI query only for small text files (NOT recommended for images).',
-      mimeType: 'application/json',
+      description:
+        "Get attachment metadata by attachment ID. **Base64 data is excluded by default** to avoid heavy payloads (especially for images). Use download_url to fetch binary files via HTTP. Add ?include_data=true&max_chars=500 to URI query only for small text files (NOT recommended for images).",
+      mimeType: "application/json",
     },
     async (uri, { attachment_id }) => {
       try {
         const attachment = getAttachmentById(Number(attachment_id));
         if (!attachment) {
           return {
-            contents: [{
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify({ error: `No attachment found with ID ${attachment_id}` }),
-            }],
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  error: `No attachment found with ID ${attachment_id}`,
+                }),
+              },
+            ],
           };
         }
 
         // Check for query parameters
         const url = new URL(uri.href);
-        const includeData = url.searchParams.get('include_data') === 'true';
-        const maxChars = parseInt(url.searchParams.get('max_chars') || '500', 10);
+        const includeData = url.searchParams.get("include_data") === "true";
+        const maxChars = parseInt(
+          url.searchParams.get("max_chars") || "500",
+          10,
+        );
 
         // Build download URL if Tartarus URL is configured
         const downloadUrl = journalConfig.tartarusUrl
@@ -2608,7 +3269,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
           : null;
 
         // Check if this is an image
-        const isImage = attachment.mime_type?.startsWith('image/');
+        const isImage = attachment.mime_type?.startsWith("image/");
         const isLargeFile = attachment.file_size > 100 * 1024; // > 100KB
 
         const output: any = {
@@ -2625,7 +3286,8 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
 
         // Add warnings for images/large files
         if (isImage) {
-          output.warning = '⚠️ This is an image file. Base64 encoding would be very large. Use download_url to fetch the image via HTTP instead.';
+          output.warning =
+            "⚠️ This is an image file. Base64 encoding would be very large. Use download_url to fetch the image via HTTP instead.";
         } else if (isLargeFile) {
           output.warning = `⚠️ This file is large (${(attachment.file_size / 1024).toFixed(2)} KB). Base64 encoding would exceed MCP limits. Use download_url to fetch via HTTP instead.`;
         }
@@ -2633,56 +3295,75 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         if (includeData) {
           // Warn if trying to include data for images or large files
           if (isImage) {
-            output.error = 'Cannot include base64 data for image files. Use download_url instead.';
+            output.error =
+              "Cannot include base64 data for image files. Use download_url instead.";
             output.data_included = false;
           } else if (isLargeFile) {
-            output.warning = 'File is large - only including preview. Use download_url for full file.';
-            const data_base64 = attachment.data.toString('base64');
-            const previewLength = Math.min(maxChars, Math.min(data_base64.length, 10000)); // Cap at 10KB preview
-            output.data_base64_preview = data_base64.substring(0, previewLength);
+            output.warning =
+              "File is large - only including preview. Use download_url for full file.";
+            const data_base64 = attachment.data.toString("base64");
+            const previewLength = Math.min(
+              maxChars,
+              Math.min(data_base64.length, 10000),
+            ); // Cap at 10KB preview
+            output.data_base64_preview = data_base64.substring(
+              0,
+              previewLength,
+            );
             output.data_base64_full_length = data_base64.length;
             output.note = `Preview only (${previewLength}/${data_base64.length} chars). Use download_url to fetch full file.`;
           } else {
             // Small text files - include data
-            const data_base64 = attachment.data.toString('base64');
+            const data_base64 = attachment.data.toString("base64");
             const previewLength = Math.min(maxChars, data_base64.length);
-            output.data_base64_preview = data_base64.substring(0, previewLength);
+            output.data_base64_preview = data_base64.substring(
+              0,
+              previewLength,
+            );
             output.data_base64_full_length = data_base64.length;
-            output.note = previewLength < data_base64.length
-              ? `Data truncated for preview (${previewLength}/${data_base64.length} chars). Use download_url to fetch full file.`
-              : 'Full data included';
+            output.note =
+              previewLength < data_base64.length
+                ? `Data truncated for preview (${previewLength}/${data_base64.length} chars). Use download_url to fetch full file.`
+                : "Full data included";
           }
         } else {
           // Default: no data included
           if (downloadUrl) {
-            output.note = 'Binary data excluded by default. Use download_url to fetch full file via HTTP (bypasses MCP size limits).';
+            output.note =
+              "Binary data excluded by default. Use download_url to fetch full file via HTTP (bypasses MCP size limits).";
             if (isImage) {
-              output.recommendation = 'For images, always use download_url - base64 encoding would be too large for MCP.';
+              output.recommendation =
+                "For images, always use download_url - base64 encoding would be too large for MCP.";
             }
           } else {
-            output.note = 'Binary data excluded. Set TARTARUS_URL env var to enable direct download URLs.';
+            output.note =
+              "Binary data excluded. Set TARTARUS_URL env var to enable direct download URLs.";
           }
         }
 
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify(output, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(output, null, 2),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ 
-              error: `Failed to fetch attachment: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch attachment: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // ============================================
@@ -2696,18 +3377,20 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
   // Helper to fetch from Tartarus API (for resources)
   async function fetchTartarusForResource<T>(endpoint: string): Promise<T> {
     if (!tartarusUrlForResources) {
-      throw new Error('TARTARUS_URL not configured. Set this env var to enable repository resources.');
+      throw new Error(
+        "TARTARUS_URL not configured. Set this env var to enable repository resources.",
+      );
     }
     const url = `${tartarusUrlForResources}${endpoint}`;
     const headers: Record<string, string> = {
-      'Accept': 'application/json',
+      Accept: "application/json",
     };
     if (mcpApiKeyForResources) {
-      headers['X-MCP-API-Key'] = mcpApiKeyForResources;
+      headers["X-MCP-API-Key"] = mcpApiKeyForResources;
     }
     const response = await fetch(url, { headers });
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error');
+      const errorText = await response.text().catch(() => "Unknown error");
       throw new Error(`Tartarus API error (${response.status}): ${errorText}`);
     }
     return response.json();
@@ -2715,119 +3398,138 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
 
   // Resource Template: Get document by slug or ID
   server.registerResource(
-    'repository-document',
-    new ResourceTemplate('repository://document/{slug_or_id}', { list: undefined }),
+    "repository-document",
+    new ResourceTemplate("repository://document/{slug_or_id}", {
+      list: undefined,
+    }),
     {
-      description: 'Get a repository document (writing, prompt, or note) by slug or ID. Returns full document content (text/markdown). Document content is text-based and should not contain heavy base64 data.',
-      mimeType: 'application/json',
+      description:
+        "Get a repository document (writing, prompt, or note) by slug or ID. Returns full document content (text/markdown). Document content is text-based and should not contain heavy base64 data.",
+      mimeType: "application/json",
     },
     async (uri, { slug_or_id }) => {
       try {
-        const document = await fetchTartarusForResource<any>(`/api/documents/${encodeURIComponent(slug_or_id as string)}`);
-        
+        const document = await fetchTartarusForResource<any>(
+          `/api/documents/${encodeURIComponent(slug_or_id as string)}`,
+        );
+
         // Check if document content is suspiciously large (might contain embedded base64)
         const contentLength = document.content?.length || 0;
         const isLargeContent = contentLength > 100000; // > 100KB of text
-        
+
         const output: any = { ...document };
-        
+
         if (isLargeContent) {
           output.warning = `⚠️ Document content is large (${(contentLength / 1024).toFixed(2)} KB). If it contains embedded base64 images, consider using separate image resources instead.`;
           // Still return full content, but warn about size
         }
-        
+
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify(output, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(output, null, 2),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ 
-              error: `Failed to fetch document: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch document: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource: Get all tags
   server.registerResource(
-    'repository-tags',
-    'repository://tags',
+    "repository-tags",
+    "repository://tags",
     {
-      description: 'Get all unique tags currently used in repository documents. Returns a sorted list of all tags for easy reference when creating new documents.',
-      mimeType: 'application/json',
+      description:
+        "Get all unique tags currently used in repository documents. Returns a sorted list of all tags for easy reference when creating new documents.",
+      mimeType: "application/json",
     },
     async (uri) => {
       try {
         const response = await fetchTartarusForResource<{
           tags: string[];
           count: number;
-        }>('/api/documents/tags');
-        
+        }>("/api/documents/tags");
+
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              tags: response.tags,
-              count: response.count,
-              note: 'Use these tags when creating documents to maintain consistency',
-            }, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  tags: response.tags,
+                  count: response.count,
+                  note: "Use these tags when creating documents to maintain consistency",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ 
-              error: `Failed to fetch tags: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch tags: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource Template: List documents by type
   server.registerResource(
-    'repository-documents-by-type',
-    new ResourceTemplate('repository://documents/{type}', { 
+    "repository-documents-by-type",
+    new ResourceTemplate("repository://documents/{type}", {
       list: async () => {
         // Return list of available types
-        return {
-          resources: [
-            { uri: 'repository://documents/writing', name: 'Writings' },
-            { uri: 'repository://documents/prompt', name: 'Prompts' },
-            { uri: 'repository://documents/note', name: 'Notes' },
-          ],
-        };
-      }
+        return [
+          { uri: "repository://documents/writing", name: "Writings" },
+          { uri: "repository://documents/prompt", name: "Prompts" },
+          { uri: "repository://documents/note", name: "Notes" },
+        ];
+      },
     }),
     {
-      description: 'List repository documents filtered by type (writing, prompt, or note). Returns paginated results (default: 50 documents).',
-      mimeType: 'application/json',
+      description:
+        "List repository documents filtered by type (writing, prompt, or note). Returns paginated results (default: 50 documents).",
+      mimeType: "application/json",
     },
     async (uri, { type }) => {
       try {
-        const validTypes = ['writing', 'prompt', 'note'];
+        const validTypes = ["writing", "prompt", "note"];
         if (!validTypes.includes(type as string)) {
           return {
-            contents: [{
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify({ 
-                error: `Invalid type. Must be one of: ${validTypes.join(', ')}` 
-              }),
-            }],
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  error: `Invalid type. Must be one of: ${validTypes.join(", ")}`,
+                }),
+              },
+            ],
           };
         }
 
@@ -2840,76 +3542,97 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
         }>(`/api/documents?type=${type}&limit=50&offset=0`);
 
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              type: type,
-              total: response.total,
-              showing: `0 to ${response.documents.length}`,
-              has_more: response.has_more,
-              documents: response.documents.map(doc => ({
-                id: doc.id,
-                slug: doc.slug,
-                type: doc.type,
-                title: doc.title,
-                language: doc.language,
-                summary: doc.summary, // AI-generated summary for indexing
-                excerpt: doc.summary || (doc.content?.substring(0, 200) + (doc.content?.length > 200 ? '...' : '')),
-                created_at: doc.createdAt,
-                updated_at: doc.updatedAt,
-              })),
-            }, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  type: type,
+                  total: response.total,
+                  showing: `0 to ${response.documents.length}`,
+                  has_more: response.has_more,
+                  documents: response.documents.map((doc) => ({
+                    id: doc.id,
+                    slug: doc.slug,
+                    type: doc.type,
+                    title: doc.title,
+                    language: doc.language,
+                    summary: doc.summary, // AI-generated summary for indexing
+                    excerpt:
+                      doc.summary ||
+                      doc.content?.substring(0, 200) +
+                        (doc.content?.length > 200 ? "..." : ""),
+                    created_at: doc.createdAt,
+                    updated_at: doc.updatedAt,
+                  })),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ 
-              error: `Failed to fetch documents: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch documents: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource Template: Get portfolio project by ID
   server.registerResource(
-    'repository-portfolio-project',
-    new ResourceTemplate('repository://portfolio-project/{id}', { list: undefined }),
+    "repository-portfolio-project",
+    new ResourceTemplate("repository://portfolio-project/{id}", {
+      list: undefined,
+    }),
     {
-      description: 'Get full details of a portfolio project by ID. Returns complete project information including description, metrics, and links.',
-      mimeType: 'application/json',
+      description:
+        "Get full details of a portfolio project by ID. Returns complete project information including description, metrics, and links.",
+      mimeType: "application/json",
     },
     async (uri, { id }) => {
       try {
-        const project = await fetchTartarusForResource<any>(`/api/portfolio-projects/${encodeURIComponent(id as string)}`);
+        const project = await fetchTartarusForResource<any>(
+          `/api/portfolio-projects/${encodeURIComponent(id as string)}`,
+        );
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify(project, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(project, null, 2),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ 
-              error: `Failed to fetch portfolio project: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch portfolio project: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
-  logger.info(`Journal resources registered: 1 static + 6 templates`);
-  logger.success('Journal resources registered (7 resources) + Repository resources (3 resource templates)');
+  logger.success(
+    "Journal resources registered (7 resources) + Repository resources (3 resource templates)",
+  );
 
   // ============================================
   // LINEAR CACHE RESOURCES - Historical buffer of Linear data
@@ -2918,206 +3641,268 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
 
   // Resource: Linear cache stats
   server.registerResource(
-    'linear-cache-stats',
-    'linear://cache/stats',
+    "linear-cache-stats",
+    "linear://cache/stats",
     {
-      description: 'Get Linear cache statistics - shows active/deleted/total counts for projects and issues. The cache is a HISTORICAL BUFFER that preserves data even after Linear deletes it.',
-      mimeType: 'application/json',
+      description:
+        "Get Linear cache statistics - shows active/deleted/total counts for projects and issues. The cache is a HISTORICAL BUFFER that preserves data even after Linear deletes it.",
+      mimeType: "application/json",
     },
     async (uri) => {
       try {
         const stats = getLinearCacheStats();
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              description: 'Linear cache is a historical buffer - we preserve ALL data including deleted items',
-              projects: stats.projects,
-              issues: stats.issues,
-              last_project_sync: stats.lastProjectSync,
-              last_issue_sync: stats.lastIssueSync,
-            }, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  description:
+                    "Linear cache is a historical buffer - we preserve ALL data including deleted items",
+                  projects: stats.projects,
+                  issues: stats.issues,
+                  last_project_sync: stats.lastProjectSync,
+                  last_issue_sync: stats.lastIssueSync,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ error: `Failed to get Linear cache stats: ${error instanceof Error ? error.message : 'Unknown error'}` }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to get Linear cache stats: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource: List Linear projects (cached)
   server.registerResource(
-    'linear-projects',
-    'linear://projects',
+    "linear-projects",
+    "linear://projects",
     {
-      description: 'List all cached Linear projects (historical buffer - includes deleted projects). Rich descriptions preserved for AI context.',
-      mimeType: 'application/json',
+      description:
+        "List all cached Linear projects (historical buffer - includes deleted projects). Rich descriptions preserved for AI context.",
+      mimeType: "application/json",
     },
     async (uri) => {
       try {
-        const { projects, total } = listLinearProjects({ includeDeleted: true, limit: 100 });
+        const { projects, total } = listLinearProjects({
+          includeDeleted: true,
+          limit: 100,
+        });
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              total,
-              note: 'Historical buffer - includes deleted projects (is_deleted=true)',
-              projects: projects.map(p => ({
-                id: p.id,
-                name: p.name,
-                description: p.description,
-                state: p.state,
-                progress: p.progress,
-                url: p.url,
-                leadName: p.leadName,
-                isDeleted: p.isDeleted,
-                syncedAt: p.syncedAt,
-                summary: p.summary, // AI-generated summary for indexing
-              })),
-            }, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  total,
+                  note: "Historical buffer - includes deleted projects (is_deleted=true)",
+                  projects: projects.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    description: p.description,
+                    state: p.state,
+                    progress: p.progress,
+                    url: p.url,
+                    leadName: p.leadName,
+                    isDeleted: p.isDeleted,
+                    syncedAt: p.syncedAt,
+                    summary: p.summary, // AI-generated summary for indexing
+                  })),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ error: `Failed to list Linear projects: ${error instanceof Error ? error.message : 'Unknown error'}` }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to list Linear projects: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource Template: Get Linear project by ID
   server.registerResource(
-    'linear-project',
-    new ResourceTemplate('linear://project/{id}', { list: undefined }),
+    "linear-project",
+    new ResourceTemplate("linear://project/{id}", { list: undefined }),
     {
-      description: 'Get full details of a cached Linear project by ID. Includes rich description and content preserved in our historical buffer.',
-      mimeType: 'application/json',
+      description:
+        "Get full details of a cached Linear project by ID. Includes rich description and content preserved in our historical buffer.",
+      mimeType: "application/json",
     },
     async (uri, { id }) => {
       try {
         const project = getLinearProject(id as string);
         if (!project) {
           return {
-            contents: [{
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify({ error: `Linear project not found: ${id}` }),
-            }],
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  error: `Linear project not found: ${id}`,
+                }),
+              },
+            ],
           };
         }
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify(project, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(project, null, 2),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ error: `Failed to get Linear project: ${error instanceof Error ? error.message : 'Unknown error'}` }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to get Linear project: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource: List Linear issues (cached) - YOUR tickets only (filtered by LINEAR_USER_ID during sync)
   server.registerResource(
-    'linear-issues',
-    'linear://issues',
+    "linear-issues",
+    "linear://issues",
     {
-      description: 'List your cached Linear issues (synced via Tartarus). Summary view - use linear://issues/{identifier} for full details.',
-      mimeType: 'application/json',
+      description:
+        "List your cached Linear issues (synced via Tartarus). Summary view - use linear://issues/{identifier} for full details.",
+      mimeType: "application/json",
     },
     async (uri) => {
       try {
-        const { issues, total } = listLinearIssues({ includeDeleted: false, limit: 250 });
+        const { issues, total } = listLinearIssues({
+          includeDeleted: false,
+          limit: 250,
+        });
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              total,
-              note: 'Your tickets only. Sync via Tartarus to update.',
-              issues: issues.map(i => ({
-                identifier: i.identifier,
-                title: i.title,
-                state: i.stateName,
-                project: i.projectName,
-                priority: i.priority,
-                url: i.url,
-                summary: i.summary, // AI-generated summary for indexing
-              })),
-            }, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  total,
+                  note: "Your tickets only. Sync via Tartarus to update.",
+                  issues: issues.map((i) => ({
+                    identifier: i.identifier,
+                    title: i.title,
+                    state: i.stateName,
+                    project: i.projectName,
+                    priority: i.priority,
+                    url: i.url,
+                    summary: i.summary, // AI-generated summary for indexing
+                  })),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ error: `Failed to list Linear issues: ${error instanceof Error ? error.message : 'Unknown error'}` }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to list Linear issues: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource Template: Get Linear issue by ID or identifier
   server.registerResource(
-    'linear-issue',
-    new ResourceTemplate('linear://issue/{identifier}', { list: undefined }),
+    "linear-issue",
+    new ResourceTemplate("linear://issue/{identifier}", { list: undefined }),
     {
-      description: 'Get full details of a cached Linear issue by ID or identifier (e.g., DEV-123). Includes full description preserved in historical buffer.',
-      mimeType: 'application/json',
+      description:
+        "Get full details of a cached Linear issue by ID or identifier (e.g., DEV-123). Includes full description preserved in historical buffer.",
+      mimeType: "application/json",
     },
     async (uri, { identifier }) => {
       try {
         const issue = getLinearIssue(identifier as string);
         if (!issue) {
           return {
-            contents: [{
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify({ error: `Linear issue not found: ${identifier}` }),
-            }],
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  error: `Linear issue not found: ${identifier}`,
+                }),
+              },
+            ],
           };
         }
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify(issue, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(issue, null, 2),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ error: `Failed to get Linear issue: ${error instanceof Error ? error.message : 'Unknown error'}` }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to get Linear issue: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
-  logger.success('Linear cache resources registered (5 resources)');
+  logger.success("Linear cache resources registered (5 resources)");
 
   // ============================================
   // CV RESOURCES - Skills, Experience, Education from repository
@@ -3126,104 +3911,140 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
 
   // Resource: CV Skills
   server.registerResource(
-    'cv-skills',
-    'repository://cv/skills',
+    "cv-skills",
+    "repository://cv/skills",
     {
-      description: 'List all skills from CV/portfolio with categories, proficiency levels, and descriptions.',
-      mimeType: 'application/json',
+      description:
+        "List all skills from CV/portfolio with categories, proficiency levels, and descriptions.",
+      mimeType: "application/json",
     },
     async (uri) => {
       try {
-        const response = await fetchTartarusForResource<any[]>('/api/cv/skills');
+        const response =
+          await fetchTartarusForResource<any[]>("/api/cv/skills");
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              total: response.length,
-              skills: response,
-            }, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  total: response.length,
+                  skills: response,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ error: `Failed to fetch skills: ${error instanceof Error ? error.message : 'Unknown error'}` }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch skills: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource: CV Experience
   server.registerResource(
-    'cv-experience',
-    'repository://cv/experience',
+    "cv-experience",
+    "repository://cv/experience",
     {
-      description: 'List all work experience from CV/portfolio with companies, roles, and achievements.',
-      mimeType: 'application/json',
+      description:
+        "List all work experience from CV/portfolio with companies, roles, and achievements.",
+      mimeType: "application/json",
     },
     async (uri) => {
       try {
-        const response = await fetchTartarusForResource<any[]>('/api/cv/experience');
+        const response =
+          await fetchTartarusForResource<any[]>("/api/cv/experience");
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              total: response.length,
-              experience: response,
-            }, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  total: response.length,
+                  experience: response,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ error: `Failed to fetch experience: ${error instanceof Error ? error.message : 'Unknown error'}` }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch experience: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   // Resource: CV Education
   server.registerResource(
-    'cv-education',
-    'repository://cv/education',
+    "cv-education",
+    "repository://cv/education",
     {
-      description: 'List all education from CV/portfolio with degrees, institutions, and achievements.',
-      mimeType: 'application/json',
+      description:
+        "List all education from CV/portfolio with degrees, institutions, and achievements.",
+      mimeType: "application/json",
     },
     async (uri) => {
       try {
-        const response = await fetchTartarusForResource<any[]>('/api/cv/education');
+        const response =
+          await fetchTartarusForResource<any[]>("/api/cv/education");
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({
-              total: response.length,
-              education: response,
-            }, null, 2),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  total: response.length,
+                  education: response,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       } catch (error) {
         return {
-          contents: [{
-            uri: uri.href,
-            mimeType: 'application/json',
-            text: JSON.stringify({ error: `Failed to fetch education: ${error instanceof Error ? error.message : 'Unknown error'}` }),
-          }],
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch education: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
-  logger.success('CV resources registered (3 resources)');
+  logger.success("CV resources registered (3 resources)");
 
   // ============================================
   // MCP Prompts - Reusable prompt templates
@@ -3232,23 +4053,25 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
 
   // Prompt: Create journal entry
   server.registerPrompt(
-    'create-entry',
+    "create-entry",
     {
-      title: 'Create Journal Entry',
-      description: 'Generate a journal entry prompt for documenting a git commit',
+      title: "Create Journal Entry",
+      description:
+        "Generate a journal entry prompt for documenting a git commit",
       argsSchema: {
-        commit_hash: z.string().describe('The git commit SHA'),
-        repository: z.string().describe('Repository name'),
-        branch: z.string().default('main').describe('Git branch name'),
+        commit_hash: z.string().describe("The git commit SHA"),
+        repository: z.string().describe("Repository name"),
+        branch: z.string().default("main").describe("Git branch name"),
       },
     },
     async ({ commit_hash, repository, branch }) => {
       return {
-        messages: [{
-          role: 'user',
-          content: {
-            type: 'text',
-            text: `Create a developer journal entry for this commit:
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Create a developer journal entry for this commit:
 
 Repository: ${repository}
 Branch: ${branch}
@@ -3261,34 +4084,36 @@ Please analyze the commit and provide a detailed report including:
 4. Technologies used
 
 Use the journal_create_entry tool with your analysis.`,
+            },
           },
-        }],
+        ],
       };
-    }
+    },
   );
 
   // Prompt: Update Entry 0 summary
   server.registerPrompt(
-    'update-summary',
+    "update-summary",
     {
-      title: 'Update Project Summary',
-      description: 'Submit a report to update Entry 0 (Living Project Summary)',
+      title: "Update Project Summary",
+      description: "Submit a report to update Entry 0 (Living Project Summary)",
       argsSchema: {
-        repository: z.string().describe('Repository name'),
+        repository: z.string().describe("Repository name"),
       },
     },
     async ({ repository }) => {
       const summary = getProjectSummary(repository);
       const existingContext = summary
-        ? `\nCurrent Entry 0 has: ${summary.summary ? 'summary' : ''} ${summary.tech_stack ? 'tech_stack' : ''} ${summary.file_structure ? 'file_structure' : ''}...`
-        : '\nNo existing Entry 0 found - this will create a new one.';
+        ? `\nCurrent Entry 0 has: ${summary.summary ? "summary" : ""} ${summary.tech_stack ? "tech_stack" : ""} ${summary.file_structure ? "file_structure" : ""}...`
+        : "\nNo existing Entry 0 found - this will create a new one.";
 
       return {
-        messages: [{
-          role: 'user',
-          content: {
-            type: 'text',
-            text: `Update the Living Project Summary (Entry 0) for: ${repository}
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Update the Living Project Summary (Entry 0) for: ${repository}
 ${existingContext}
 
 Please provide a chaotic report with any of the following you've discovered:
@@ -3301,43 +4126,55 @@ Please provide a chaotic report with any of the following you've discovered:
 - Gotchas and notes
 
 Use journal_create_project_summary if Entry 0 doesn't exist yet, or journal_submit_summary_report to update an existing Entry 0.`,
+            },
           },
-        }],
+        ],
       };
-    }
+    },
   );
 
   // Prompt: Explore repository
   server.registerPrompt(
-    'explore-repo',
+    "explore-repo",
     {
-      title: 'Explore Repository',
-      description: 'Get started exploring a repository\'s journal history',
+      title: "Explore Repository",
+      description: "Get started exploring a repository's journal history",
       argsSchema: {
-        repository: z.string().describe('Repository name'),
+        repository: z.string().describe("Repository name"),
       },
     },
     async ({ repository }) => {
       const summary = getProjectSummary(repository);
-      const { entries } = getEntriesByRepositoryPaginated(repository, 5, 0, false);
+      const { entries } = getEntriesByRepositoryPaginated(
+        repository,
+        5,
+        0,
+        false,
+      );
 
       let context = `Repository: ${repository}\n`;
       if (summary) {
-        context += `\nEntry 0 Summary: ${summary.summary || 'Not set'}\n`;
-        context += `Technologies: ${summary.technologies || 'Not set'}\n`;
-        context += `Status: ${summary.status || 'Not set'}\n`;
+        context += `\nEntry 0 Summary: ${summary.summary || "Not set"}\n`;
+        context += `Technologies: ${summary.technologies || "Not set"}\n`;
+        context += `Status: ${summary.status || "Not set"}\n`;
       }
       if (entries.length > 0) {
         context += `\nRecent entries: ${entries.length}\n`;
-        context += entries.map(e => `- ${e.commit_hash.substring(0, 7)}: ${e.why?.substring(0, 50)}...`).join('\n');
+        context += entries
+          .map(
+            (e) =>
+              `- ${e.commit_hash.substring(0, 7)}: ${e.why?.substring(0, 50)}...`,
+          )
+          .join("\n");
       }
 
       return {
-        messages: [{
-          role: 'user',
-          content: {
-            type: 'text',
-            text: `Help me understand the ${repository} project.
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Help me understand the ${repository} project.
 
 ${context}
 
@@ -3346,11 +4183,12 @@ What would you like to know? I can:
 2. Get the full project summary (journal://summary/{repository} resource)
 3. List branches with activity (journal_list_branches)
 4. Search for specific commits (journal://entry/{commit_hash} resource)`,
+            },
           },
-        }],
+        ],
       };
-    }
+    },
   );
 
-  logger.success('Journal prompts registered (3 prompts)');
+  logger.success("Journal prompts registered (3 prompts)");
 }

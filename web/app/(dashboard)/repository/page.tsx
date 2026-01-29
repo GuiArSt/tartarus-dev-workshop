@@ -25,47 +25,150 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, FileText, Code, Briefcase, GraduationCap, BookOpen, Calendar, Edit, Tag, Cpu, Palette, Database, Server, PenTool, Users, Plus, Trash2, Settings, X, Layers, ExternalLink, Star, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Search,
+  FileText,
+  Code,
+  Briefcase,
+  GraduationCap,
+  BookOpen,
+  Calendar,
+  Edit,
+  Tag,
+  Cpu,
+  Palette,
+  Database,
+  Server,
+  PenTool,
+  Users,
+  Plus,
+  Trash2,
+  Settings,
+  X,
+  Layers,
+  ExternalLink,
+  Star,
+  ChevronDown,
+  ChevronUp,
+  StickyNote,
+  GitCommit,
+  Trello,
+  Image,
+  MessageSquare,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatMonthYear } from "@/lib/utils";
-import { SkillEditForm, ExperienceEditForm, EducationEditForm, PortfolioProjectEditForm } from "@/components/repository/CVEditForms";
+import {
+  SkillEditForm,
+  ExperienceEditForm,
+  EducationEditForm,
+  PortfolioProjectEditForm,
+} from "@/components/repository/CVEditForms";
 import { getSkillIconUrl } from "@/lib/skill-icons";
 
 // Available Lucide icons for categories
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  "cpu": <Cpu className="h-4 w-4" />,
-  "palette": <Palette className="h-4 w-4" />,
-  "database": <Database className="h-4 w-4" />,
-  "server": <Server className="h-4 w-4" />,
+  cpu: <Cpu className="h-4 w-4" />,
+  palette: <Palette className="h-4 w-4" />,
+  database: <Database className="h-4 w-4" />,
+  server: <Server className="h-4 w-4" />,
   "pen-tool": <PenTool className="h-4 w-4" />,
-  "users": <Users className="h-4 w-4" />,
-  "tag": <Tag className="h-4 w-4" />,
-  "briefcase": <Briefcase className="h-4 w-4" />,
-  "code": <Code className="h-4 w-4" />,
+  users: <Users className="h-4 w-4" />,
+  tag: <Tag className="h-4 w-4" />,
+  briefcase: <Briefcase className="h-4 w-4" />,
+  code: <Code className="h-4 w-4" />,
   "book-open": <BookOpen className="h-4 w-4" />,
   "graduation-cap": <GraduationCap className="h-4 w-4" />,
 };
 
 // Available colors for categories
-const CATEGORY_COLORS = ["violet", "pink", "blue", "orange", "emerald", "amber", "red", "cyan", "indigo", "teal", "rose", "lime"] as const;
+const CATEGORY_COLORS = [
+  "violet",
+  "pink",
+  "blue",
+  "orange",
+  "emerald",
+  "amber",
+  "red",
+  "cyan",
+  "indigo",
+  "teal",
+  "rose",
+  "lime",
+] as const;
 
 // Generate color classes from color name
 function getColorClasses(color: string) {
   const colorMap: Record<string, { color: string; bgColor: string; barColor: string }> = {
-    violet: { color: "text-violet-700 dark:text-violet-400", bgColor: "bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800", barColor: "bg-violet-500" },
-    pink: { color: "text-pink-700 dark:text-pink-400", bgColor: "bg-pink-100 dark:bg-pink-900/30 border-pink-200 dark:border-pink-800", barColor: "bg-pink-500" },
-    blue: { color: "text-blue-700 dark:text-blue-400", bgColor: "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800", barColor: "bg-blue-500" },
-    orange: { color: "text-orange-700 dark:text-orange-400", bgColor: "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800", barColor: "bg-orange-500" },
-    emerald: { color: "text-emerald-700 dark:text-emerald-400", bgColor: "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800", barColor: "bg-emerald-500" },
-    amber: { color: "text-amber-700 dark:text-amber-400", bgColor: "bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800", barColor: "bg-amber-500" },
-    red: { color: "text-red-700 dark:text-red-400", bgColor: "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800", barColor: "bg-red-500" },
-    cyan: { color: "text-cyan-700 dark:text-cyan-400", bgColor: "bg-cyan-100 dark:bg-cyan-900/30 border-cyan-200 dark:border-cyan-800", barColor: "bg-cyan-500" },
-    indigo: { color: "text-indigo-700 dark:text-indigo-400", bgColor: "bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800", barColor: "bg-indigo-500" },
-    teal: { color: "text-teal-700 dark:text-teal-400", bgColor: "bg-teal-100 dark:bg-teal-900/30 border-teal-200 dark:border-teal-800", barColor: "bg-teal-500" },
-    rose: { color: "text-rose-700 dark:text-rose-400", bgColor: "bg-rose-100 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800", barColor: "bg-rose-500" },
-    lime: { color: "text-lime-700 dark:text-lime-400", bgColor: "bg-lime-100 dark:bg-lime-900/30 border-lime-200 dark:border-lime-800", barColor: "bg-lime-500" },
+    violet: {
+      color: "text-violet-700 dark:text-violet-400",
+      bgColor: "bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800",
+      barColor: "bg-violet-500",
+    },
+    pink: {
+      color: "text-pink-700 dark:text-pink-400",
+      bgColor: "bg-pink-100 dark:bg-pink-900/30 border-pink-200 dark:border-pink-800",
+      barColor: "bg-pink-500",
+    },
+    blue: {
+      color: "text-blue-700 dark:text-blue-400",
+      bgColor: "bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800",
+      barColor: "bg-blue-500",
+    },
+    orange: {
+      color: "text-orange-700 dark:text-orange-400",
+      bgColor: "bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800",
+      barColor: "bg-orange-500",
+    },
+    emerald: {
+      color: "text-emerald-700 dark:text-emerald-400",
+      bgColor: "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800",
+      barColor: "bg-emerald-500",
+    },
+    amber: {
+      color: "text-amber-700 dark:text-amber-400",
+      bgColor: "bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800",
+      barColor: "bg-amber-500",
+    },
+    red: {
+      color: "text-red-700 dark:text-red-400",
+      bgColor: "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800",
+      barColor: "bg-red-500",
+    },
+    cyan: {
+      color: "text-cyan-700 dark:text-cyan-400",
+      bgColor: "bg-cyan-100 dark:bg-cyan-900/30 border-cyan-200 dark:border-cyan-800",
+      barColor: "bg-cyan-500",
+    },
+    indigo: {
+      color: "text-indigo-700 dark:text-indigo-400",
+      bgColor: "bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800",
+      barColor: "bg-indigo-500",
+    },
+    teal: {
+      color: "text-teal-700 dark:text-teal-400",
+      bgColor: "bg-teal-100 dark:bg-teal-900/30 border-teal-200 dark:border-teal-800",
+      barColor: "bg-teal-500",
+    },
+    rose: {
+      color: "text-rose-700 dark:text-rose-400",
+      bgColor: "bg-rose-100 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800",
+      barColor: "bg-rose-500",
+    },
+    lime: {
+      color: "text-lime-700 dark:text-lime-400",
+      bgColor: "bg-lime-100 dark:bg-lime-900/30 border-lime-200 dark:border-lime-800",
+      barColor: "bg-lime-500",
+    },
   };
-  return colorMap[color] || colorMap.gray || { color: "text-gray-700 dark:text-gray-400", bgColor: "bg-gray-100 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800", barColor: "bg-gray-500" };
+  return (
+    colorMap[color] ||
+    colorMap.gray || {
+      color: "text-gray-700 dark:text-gray-400",
+      bgColor: "bg-gray-100 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800",
+      barColor: "bg-gray-500",
+    }
+  );
 }
 
 // Skill category from API
@@ -78,20 +181,24 @@ interface SkillCategory {
 }
 
 // Magnitude bar component - memoized to prevent re-renders
-const MagnitudeBar = memo(function MagnitudeBar({ magnitude, maxMagnitude = 5 }: { magnitude: number; maxMagnitude?: number }) {
+const MagnitudeBar = memo(function MagnitudeBar({
+  magnitude,
+  maxMagnitude = 5,
+}: {
+  magnitude: number;
+  maxMagnitude?: number;
+}) {
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: maxMagnitude }).map((_, i) => (
         <div
           key={i}
-          className={`h-2 w-4 rounded-sm ${
-            i < magnitude
-              ? "bg-primary"
-              : "bg-muted"
-          }`}
+          className={`h-2 w-4 rounded-sm ${i < magnitude ? "bg-primary" : "bg-muted"}`}
         />
       ))}
-      <span className="ml-2 text-xs text-muted-foreground">{magnitude}/{maxMagnitude}</span>
+      <span className="text-muted-foreground ml-2 text-xs">
+        {magnitude}/{maxMagnitude}
+      </span>
     </div>
   );
 });
@@ -100,7 +207,7 @@ const MagnitudeBar = memo(function MagnitudeBar({ magnitude, maxMagnitude = 5 }:
 const SkillIcon = memo(function SkillIcon({
   skillName,
   fallbackIcon,
-  fallbackColor
+  fallbackColor,
 }: {
   skillName: string;
   fallbackIcon: React.ReactNode;
@@ -114,33 +221,28 @@ const SkillIcon = memo(function SkillIcon({
   }
 
   return (
-    <img
-      src={iconUrl}
-      alt={skillName}
-      className="h-6 w-6"
-      onError={() => setShowFallback(true)}
-    />
+    <img src={iconUrl} alt={skillName} className="h-6 w-6" onError={() => setShowFallback(true)} />
   );
 });
 
 // Strip markdown for plain text preview (faster than ReactMarkdown)
 function stripMarkdown(text: string): string {
   return text
-    .replace(/^#\s+.+$/m, '') // Remove first H1 title (usually same as doc title)
-    .replace(/#{1,6}\s+/g, '') // other headers
-    .replace(/\*\*(.+?)\*\*/g, '$1') // bold
-    .replace(/__(.+?)__/g, '$1') // bold alt
-    .replace(/\*(.+?)\*/g, '$1') // italic
-    .replace(/_(.+?)_/g, '$1') // italic alt
-    .replace(/`{3}[\s\S]*?`{3}/g, '') // code blocks
-    .replace(/`(.+?)`/g, '$1') // inline code
-    .replace(/\[(.+?)\]\(.+?\)/g, '$1') // links
-    .replace(/!\[.*?\]\(.+?\)/g, '') // images
-    .replace(/^\s*[-*+]\s/gm, '• ') // list items → bullet
-    .replace(/^\s*\d+\.\s/gm, '') // numbered lists
-    .replace(/>\s?/g, '') // blockquotes
-    .replace(/---+/g, '') // horizontal rules
-    .replace(/\n{3,}/g, '\n\n') // multiple newlines
+    .replace(/^#\s+.+$/m, "") // Remove first H1 title (usually same as doc title)
+    .replace(/#{1,6}\s+/g, "") // other headers
+    .replace(/\*\*(.+?)\*\*/g, "$1") // bold
+    .replace(/__(.+?)__/g, "$1") // bold alt
+    .replace(/\*(.+?)\*/g, "$1") // italic
+    .replace(/_(.+?)_/g, "$1") // italic alt
+    .replace(/`{3}[\s\S]*?`{3}/g, "") // code blocks
+    .replace(/`(.+?)`/g, "$1") // inline code
+    .replace(/\[(.+?)\]\(.+?\)/g, "$1") // links
+    .replace(/!\[.*?\]\(.+?\)/g, "") // images
+    .replace(/^\s*[-*+]\s/gm, "• ") // list items → bullet
+    .replace(/^\s*\d+\.\s/gm, "") // numbered lists
+    .replace(/>\s?/g, "") // blockquotes
+    .replace(/---+/g, "") // horizontal rules
+    .replace(/\n{3,}/g, "\n\n") // multiple newlines
     .trim();
 }
 
@@ -249,26 +351,50 @@ export default function RepositoryPage() {
 
   // Document Types management state
   const [docTypeDialogOpen, setDocTypeDialogOpen] = useState(false);
-  const [editingDocType, setEditingDocType] = useState<{ id: string; name: string; description: string; color: string; icon: string } | null>(null);
-  const [docTypeForm, setDocTypeForm] = useState({ name: "", description: "", color: "emerald", icon: "file-text" });
+  const [editingDocType, setEditingDocType] = useState<{
+    id: string;
+    name: string;
+    description: string;
+    color: string;
+    icon: string;
+  } | null>(null);
+  const [docTypeForm, setDocTypeForm] = useState({
+    name: "",
+    description: "",
+    color: "emerald",
+    icon: "file-text",
+  });
   const [docTypeError, setDocTypeError] = useState<string | null>(null);
   const [savingDocType, setSavingDocType] = useState(false);
   const [deletingDocType, setDeletingDocType] = useState(false);
-  const [documentTypes, setDocumentTypes] = useState<Array<{ id: string; name: string; description: string; color: string; icon: string; sortOrder: number }>>([]);
+  const [documentTypes, setDocumentTypes] = useState<
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      color: string;
+      icon: string;
+      sortOrder: number;
+    }>
+  >([]);
 
   // Expanded summaries state - tracks which document IDs have expanded summaries
   const [expandedSummaries, setExpandedSummaries] = useState<Set<number>>(new Set());
 
   // Navigate to chat to EDIT a document with Kronus
-  const editDocumentWithKronus = useCallback((doc: Document, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const tags = doc.metadata?.tags && Array.isArray(doc.metadata.tags) ? doc.metadata.tags.join(", ") : "";
-    const context = `I want to UPDATE this ${doc.type} in the repository. Please help me modify it:\n\n**Document Slug:** ${doc.slug}\n**Title:** ${doc.title}\n**Type:** ${doc.type}${doc.metadata?.type ? `\n**Category:** ${doc.metadata.type}` : ""}${tags ? `\n**Tags:** ${tags}` : ""}\n\n**Current Content:**\n${doc.content}\n\nWhat changes would you like to make? You can update the content or metadata (including tags) using the repository tools.`;
+  const editDocumentWithKronus = useCallback(
+    (doc: Document, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const tags =
+        doc.metadata?.tags && Array.isArray(doc.metadata.tags) ? doc.metadata.tags.join(", ") : "";
+      const context = `I want to UPDATE this ${doc.type} in the repository. Please help me modify it:\n\n**Document Slug:** ${doc.slug}\n**Title:** ${doc.title}\n**Type:** ${doc.type}${doc.metadata?.type ? `\n**Category:** ${doc.metadata.type}` : ""}${tags ? `\n**Tags:** ${tags}` : ""}\n\n**Current Content:**\n${doc.content}\n\nWhat changes would you like to make? You can update the content or metadata (including tags) using the repository tools.`;
 
-    sessionStorage.setItem("kronusPrefill", context);
-    router.push("/chat");
-  }, [router]);
+      sessionStorage.setItem("kronusPrefill", context);
+      router.push("/chat");
+    },
+    [router]
+  );
 
   // Navigate to chat to ADD a new skill with Kronus
   const addSkillWithKronus = useCallback(() => {
@@ -335,14 +461,14 @@ What education entry would you like to add? Please provide the institution and d
   }, [router]);
 
   // Get unique categories from skills - memoized
-  const categories = useMemo(() =>
-    [...new Set(skills.map(s => s.category))].sort(),
-    [skills]
-  );
+  const categories = useMemo(() => [...new Set(skills.map((s) => s.category))].sort(), [skills]);
 
   // Build category config from API data
   const categoryConfig = useMemo(() => {
-    const config: Record<string, { color: string; bgColor: string; barColor: string; icon: React.ReactNode }> = {};
+    const config: Record<
+      string,
+      { color: string; bgColor: string; barColor: string; icon: React.ReactNode }
+    > = {};
     for (const cat of skillCategories) {
       const colors = getColorClasses(cat.color);
       config[cat.name] = {
@@ -366,15 +492,18 @@ What education entry would you like to add? Please provide the institution and d
   }, [documentTypes]);
 
   // Get color classes for a document type name
-  const getDocTypeColors = useCallback((typeName: string) => {
-    return docTypeConfig[typeName] || getColorClasses("teal"); // Default to teal (Tartarus palette)
-  }, [docTypeConfig]);
+  const getDocTypeColors = useCallback(
+    (typeName: string) => {
+      return docTypeConfig[typeName] || getColorClasses("teal"); // Default to teal (Tartarus palette)
+    },
+    [docTypeConfig]
+  );
 
   // Toggle summary expansion for a document
   const toggleSummary = useCallback((docId: number, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setExpandedSummaries(prev => {
+    setExpandedSummaries((prev) => {
       const next = new Set(prev);
       if (next.has(docId)) {
         next.delete(docId);
@@ -389,24 +518,30 @@ What education entry would you like to add? Please provide the institution and d
   const searchLower = useMemo(() => searchQuery.toLowerCase(), [searchQuery]);
 
   // Filter skills by category and search - memoized
-  const filteredSkills = useMemo(() =>
-    skills.filter(s => {
-      const matchesCategory = selectedCategory === "all" || s.category === selectedCategory;
-      const matchesSearch = !searchQuery ||
-        s.name.toLowerCase().includes(searchLower) ||
-        s.description.toLowerCase().includes(searchLower);
-      return matchesCategory && matchesSearch;
-    }),
+  const filteredSkills = useMemo(
+    () =>
+      skills.filter((s) => {
+        const matchesCategory = selectedCategory === "all" || s.category === selectedCategory;
+        const matchesSearch =
+          !searchQuery ||
+          s.name.toLowerCase().includes(searchLower) ||
+          s.description.toLowerCase().includes(searchLower);
+        return matchesCategory && matchesSearch;
+      }),
     [skills, selectedCategory, searchQuery, searchLower]
   );
 
   // Group skills by category for display - memoized
-  const skillsByCategory = useMemo(() =>
-    filteredSkills.reduce((acc, skill) => {
-      if (!acc[skill.category]) acc[skill.category] = [];
-      acc[skill.category].push(skill);
-      return acc;
-    }, {} as Record<string, Skill[]>),
+  const skillsByCategory = useMemo(
+    () =>
+      filteredSkills.reduce(
+        (acc, skill) => {
+          if (!acc[skill.category]) acc[skill.category] = [];
+          acc[skill.category].push(skill);
+          return acc;
+        },
+        {} as Record<string, Skill[]>
+      ),
     [filteredSkills]
   );
 
@@ -449,10 +584,7 @@ What education entry would you like to add? Please provide the institution and d
         }
       } else if (activeTab === "cv") {
         // Fetch CV data and categories in parallel
-        const [cvRes, catRes] = await Promise.all([
-          fetch("/api/cv"),
-          fetch("/api/cv/categories"),
-        ]);
+        const [cvRes, catRes] = await Promise.all([fetch("/api/cv"), fetch("/api/cv/categories")]);
         if (!cvRes.ok) {
           throw new Error(`HTTP error! status: ${cvRes.status}`);
         }
@@ -520,26 +652,36 @@ What education entry would you like to add? Please provide the institution and d
   }, [writings, prompts]);
 
   // Filtered writings - memoized
-  const filteredWritings = useMemo(() =>
-    writings.filter((d) => {
-      const matchesSearch = !searchQuery || d.title.toLowerCase().includes(searchLower) || d.content.toLowerCase().includes(searchLower);
-      const docTags = d.metadata?.tags || [];
-      const matchesTag = selectedTag === "all" || (Array.isArray(docTags) && docTags.includes(selectedTag));
-      const matchesType = selectedType === "all" || d.metadata?.type === selectedType;
-      return matchesSearch && matchesTag && matchesType;
-    }),
+  const filteredWritings = useMemo(
+    () =>
+      writings.filter((d) => {
+        const matchesSearch =
+          !searchQuery ||
+          d.title.toLowerCase().includes(searchLower) ||
+          d.content.toLowerCase().includes(searchLower);
+        const docTags = d.metadata?.tags || [];
+        const matchesTag =
+          selectedTag === "all" || (Array.isArray(docTags) && docTags.includes(selectedTag));
+        const matchesType = selectedType === "all" || d.metadata?.type === selectedType;
+        return matchesSearch && matchesTag && matchesType;
+      }),
     [writings, searchQuery, searchLower, selectedTag, selectedType]
   );
 
   // Filtered prompts - memoized
-  const filteredPrompts = useMemo(() =>
-    prompts.filter((d) => {
-      const matchesSearch = !searchQuery || d.title.toLowerCase().includes(searchLower) || d.content.toLowerCase().includes(searchLower);
-      const docTags = d.metadata?.tags || [];
-      const matchesTag = selectedTag === "all" || (Array.isArray(docTags) && docTags.includes(selectedTag));
-      const matchesType = selectedType === "all" || d.metadata?.type === selectedType;
-      return matchesSearch && matchesTag && matchesType;
-    }),
+  const filteredPrompts = useMemo(
+    () =>
+      prompts.filter((d) => {
+        const matchesSearch =
+          !searchQuery ||
+          d.title.toLowerCase().includes(searchLower) ||
+          d.content.toLowerCase().includes(searchLower);
+        const docTags = d.metadata?.tags || [];
+        const matchesTag =
+          selectedTag === "all" || (Array.isArray(docTags) && docTags.includes(selectedTag));
+        const matchesType = selectedType === "all" || d.metadata?.type === selectedType;
+        return matchesSearch && matchesTag && matchesType;
+      }),
     [prompts, searchQuery, searchLower, selectedTag, selectedType]
   );
 
@@ -731,15 +873,23 @@ What project would you like to add?`;
   }, [editingCategory, closeCategoryDialog]);
 
   // Get count of skills in a category (for delete warning)
-  const getSkillCountInCategory = useCallback((categoryName: string) => {
-    return skills.filter(s => s.category === categoryName).length;
-  }, [skills]);
+  const getSkillCountInCategory = useCallback(
+    (categoryName: string) => {
+      return skills.filter((s) => s.category === categoryName).length;
+    },
+    [skills]
+  );
 
   // Document Type management handlers
-  const openDocTypeDialog = useCallback((docType?: typeof documentTypes[0]) => {
+  const openDocTypeDialog = useCallback((docType?: (typeof documentTypes)[0]) => {
     if (docType) {
       setEditingDocType(docType);
-      setDocTypeForm({ name: docType.name, description: docType.description, color: docType.color, icon: docType.icon });
+      setDocTypeForm({
+        name: docType.name,
+        description: docType.description,
+        color: docType.color,
+        icon: docType.icon,
+      });
     } else {
       setEditingDocType(null);
       setDocTypeForm({ name: "", description: "", color: "emerald", icon: "file-text" });
@@ -831,10 +981,15 @@ What project would you like to add?`;
   }, [editingDocType, closeDocTypeDialog, fetchData]);
 
   // Get count of documents using a type
-  const getDocCountWithType = useCallback((typeName: string) => {
-    return writings.filter(d => d.metadata?.type === typeName).length +
-           prompts.filter(d => d.metadata?.type === typeName).length;
-  }, [writings, prompts]);
+  const getDocCountWithType = useCallback(
+    (typeName: string) => {
+      return (
+        writings.filter((d) => d.metadata?.type === typeName).length +
+        prompts.filter((d) => d.metadata?.type === typeName).length
+      );
+    },
+    [writings, prompts]
+  );
 
   return (
     <div className="journal-page flex h-full flex-col">
@@ -851,42 +1006,64 @@ What project would you like to add?`;
         <div className="text-muted-foreground flex items-center gap-4 text-sm">
           {activeTab === "writings" && (
             <span>
-              {hasActiveFilters 
+              {hasActiveFilters
                 ? `${filteredWritings.length} of ${writings.length} writings`
                 : `${writings.length} writings`}
             </span>
           )}
           {activeTab === "prompts" && (
             <span>
-              {hasActiveFilters 
+              {hasActiveFilters
                 ? `${filteredPrompts.length} of ${prompts.length} prompts`
                 : `${prompts.length} prompts`}
             </span>
           )}
           {activeTab === "cv" && (
-            <span>{skills.length} skills • {experience.length} experiences</span>
+            <span>
+              {skills.length} skills • {experience.length} experiences
+            </span>
           )}
         </div>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col">
         <div className="journal-tabs flex items-center gap-4 px-6 py-3">
-          <TabsList>
+          <TabsList className="h-auto flex-wrap gap-1">
             <TabsTrigger value="writings">
               <FileText className="mr-2 h-4 w-4" />
               Writings
+            </TabsTrigger>
+            <TabsTrigger value="notes">
+              <StickyNote className="mr-2 h-4 w-4" />
+              Notes
             </TabsTrigger>
             <TabsTrigger value="prompts">
               <Code className="mr-2 h-4 w-4" />
               Prompts
             </TabsTrigger>
-            <TabsTrigger value="portfolio">
-              <Layers className="mr-2 h-4 w-4" />
-              Portfolio
+            <TabsTrigger value="journal">
+              <GitCommit className="mr-2 h-4 w-4" />
+              Journal
+            </TabsTrigger>
+            <TabsTrigger value="linear">
+              <Trello className="mr-2 h-4 w-4" />
+              Linear
             </TabsTrigger>
             <TabsTrigger value="cv">
               <Briefcase className="mr-2 h-4 w-4" />
               CV
+            </TabsTrigger>
+            <TabsTrigger value="portfolio">
+              <Layers className="mr-2 h-4 w-4" />
+              Portfolio
+            </TabsTrigger>
+            <TabsTrigger value="media">
+              <Image className="mr-2 h-4 w-4" />
+              Media
+            </TabsTrigger>
+            <TabsTrigger value="chats">
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Chats
             </TabsTrigger>
           </TabsList>
           <div className="relative max-w-sm flex-1">
@@ -898,7 +1075,7 @@ What project would you like to add?`;
               className="pl-9"
             />
           </div>
-          {(activeTab === "writings" || activeTab === "prompts") && (
+          {(activeTab === "writings" || activeTab === "prompts" || activeTab === "notes") && (
             <>
               {/* Type Filter */}
               {allTypes.length > 0 && (
@@ -979,7 +1156,14 @@ What project would you like to add?`;
                 </SelectContent>
               </Select>
               {(selectedCategory !== "all" || searchQuery) && (
-                <Button variant="ghost" size="sm" onClick={() => { setSelectedCategory("all"); setSearchQuery(""); }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedCategory("all");
+                    setSearchQuery("");
+                  }}
+                >
                   Clear filters
                 </Button>
               )}
@@ -997,7 +1181,7 @@ What project would you like to add?`;
                       <div className="h-1 bg-[var(--tartarus-teal)]" />
                       <CardHeader>
                         <Skeleton className="h-5 w-3/4" />
-                        <Skeleton className="h-4 w-1/2 mt-2" />
+                        <Skeleton className="mt-2 h-4 w-1/2" />
                       </CardHeader>
                       <CardContent>
                         <Skeleton className="h-16 w-full" />
@@ -1020,41 +1204,49 @@ What project would you like to add?`;
                   </div>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
+                <div className="grid auto-rows-fr gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {filteredWritings.map((doc) => (
                     <Link key={doc.id} href={`/repository/${doc.slug}`}>
-                      <Card className="group cursor-pointer hover:shadow-md overflow-hidden border-[var(--tartarus-border)] h-full flex flex-col relative">
+                      <Card className="group relative flex h-full cursor-pointer flex-col overflow-hidden border-[var(--tartarus-border)] hover:shadow-md">
                         {/* Edit with Kronus button - absolute positioned */}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute top-3 right-3 h-8 w-8 text-[var(--tartarus-gold)] hover:text-[var(--tartarus-gold-dim)] hover:bg-[var(--tartarus-gold-soft)] opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          className="absolute top-3 right-3 z-10 h-8 w-8 text-[var(--tartarus-gold)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--tartarus-gold-soft)] hover:text-[var(--tartarus-gold-dim)]"
                           onClick={(e) => editDocumentWithKronus(doc, e)}
                           title="Edit with Kronus"
                         >
-                          <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 rounded-full object-cover" />
+                          <img
+                            src="/chronus-logo.png"
+                            alt="Kronus"
+                            className="h-4 w-4 rounded-full object-cover"
+                          />
                         </Button>
 
                         {/* Decorative gradient bar - uses document type color */}
-                        <div className={`h-1 ${doc.metadata?.type ? getDocTypeColors(doc.metadata.type).barColor : 'bg-[var(--tartarus-teal)]'} shrink-0`} />
+                        <div
+                          className={`h-1 ${doc.metadata?.type ? getDocTypeColors(doc.metadata.type).barColor : "bg-[var(--tartarus-teal)]"} shrink-0`}
+                        />
 
                         <CardHeader className="pb-2">
                           <div className="flex items-start gap-3">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--tartarus-teal-soft)]">
                               <FileText className="h-5 w-5 text-[var(--tartarus-teal)]" />
                             </div>
-                            <div className="flex-1 min-w-0 pr-8">
-                              <CardTitle className="text-base font-semibold line-clamp-2">
+                            <div className="min-w-0 flex-1 pr-8">
+                              <CardTitle className="line-clamp-2 text-base font-semibold">
                                 {doc.title}
                               </CardTitle>
                             </div>
                           </div>
                         </CardHeader>
-                        <CardContent className="pt-0 flex-1 flex flex-col">
+                        <CardContent className="flex flex-1 flex-col pt-0">
                           {/* Category badge - uses configured type colors */}
                           {doc.metadata?.type && (
                             <div className="mb-2">
-                              <Badge className={`text-[10px] px-2 py-0.5 font-medium ${getDocTypeColors(doc.metadata.type).barColor} text-white`}>
+                              <Badge
+                                className={`px-2 py-0.5 text-[10px] font-medium ${getDocTypeColors(doc.metadata.type).barColor} text-white`}
+                              >
                                 {doc.metadata.type}
                               </Badge>
                             </div>
@@ -1063,33 +1255,39 @@ What project would you like to add?`;
                           {/* Index summary - AI-generated for Kronus (expandable) */}
                           {doc.summary ? (
                             <div
-                              className="flex-1 cursor-pointer group/summary"
+                              className="group/summary flex-1 cursor-pointer"
                               onClick={(e) => toggleSummary(doc.id, e)}
                             >
-                              <p className={`text-muted-foreground text-sm italic ${expandedSummaries.has(doc.id) ? '' : 'line-clamp-3'}`}>
+                              <p
+                                className={`text-muted-foreground text-sm italic ${expandedSummaries.has(doc.id) ? "" : "line-clamp-3"}`}
+                              >
                                 {doc.summary}
                               </p>
-                              <button className="text-[10px] text-[var(--tartarus-teal)] mt-1 flex items-center gap-0.5 opacity-70 group-hover/summary:opacity-100">
+                              <button className="mt-1 flex items-center gap-0.5 text-[10px] text-[var(--tartarus-teal)] opacity-70 group-hover/summary:opacity-100">
                                 {expandedSummaries.has(doc.id) ? (
-                                  <>Show less <ChevronUp className="h-3 w-3" /></>
+                                  <>
+                                    Show less <ChevronUp className="h-3 w-3" />
+                                  </>
                                 ) : (
-                                  <>Show more <ChevronDown className="h-3 w-3" /></>
+                                  <>
+                                    Show more <ChevronDown className="h-3 w-3" />
+                                  </>
                                 )}
                               </button>
                             </div>
                           ) : (
-                            <p className="text-muted-foreground line-clamp-3 text-sm flex-1">
+                            <p className="text-muted-foreground line-clamp-3 flex-1 text-sm">
                               {stripMarkdown(doc.content).substring(0, 150)}...
                             </p>
                           )}
 
                           {/* Footer: Dates + Tags */}
-                          <div className="mt-3 pt-2 border-t border-[var(--tartarus-border)]">
+                          <div className="mt-3 border-t border-[var(--tartarus-border)] pt-2">
                             {/* Dates */}
-                            <div className="text-[10px] text-muted-foreground mb-2 flex items-center gap-3">
+                            <div className="text-muted-foreground mb-2 flex items-center gap-3 text-[10px]">
                               {(doc.metadata?.writtenDate || doc.metadata?.year) && (
                                 <span>
-                                  <Calendar className="h-3 w-3 inline mr-1" />
+                                  <Calendar className="mr-1 inline h-3 w-3" />
                                   Written {doc.metadata?.writtenDate || doc.metadata?.year}
                                 </span>
                               )}
@@ -1100,20 +1298,25 @@ What project would you like to add?`;
                               )}
                             </div>
                             {/* Tags - smaller, subtle */}
-                            {doc.metadata?.tags && Array.isArray(doc.metadata.tags) && doc.metadata.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1">
-                                {doc.metadata.tags.slice(0, 3).map((tag: string) => (
-                                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
-                                    {tag}
-                                  </span>
-                                ))}
-                                {doc.metadata.tags.length > 3 && (
-                                  <span className="text-[9px] px-1.5 py-0.5 text-muted-foreground">
-                                    +{doc.metadata.tags.length - 3}
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                            {doc.metadata?.tags &&
+                              Array.isArray(doc.metadata.tags) &&
+                              doc.metadata.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {doc.metadata.tags.slice(0, 3).map((tag: string) => (
+                                    <span
+                                      key={tag}
+                                      className="rounded bg-[var(--tartarus-teal-soft)] px-1.5 py-0.5 text-[9px] text-[var(--tartarus-teal)]"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {doc.metadata.tags.length > 3 && (
+                                    <span className="text-muted-foreground px-1.5 py-0.5 text-[9px]">
+                                      +{doc.metadata.tags.length - 3}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                           </div>
                         </CardContent>
                       </Card>
@@ -1153,45 +1356,53 @@ What project would you like to add?`;
                   </div>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 auto-rows-fr">
+                <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
                   {filteredPrompts.map((doc) => (
                     <Link key={doc.id} href={`/repository/${doc.slug}`}>
-                      <Card className="group cursor-pointer hover:shadow-md overflow-hidden border-[var(--tartarus-border)] h-full flex flex-col relative">
+                      <Card className="group relative flex h-full cursor-pointer flex-col overflow-hidden border-[var(--tartarus-border)] hover:shadow-md">
                         {/* Edit with Kronus button - absolute positioned */}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute top-3 right-3 h-8 w-8 text-[var(--tartarus-gold)] hover:text-[var(--tartarus-gold-dim)] hover:bg-[var(--tartarus-gold-soft)] opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          className="absolute top-3 right-3 z-10 h-8 w-8 text-[var(--tartarus-gold)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--tartarus-gold-soft)] hover:text-[var(--tartarus-gold-dim)]"
                           onClick={(e) => editDocumentWithKronus(doc, e)}
                           title="Edit with Kronus"
                         >
-                          <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 rounded-full object-cover" />
+                          <img
+                            src="/chronus-logo.png"
+                            alt="Kronus"
+                            className="h-4 w-4 rounded-full object-cover"
+                          />
                         </Button>
 
                         {/* Decorative gradient bar - uses document type color */}
-                        <div className={`h-1 ${doc.metadata?.type ? getDocTypeColors(doc.metadata.type).barColor : 'bg-[var(--tartarus-teal)]'} shrink-0`} />
+                        <div
+                          className={`h-1 ${doc.metadata?.type ? getDocTypeColors(doc.metadata.type).barColor : "bg-[var(--tartarus-teal)]"} shrink-0`}
+                        />
 
                         <CardHeader className="pb-2">
                           <div className="flex items-start gap-3">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--tartarus-teal-soft)]">
                               <Code className="h-5 w-5 text-[var(--tartarus-teal)]" />
                             </div>
-                            <div className="flex-1 min-w-0 pr-8">
-                              <CardTitle className="text-base font-semibold line-clamp-2">
+                            <div className="min-w-0 flex-1 pr-8">
+                              <CardTitle className="line-clamp-2 text-base font-semibold">
                                 {doc.title}
                               </CardTitle>
                             </div>
                           </div>
                         </CardHeader>
-                        <CardContent className="pt-0 flex-1 flex flex-col">
+                        <CardContent className="flex flex-1 flex-col pt-0">
                           {/* Category badge - uses configured type colors */}
                           {doc.metadata?.type && (
                             <div className="mb-2">
-                              <Badge className={`text-[10px] px-2 py-0.5 font-medium ${getDocTypeColors(doc.metadata.type).barColor} text-white`}>
+                              <Badge
+                                className={`px-2 py-0.5 text-[10px] font-medium ${getDocTypeColors(doc.metadata.type).barColor} text-white`}
+                              >
                                 {doc.metadata.type}
                               </Badge>
-                              {doc.language && doc.language !== 'en' && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-1.5">
+                              {doc.language && doc.language !== "en" && (
+                                <Badge variant="outline" className="ml-1.5 px-1.5 py-0 text-[10px]">
                                   {doc.language.toUpperCase()}
                                 </Badge>
                               )}
@@ -1201,53 +1412,64 @@ What project would you like to add?`;
                           {/* Index summary - AI-generated for Kronus (expandable) */}
                           {doc.summary ? (
                             <div
-                              className="flex-1 cursor-pointer group/summary"
+                              className="group/summary flex-1 cursor-pointer"
                               onClick={(e) => toggleSummary(doc.id, e)}
                             >
-                              <p className={`text-muted-foreground text-sm italic ${expandedSummaries.has(doc.id) ? '' : 'line-clamp-3'}`}>
+                              <p
+                                className={`text-muted-foreground text-sm italic ${expandedSummaries.has(doc.id) ? "" : "line-clamp-3"}`}
+                              >
                                 {doc.summary}
                               </p>
-                              <button className="text-[10px] text-[var(--tartarus-teal)] mt-1 flex items-center gap-0.5 opacity-70 group-hover/summary:opacity-100">
+                              <button className="mt-1 flex items-center gap-0.5 text-[10px] text-[var(--tartarus-teal)] opacity-70 group-hover/summary:opacity-100">
                                 {expandedSummaries.has(doc.id) ? (
-                                  <>Show less <ChevronUp className="h-3 w-3" /></>
+                                  <>
+                                    Show less <ChevronUp className="h-3 w-3" />
+                                  </>
                                 ) : (
-                                  <>Show more <ChevronDown className="h-3 w-3" /></>
+                                  <>
+                                    Show more <ChevronDown className="h-3 w-3" />
+                                  </>
                                 )}
                               </button>
                             </div>
                           ) : (
                             <div className="relative flex-1">
-                              <pre className="text-muted-foreground overflow-hidden text-xs bg-[var(--tartarus-surface)] p-3 rounded-lg border border-[var(--tartarus-border)] h-20 font-mono whitespace-pre-wrap break-words">
+                              <pre className="text-muted-foreground h-20 overflow-hidden rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3 font-mono text-xs break-words whitespace-pre-wrap">
                                 {doc.content.substring(0, 180)}...
                               </pre>
-                              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[var(--tartarus-surface)] to-transparent pointer-events-none rounded-b-lg" />
+                              <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-6 rounded-b-lg bg-gradient-to-t from-[var(--tartarus-surface)] to-transparent" />
                             </div>
                           )}
 
                           {/* Footer: Date + Tags */}
-                          <div className="mt-3 pt-2 border-t border-[var(--tartarus-border)]">
+                          <div className="mt-3 border-t border-[var(--tartarus-border)] pt-2">
                             {/* Date */}
                             {doc.created_at && (
-                              <div className="text-[10px] text-muted-foreground mb-2">
-                                <Calendar className="h-3 w-3 inline mr-1" />
+                              <div className="text-muted-foreground mb-2 text-[10px]">
+                                <Calendar className="mr-1 inline h-3 w-3" />
                                 Added {formatMonthYear(doc.created_at)}
                               </div>
                             )}
                             {/* Tags - smaller, subtle */}
-                            {doc.metadata?.tags && Array.isArray(doc.metadata.tags) && doc.metadata.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1">
-                                {doc.metadata.tags.slice(0, 4).map((tag: string) => (
-                                  <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
-                                    {tag}
-                                  </span>
-                                ))}
-                                {doc.metadata.tags.length > 4 && (
-                                  <span className="text-[9px] px-1.5 py-0.5 text-muted-foreground">
-                                    +{doc.metadata.tags.length - 4}
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                            {doc.metadata?.tags &&
+                              Array.isArray(doc.metadata.tags) &&
+                              doc.metadata.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {doc.metadata.tags.slice(0, 4).map((tag: string) => (
+                                    <span
+                                      key={tag}
+                                      className="rounded bg-[var(--tartarus-teal-soft)] px-1.5 py-0.5 text-[9px] text-[var(--tartarus-teal)]"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {doc.metadata.tags.length > 4 && (
+                                    <span className="text-muted-foreground px-1.5 py-0.5 text-[9px]">
+                                      +{doc.metadata.tags.length - 4}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                           </div>
                         </CardContent>
                       </Card>
@@ -1271,27 +1493,35 @@ What project would you like to add?`;
                     <h2 className="flex items-center gap-2 text-xl font-semibold">
                       <Layers className="h-5 w-5" />
                       Portfolio Projects
-                      <Badge variant="secondary" className="ml-2">{portfolioProjects.length}</Badge>
+                      <Badge variant="secondary" className="ml-2">
+                        {portfolioProjects.length}
+                      </Badge>
                     </h2>
                     <Button
                       size="sm"
                       onClick={addProjectWithKronus}
-                      className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90 font-medium"
+                      className="bg-[var(--tartarus-gold)] font-medium text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90"
                     >
-                      <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                      <img
+                        src="/chronus-logo.png"
+                        alt="Kronus"
+                        className="mr-2 h-4 w-4 rounded-full object-cover"
+                      />
                       Add with Kronus
                     </Button>
                   </div>
 
                   {portfolioProjects.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-12 text-center">
-                      <Layers className="mx-auto h-12 w-12 text-muted-foreground" />
+                      <Layers className="text-muted-foreground mx-auto h-12 w-12" />
                       <h3 className="mt-4 text-lg font-semibold">No portfolio projects yet</h3>
-                      <p className="text-muted-foreground mt-2">Add your first project to showcase your work.</p>
+                      <p className="text-muted-foreground mt-2">
+                        Add your first project to showcase your work.
+                      </p>
                     </div>
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {portfolioProjects.map((project) => (
+                      {portfolioProjects.map((project) =>
                         editingProject === project.id ? (
                           <PortfolioProjectEditForm
                             key={project.id}
@@ -1300,9 +1530,14 @@ What project would you like to add?`;
                             onCancel={() => setEditingProject(null)}
                           />
                         ) : (
-                          <Card key={project.id} className="group relative overflow-hidden transition-all hover:shadow-lg border-cyan-100 dark:border-cyan-900/40 h-full flex flex-col bg-gradient-to-br from-white to-cyan-50/30 dark:from-gray-900 dark:to-cyan-950/20">
+                          <Card
+                            key={project.id}
+                            className="group relative flex h-full flex-col overflow-hidden border-cyan-100 bg-gradient-to-br from-white to-cyan-50/30 transition-all hover:shadow-lg dark:border-cyan-900/40 dark:from-gray-900 dark:to-cyan-950/20"
+                          >
                             {/* Decorative top bar */}
-                            <div className={`h-1.5 ${project.featured ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400' : 'bg-gradient-to-r from-cyan-400 to-teal-500'}`} />
+                            <div
+                              className={`h-1.5 ${project.featured ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400" : "bg-gradient-to-r from-cyan-400 to-teal-500"}`}
+                            />
 
                             {/* Featured star */}
                             {project.featured && (
@@ -1315,7 +1550,7 @@ What project would you like to add?`;
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="absolute top-4 left-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 shadow-sm"
+                              className="absolute top-4 left-3 z-10 bg-white/90 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800"
                               onClick={() => setEditingProject(project.id)}
                             >
                               <Edit className="h-4 w-4" />
@@ -1332,37 +1567,48 @@ What project would you like to add?`;
                               </div>
                             )}
 
-                            <CardHeader className={`pb-2 ${!project.image ? 'pt-6' : ''}`}>
+                            <CardHeader className={`pb-2 ${!project.image ? "pt-6" : ""}`}>
                               <div className="flex items-start justify-between pr-8">
-                                <div className="flex-1 min-w-0">
-                                  <CardTitle className="text-lg font-bold text-gray-900 dark:text-gray-50 line-clamp-2">
+                                <div className="min-w-0 flex-1">
+                                  <CardTitle className="line-clamp-2 text-lg font-bold text-gray-900 dark:text-gray-50">
                                     {project.title}
                                   </CardTitle>
-                                  <p className="text-sm font-medium text-cyan-700 dark:text-cyan-400 mt-0.5">
+                                  <p className="mt-0.5 text-sm font-medium text-cyan-700 dark:text-cyan-400">
                                     {project.company || "Personal Project"}
-                                    <span className="text-gray-400 dark:text-gray-500 mx-1.5">•</span>
-                                    <span className="text-gray-600 dark:text-gray-400">{project.category}</span>
+                                    <span className="mx-1.5 text-gray-400 dark:text-gray-500">
+                                      •
+                                    </span>
+                                    <span className="text-gray-600 dark:text-gray-400">
+                                      {project.category}
+                                    </span>
                                   </p>
                                 </div>
                               </div>
                             </CardHeader>
 
-                            <CardContent className="pt-0 space-y-3 flex-1 flex flex-col">
+                            <CardContent className="flex flex-1 flex-col space-y-3 pt-0">
                               {/* Status badge */}
-                              <div className="flex gap-2 flex-wrap">
+                              <div className="flex flex-wrap gap-2">
                                 <Badge
                                   className={`text-xs font-medium ${
                                     project.status === "shipped"
-                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                                      ? "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
                                       : project.status === "wip"
-                                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-                                      : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+                                        ? "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                                        : "border-gray-200 bg-gray-100 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
                                   }`}
                                 >
-                                  {project.status === "shipped" ? "Shipped" : project.status === "wip" ? "In Progress" : "Archived"}
+                                  {project.status === "shipped"
+                                    ? "Shipped"
+                                    : project.status === "wip"
+                                      ? "In Progress"
+                                      : "Archived"}
                                 </Badge>
                                 {project.role && (
-                                  <Badge variant="outline" className="text-xs text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600">
+                                  <Badge
+                                    variant="outline"
+                                    className="border-gray-300 text-xs text-gray-700 dark:border-gray-600 dark:text-gray-300"
+                                  >
                                     {project.role}
                                   </Badge>
                                 )}
@@ -1370,25 +1616,28 @@ What project would you like to add?`;
 
                               {/* Excerpt */}
                               {project.excerpt && (
-                                <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed flex-1">
+                                <p className="line-clamp-2 flex-1 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
                                   {project.excerpt}
                                 </p>
                               )}
 
                               {/* Technologies */}
                               {project.technologies.length > 0 && (
-                                <div className="flex gap-1.5 flex-wrap pt-1">
+                                <div className="flex flex-wrap gap-1.5 pt-1">
                                   {project.technologies.slice(0, 4).map((tech) => (
                                     <Badge
                                       key={tech}
                                       variant="secondary"
-                                      className="text-[11px] px-2 py-0.5 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-800 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 font-medium"
+                                      className="border border-cyan-200 bg-cyan-100 px-2 py-0.5 text-[11px] font-medium text-cyan-800 dark:border-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200"
                                     >
                                       {tech}
                                     </Badge>
                                   ))}
                                   {project.technologies.length > 4 && (
-                                    <Badge variant="secondary" className="text-[11px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                                    >
                                       +{project.technologies.length - 4}
                                     </Badge>
                                   )}
@@ -1397,14 +1646,14 @@ What project would you like to add?`;
 
                               {/* Links */}
                               {Object.keys(project.links).length > 0 && (
-                                <div className="flex gap-3 pt-2 border-t border-cyan-100 dark:border-cyan-900/40">
+                                <div className="flex gap-3 border-t border-cyan-100 pt-2 dark:border-cyan-900/40">
                                   {Object.entries(project.links).map(([name, url]) => (
                                     <a
                                       key={name}
                                       href={url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-xs font-medium text-cyan-700 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-cyan-300 hover:underline flex items-center gap-1 transition-colors"
+                                      className="flex items-center gap-1 text-xs font-medium text-cyan-700 transition-colors hover:text-cyan-900 hover:underline dark:text-cyan-400 dark:hover:text-cyan-300"
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <ExternalLink className="h-3 w-3" />
@@ -1416,7 +1665,7 @@ What project would you like to add?`;
                             </CardContent>
                           </Card>
                         )
-                      ))}
+                      )}
                     </div>
                   )}
                 </>
@@ -1428,7 +1677,7 @@ What project would you like to add?`;
                 <div className="space-y-4">
                   {Array.from({ length: 3 }).map((_, i) => (
                     <div key={i}>
-                      <Skeleton className="h-8 w-48 mb-4" />
+                      <Skeleton className="mb-4 h-8 w-48" />
                       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                         {Array.from({ length: 4 }).map((_, j) => (
                           <Skeleton key={j} className="h-32 w-full" />
@@ -1445,7 +1694,9 @@ What project would you like to add?`;
                       <h2 className="flex items-center gap-2 text-xl font-semibold">
                         <Briefcase className="h-5 w-5" />
                         Skills
-                        <Badge variant="secondary" className="ml-2">{filteredSkills.length}</Badge>
+                        <Badge variant="secondary" className="ml-2">
+                          {filteredSkills.length}
+                        </Badge>
                       </h2>
                       <div className="flex items-center gap-2">
                         <Button
@@ -1460,9 +1711,13 @@ What project would you like to add?`;
                         <Button
                           size="sm"
                           onClick={addSkillWithKronus}
-                          className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90 font-medium"
+                          className="bg-[var(--tartarus-gold)] font-medium text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90"
                         >
-                          <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                          <img
+                            src="/chronus-logo.png"
+                            alt="Kronus"
+                            className="mr-2 h-4 w-4 rounded-full object-cover"
+                          />
                           Add with Kronus
                         </Button>
                       </div>
@@ -1477,17 +1732,20 @@ What project would you like to add?`;
                         {Object.entries(skillsByCategory).map(([category, categorySkills]) => {
                           const config = categoryConfig[category] || {
                             color: "text-gray-700 dark:text-gray-400",
-                            bgColor: "bg-gray-100 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800",
+                            bgColor:
+                              "bg-gray-100 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800",
                             barColor: "bg-gray-500",
-                            icon: <Tag className="h-4 w-4" />
+                            icon: <Tag className="h-4 w-4" />,
                           };
                           // Find the category object to pass to edit dialog
-                          const categoryObj = skillCategories.find(c => c.name === category);
+                          const categoryObj = skillCategories.find((c) => c.name === category);
 
                           return (
                             <div key={category}>
                               {/* Category Header */}
-                              <div className={`mb-4 flex items-center gap-3 rounded-lg border p-3 ${config.bgColor} group`}>
+                              <div
+                                className={`mb-4 flex items-center gap-3 rounded-lg border p-3 ${config.bgColor} group`}
+                              >
                                 <span className={config.color}>{config.icon}</span>
                                 <h3 className={`font-semibold ${config.color}`}>{category}</h3>
                                 <Badge variant="outline" className={config.color}>
@@ -1498,7 +1756,7 @@ What project would you like to add?`;
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className={`h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity ${config.color}`}
+                                    className={`h-7 w-7 p-0 opacity-0 transition-opacity group-hover:opacity-100 ${config.color}`}
                                     onClick={() => openCategoryDialog(categoryObj)}
                                     title="Edit category"
                                   >
@@ -1520,29 +1778,33 @@ What project would you like to add?`;
                                     />
                                   ) : (
                                     <Link key={skill.id} href={`/repository/skill/${skill.id}`}>
-                                      <Card className={`group hover:shadow-md cursor-pointer transition-all h-full border ${config.bgColor.replace('bg-', 'border-').replace('/30', '/50')}`}>
+                                      <Card
+                                        className={`group h-full cursor-pointer border transition-all hover:shadow-md ${config.bgColor.replace("bg-", "border-").replace("/30", "/50")}`}
+                                      >
                                         <CardHeader className="pb-2">
                                           <div className="flex items-start justify-between">
                                             <div className="flex items-center gap-3">
-                                              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${config.bgColor}`}>
+                                              <div
+                                                className={`flex h-10 w-10 items-center justify-center rounded-lg ${config.bgColor}`}
+                                              >
                                                 <SkillIcon
                                                   skillName={skill.name}
                                                   fallbackIcon={config.icon}
                                                   fallbackColor={config.color}
                                                 />
                                               </div>
-                                              <div className="flex-1 min-w-0">
-                                                <CardTitle className="text-sm font-semibold line-clamp-1">
+                                              <div className="min-w-0 flex-1">
+                                                <CardTitle className="line-clamp-1 text-sm font-semibold">
                                                   {skill.name}
                                                 </CardTitle>
-                                                <div className="flex items-center gap-0.5 mt-0.5">
+                                                <div className="mt-0.5 flex items-center gap-0.5">
                                                   {Array.from({ length: 5 }).map((_, i) => (
                                                     <div
                                                       key={i}
                                                       className={`h-2 w-3 rounded-sm ${
                                                         i < skill.magnitude
                                                           ? config.barColor
-                                                          : 'bg-muted-foreground/20 border border-muted-foreground/30'
+                                                          : "bg-muted-foreground/20 border-muted-foreground/30 border"
                                                       }`}
                                                     />
                                                   ))}
@@ -1552,15 +1814,18 @@ What project would you like to add?`;
                                             <Button
                                               variant="ghost"
                                               size="sm"
-                                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 shrink-0"
-                                              onClick={(e) => { e.preventDefault(); setEditingSkill(skill.id); }}
+                                              className="h-8 w-8 shrink-0 p-0 opacity-0 group-hover:opacity-100"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                setEditingSkill(skill.id);
+                                              }}
                                             >
                                               <Edit className="h-3 w-3" />
                                             </Button>
                                           </div>
                                         </CardHeader>
                                         <CardContent className="pt-0">
-                                          <p className="text-muted-foreground text-xs line-clamp-2 leading-relaxed">
+                                          <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
                                             {skill.description}
                                           </p>
                                         </CardContent>
@@ -1582,24 +1847,30 @@ What project would you like to add?`;
                       <h2 className="flex items-center gap-2 text-xl font-semibold">
                         <Briefcase className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                         Work Experience
-                        <Badge variant="secondary" className="ml-2">{experience.length}</Badge>
+                        <Badge variant="secondary" className="ml-2">
+                          {experience.length}
+                        </Badge>
                       </h2>
                       <Button
                         size="sm"
                         onClick={addExperienceWithKronus}
-                        className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90 font-medium"
+                        className="bg-[var(--tartarus-gold)] font-medium text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90"
                       >
-                        <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                        <img
+                          src="/chronus-logo.png"
+                          alt="Kronus"
+                          className="mr-2 h-4 w-4 rounded-full object-cover"
+                        />
                         Add with Kronus
                       </Button>
                     </div>
 
                     <div className="relative">
                       {/* Timeline line */}
-                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[var(--tartarus-gold)] via-[var(--tartarus-gold)]/50 to-transparent" />
+                      <div className="absolute top-0 bottom-0 left-4 w-0.5 bg-gradient-to-b from-[var(--tartarus-gold)] via-[var(--tartarus-gold)]/50 to-transparent" />
 
                       <div className="space-y-6">
-                        {experience.map((exp, index) => (
+                        {experience.map((exp, index) =>
                           editingExperience === exp.id ? (
                             <div key={exp.id} className="ml-10">
                               <ExperienceEditForm
@@ -1611,32 +1882,38 @@ What project would you like to add?`;
                           ) : (
                             <div key={exp.id} className="relative flex gap-4">
                               {/* Timeline dot */}
-                              <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
-                                !exp.dateEnd
-                                  ? "border-amber-500 bg-amber-100 dark:bg-amber-900/50"
-                                  : "border-amber-300 bg-white dark:bg-gray-900"
-                              }`}>
-                                <Briefcase className={`h-4 w-4 ${
-                                  !exp.dateEnd ? "text-amber-600" : "text-amber-400"
-                                }`} />
+                              <div
+                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
+                                  !exp.dateEnd
+                                    ? "border-amber-500 bg-amber-100 dark:bg-amber-900/50"
+                                    : "border-amber-300 bg-white dark:bg-gray-900"
+                                }`}
+                              >
+                                <Briefcase
+                                  className={`h-4 w-4 ${
+                                    !exp.dateEnd ? "text-amber-600" : "text-amber-400"
+                                  }`}
+                                />
                               </div>
 
                               {/* Experience Card */}
                               <Link href={`/repository/experience/${exp.id}`} className="flex-1">
-                                <Card className={`group hover:shadow-md cursor-pointer transition-all ${
-                                  !exp.dateEnd
-                                    ? "border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10"
-                                    : ""
-                                }`}>
+                                <Card
+                                  className={`group cursor-pointer transition-all hover:shadow-md ${
+                                    !exp.dateEnd
+                                      ? "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/10"
+                                      : ""
+                                  }`}
+                                >
                                   <CardHeader className="pb-3">
                                     <div className="flex items-start justify-between">
                                       <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
+                                        <div className="mb-1 flex items-center gap-2">
                                           <CardTitle className="text-base font-semibold">
                                             {exp.title}
                                           </CardTitle>
                                           {!exp.dateEnd && (
-                                            <Badge className="bg-amber-500 text-white text-xs">
+                                            <Badge className="bg-amber-500 text-xs text-white">
                                               Current
                                             </Badge>
                                           )}
@@ -1644,14 +1921,12 @@ What project would you like to add?`;
                                         <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
                                           {exp.company}
                                         </p>
-                                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                        <div className="text-muted-foreground mt-2 flex items-center gap-3 text-xs">
                                           <span className="flex items-center gap-1">
                                             <Calendar className="h-3 w-3" />
                                             {exp.dateStart} - {exp.dateEnd || "Present"}
                                           </span>
-                                          <span className="flex items-center gap-1">
-                                            •
-                                          </span>
+                                          <span className="flex items-center gap-1">•</span>
                                           <span>{exp.location}</span>
                                         </div>
                                       </div>
@@ -1659,78 +1934,95 @@ What project would you like to add?`;
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100"
-                                        onClick={(e) => { e.preventDefault(); setEditingExperience(exp.id); }}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          setEditingExperience(exp.id);
+                                        }}
                                       >
                                         <Edit className="h-3 w-3" />
                                       </Button>
                                     </div>
                                   </CardHeader>
-                                <CardContent className="pt-0 space-y-3">
-                                  {exp.tagline && (
-                                    <p className="text-sm text-muted-foreground italic">
-                                      {exp.tagline}
-                                    </p>
-                                  )}
-                                  {exp.department && (
-                                    <p className="text-xs text-muted-foreground">
-                                      <span className="font-medium">Department:</span> {exp.department}
-                                    </p>
-                                  )}
-                                  {exp.note && (
-                                    <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-100 dark:border-amber-800">
-                                      {exp.note}
-                                    </p>
-                                  )}
-                                  {exp.achievements && exp.achievements.length > 0 && (
-                                    <div className="pt-2 border-t border-amber-100 dark:border-amber-800">
-                                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-2">
-                                        Key Achievements ({exp.achievements.length})
+                                  <CardContent className="space-y-3 pt-0">
+                                    {exp.tagline && (
+                                      <p className="text-muted-foreground text-sm italic">
+                                        {exp.tagline}
                                       </p>
-                                      <div className="space-y-2">
-                                        {/* Group achievements by category */}
-                                        {Object.entries(
-                                          exp.achievements.reduce((acc, ach) => {
-                                            const cat = ach.category || "General";
-                                            if (!acc[cat]) acc[cat] = [];
-                                            acc[cat].push(ach);
-                                            return acc;
-                                          }, {} as Record<string, Achievement[]>)
-                                        ).slice(0, 3).map(([category, achievements]) => (
-                                          <div key={category}>
-                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-500 mb-1">
-                                              {category}
+                                    )}
+                                    {exp.department && (
+                                      <p className="text-muted-foreground text-xs">
+                                        <span className="font-medium">Department:</span>{" "}
+                                        {exp.department}
+                                      </p>
+                                    )}
+                                    {exp.note && (
+                                      <p className="text-muted-foreground rounded border border-amber-100 bg-amber-50 p-2 text-xs dark:border-amber-800 dark:bg-amber-900/20">
+                                        {exp.note}
+                                      </p>
+                                    )}
+                                    {exp.achievements && exp.achievements.length > 0 && (
+                                      <div className="border-t border-amber-100 pt-2 dark:border-amber-800">
+                                        <p className="mb-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                                          Key Achievements ({exp.achievements.length})
+                                        </p>
+                                        <div className="space-y-2">
+                                          {/* Group achievements by category */}
+                                          {Object.entries(
+                                            exp.achievements.reduce(
+                                              (acc, ach) => {
+                                                const cat = ach.category || "General";
+                                                if (!acc[cat]) acc[cat] = [];
+                                                acc[cat].push(ach);
+                                                return acc;
+                                              },
+                                              {} as Record<string, Achievement[]>
+                                            )
+                                          )
+                                            .slice(0, 3)
+                                            .map(([category, achievements]) => (
+                                              <div key={category}>
+                                                <p className="mb-1 text-[10px] font-semibold tracking-wide text-amber-600 uppercase dark:text-amber-500">
+                                                  {category}
+                                                </p>
+                                                <ul className="space-y-1">
+                                                  {achievements.slice(0, 2).map((ach, i) => (
+                                                    <li
+                                                      key={i}
+                                                      className="text-muted-foreground flex gap-2 text-xs"
+                                                    >
+                                                      <span className="shrink-0 text-amber-400">
+                                                        •
+                                                      </span>
+                                                      <span>
+                                                        {ach.description}
+                                                        {ach.metrics && (
+                                                          <Badge
+                                                            variant="outline"
+                                                            className="ml-2 border-amber-200 px-1 py-0 text-[9px] text-amber-600 dark:border-amber-700 dark:text-amber-400"
+                                                          >
+                                                            {ach.metrics}
+                                                          </Badge>
+                                                        )}
+                                                      </span>
+                                                    </li>
+                                                  ))}
+                                                </ul>
+                                              </div>
+                                            ))}
+                                          {exp.achievements.length > 6 && (
+                                            <p className="text-muted-foreground text-[10px]">
+                                              +{exp.achievements.length - 6} more achievements...
                                             </p>
-                                            <ul className="space-y-1">
-                                              {achievements.slice(0, 2).map((ach, i) => (
-                                                <li key={i} className="text-xs text-muted-foreground flex gap-2">
-                                                  <span className="text-amber-400 shrink-0">•</span>
-                                                  <span>
-                                                    {ach.description}
-                                                    {ach.metrics && (
-                                                      <Badge variant="outline" className="ml-2 text-[9px] px-1 py-0 border-amber-200 dark:border-amber-700 text-amber-600 dark:text-amber-400">
-                                                        {ach.metrics}
-                                                      </Badge>
-                                                    )}
-                                                  </span>
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </div>
-                                        ))}
-                                        {exp.achievements.length > 6 && (
-                                          <p className="text-[10px] text-muted-foreground">
-                                            +{exp.achievements.length - 6} more achievements...
-                                          </p>
-                                        )}
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
-                                </CardContent>
-                              </Card>
+                                    )}
+                                  </CardContent>
+                                </Card>
                               </Link>
                             </div>
                           )
-                        ))}
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1741,20 +2033,26 @@ What project would you like to add?`;
                       <h2 className="flex items-center gap-2 text-xl font-semibold">
                         <GraduationCap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         Education
-                        <Badge variant="secondary" className="ml-2">{education.length}</Badge>
+                        <Badge variant="secondary" className="ml-2">
+                          {education.length}
+                        </Badge>
                       </h2>
                       <Button
                         size="sm"
                         onClick={addEducationWithKronus}
-                        className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90 font-medium"
+                        className="bg-[var(--tartarus-gold)] font-medium text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90"
                       >
-                        <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                        <img
+                          src="/chronus-logo.png"
+                          alt="Kronus"
+                          className="mr-2 h-4 w-4 rounded-full object-cover"
+                        />
                         Add with Kronus
                       </Button>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {education.map((edu) => (
+                      {education.map((edu) =>
                         editingEducation === edu.id ? (
                           <EducationEditForm
                             key={edu.id}
@@ -1764,14 +2062,14 @@ What project would you like to add?`;
                           />
                         ) : (
                           <Link key={edu.id} href={`/repository/education/${edu.id}`}>
-                            <Card className="group hover:shadow-md cursor-pointer transition-all border-blue-100 dark:border-blue-900/30 h-full">
+                            <Card className="group h-full cursor-pointer border-blue-100 transition-all hover:shadow-md dark:border-blue-900/30">
                               <CardHeader className="pb-3">
                                 {/* Decorative top bar */}
-                                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600 rounded-t-lg" />
+                                <div className="absolute top-0 right-0 left-0 h-1 rounded-t-lg bg-gradient-to-r from-blue-400 to-blue-600" />
 
                                 <div className="flex items-start justify-between pt-2">
                                   <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
+                                    <div className="mb-2 flex items-center gap-2">
                                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
                                         <GraduationCap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                                       </div>
@@ -1779,7 +2077,7 @@ What project would you like to add?`;
                                         <CardTitle className="text-base font-semibold">
                                           {edu.degree}
                                         </CardTitle>
-                                        <p className="text-sm text-blue-700 dark:text-blue-400 font-medium">
+                                        <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
                                           {edu.field}
                                         </p>
                                       </div>
@@ -1789,76 +2087,219 @@ What project would you like to add?`;
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100"
-                                    onClick={(e) => { e.preventDefault(); setEditingEducation(edu.id); }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setEditingEducation(edu.id);
+                                    }}
                                   >
                                     <Edit className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </CardHeader>
-                            <CardContent className="space-y-3">
-                              <p className="text-sm font-medium">
-                                {edu.institution}
-                              </p>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Calendar className="h-3 w-3" />
-                                <span>{edu.dateStart} - {edu.dateEnd}</span>
-                                <span>•</span>
-                                <span>{edu.location}</span>
-                              </div>
-                              {edu.tagline && (
-                                <p className="text-xs text-muted-foreground italic pt-2 border-t border-blue-100 dark:border-blue-800">
-                                  {edu.tagline}
-                                </p>
-                              )}
-                              {edu.note && (
-                                <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-100 dark:border-blue-800">
-                                  {edu.note}
-                                </p>
-                              )}
-                              {edu.focusAreas && edu.focusAreas.length > 0 && (
-                                <div className="pt-2 border-t border-blue-100 dark:border-blue-800">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-500 mb-1">
-                                    Focus Areas
-                                  </p>
-                                  <ul className="space-y-0.5">
-                                    {edu.focusAreas.slice(0, 3).map((area, i) => (
-                                      <li key={i} className="text-xs text-muted-foreground flex gap-2">
-                                        <span className="text-blue-400 shrink-0">•</span>
-                                        <span className="line-clamp-1">{area}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
+                              <CardContent className="space-y-3">
+                                <p className="text-sm font-medium">{edu.institution}</p>
+                                <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>
+                                    {edu.dateStart} - {edu.dateEnd}
+                                  </span>
+                                  <span>•</span>
+                                  <span>{edu.location}</span>
                                 </div>
-                              )}
-                              {edu.achievements && edu.achievements.length > 0 && (
-                                <div className="pt-2 border-t border-blue-100 dark:border-blue-800">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-500 mb-1">
-                                    Achievements
+                                {edu.tagline && (
+                                  <p className="text-muted-foreground border-t border-blue-100 pt-2 text-xs italic dark:border-blue-800">
+                                    {edu.tagline}
                                   </p>
-                                  <ul className="space-y-0.5">
-                                    {edu.achievements.slice(0, 2).map((ach, i) => (
-                                      <li key={i} className="text-xs text-muted-foreground flex gap-2">
-                                        <span className="text-blue-400 shrink-0">•</span>
-                                        <span className="line-clamp-2">{ach}</span>
-                                      </li>
-                                    ))}
-                                    {edu.achievements.length > 2 && (
-                                      <li className="text-[10px] text-muted-foreground pl-4">
-                                        +{edu.achievements.length - 2} more...
-                                      </li>
-                                    )}
-                                  </ul>
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
+                                )}
+                                {edu.note && (
+                                  <p className="text-muted-foreground rounded border border-blue-100 bg-blue-50 p-2 text-xs dark:border-blue-800 dark:bg-blue-900/20">
+                                    {edu.note}
+                                  </p>
+                                )}
+                                {edu.focusAreas && edu.focusAreas.length > 0 && (
+                                  <div className="border-t border-blue-100 pt-2 dark:border-blue-800">
+                                    <p className="mb-1 text-[10px] font-semibold tracking-wide text-blue-600 uppercase dark:text-blue-500">
+                                      Focus Areas
+                                    </p>
+                                    <ul className="space-y-0.5">
+                                      {edu.focusAreas.slice(0, 3).map((area, i) => (
+                                        <li
+                                          key={i}
+                                          className="text-muted-foreground flex gap-2 text-xs"
+                                        >
+                                          <span className="shrink-0 text-blue-400">•</span>
+                                          <span className="line-clamp-1">{area}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {edu.achievements && edu.achievements.length > 0 && (
+                                  <div className="border-t border-blue-100 pt-2 dark:border-blue-800">
+                                    <p className="mb-1 text-[10px] font-semibold tracking-wide text-blue-600 uppercase dark:text-blue-500">
+                                      Achievements
+                                    </p>
+                                    <ul className="space-y-0.5">
+                                      {edu.achievements.slice(0, 2).map((ach, i) => (
+                                        <li
+                                          key={i}
+                                          className="text-muted-foreground flex gap-2 text-xs"
+                                        >
+                                          <span className="shrink-0 text-blue-400">•</span>
+                                          <span className="line-clamp-2">{ach}</span>
+                                        </li>
+                                      ))}
+                                      {edu.achievements.length > 2 && (
+                                        <li className="text-muted-foreground pl-4 text-[10px]">
+                                          +{edu.achievements.length - 2} more...
+                                        </li>
+                                      )}
+                                    </ul>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
                           </Link>
                         )
-                      ))}
+                      )}
                     </div>
                   </div>
                 </>
               )}
+            </TabsContent>
+
+            {/* Notes Tab - Filter documents by type: "note" */}
+            <TabsContent value="notes" className="mt-0">
+              <div className="grid gap-4 p-6">
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[var(--tartarus-teal)]" />
+                  </div>
+                ) : (
+                  <>
+                    {filteredDocuments.filter((d) => d.type === "note").length === 0 ? (
+                      <Card className="text-muted-foreground border-dashed p-12 text-center">
+                        <StickyNote className="text-muted-foreground/50 mx-auto mb-4 h-12 w-12" />
+                        <p className="mb-2 text-lg font-medium">No notes yet</p>
+                        <p className="text-sm">
+                          Notes are quick reference material, snippets, and personal observations.
+                        </p>
+                      </Card>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {filteredDocuments
+                          .filter((d) => d.type === "note")
+                          .map((doc) => (
+                            <Link key={doc.slug} href={`/repository/${doc.slug}`}>
+                              <Card className="group h-full cursor-pointer transition-all hover:shadow-md">
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="flex items-start justify-between text-lg">
+                                    <span className="line-clamp-2">{doc.title}</span>
+                                    <Badge variant="secondary" className="ml-2 shrink-0">
+                                      note
+                                    </Badge>
+                                  </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  <p className="text-muted-foreground line-clamp-3 text-sm">
+                                    {doc.summary ||
+                                      stripMarkdown(doc.content || "").substring(0, 150) + "..."}
+                                  </p>
+                                  {doc.metadata?.tags && doc.metadata.tags.length > 0 && (
+                                    <div className="mt-3 flex flex-wrap gap-1">
+                                      {doc.metadata.tags.slice(0, 3).map((tag) => (
+                                        <Badge key={tag} variant="outline" className="text-xs">
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                      {doc.metadata.tags.length > 3 && (
+                                        <Badge variant="outline" className="text-xs">
+                                          +{doc.metadata.tags.length - 3}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </Link>
+                          ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Journal Tab - Link to Reader */}
+            <TabsContent value="journal" className="mt-0">
+              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <GitCommit className="text-muted-foreground/50 mb-6 h-16 w-16" />
+                <h3 className="mb-3 text-xl font-semibold">Journal Entries</h3>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  Browse your coding journal entries, commit histories, and project documentation in
+                  the Reader view.
+                </p>
+                <Link href="/reader">
+                  <Button className="bg-[var(--tartarus-teal)] text-white hover:bg-[var(--tartarus-teal)]/90">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Open Reader
+                  </Button>
+                </Link>
+              </div>
+            </TabsContent>
+
+            {/* Linear Tab - Link to Integrations or show summary */}
+            <TabsContent value="linear" className="mt-0">
+              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <Trello className="text-muted-foreground/50 mb-6 h-16 w-16" />
+                <h3 className="mb-3 text-xl font-semibold">Linear Integration</h3>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  View and manage your Linear issues and projects. Synced automatically from your
+                  workspace.
+                </p>
+                <Link href="/integrations/linear">
+                  <Button className="bg-[#5E6AD2] text-white hover:bg-[#5E6AD2]/90">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open Linear Dashboard
+                  </Button>
+                </Link>
+              </div>
+            </TabsContent>
+
+            {/* Media Tab - Link to Multimedia */}
+            <TabsContent value="media" className="mt-0">
+              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <Image className="text-muted-foreground/50 mb-6 h-16 w-16" />
+                <h3 className="mb-3 text-xl font-semibold">Media Library</h3>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  Browse images, diagrams, and other media assets attached to your journal entries
+                  and documents.
+                </p>
+                <Link href="/multimedia">
+                  <Button variant="outline">
+                    <Image className="mr-2 h-4 w-4" />
+                    Open Media Gallery
+                  </Button>
+                </Link>
+              </div>
+            </TabsContent>
+
+            {/* Chats Tab - Link to conversations */}
+            <TabsContent value="chats" className="mt-0">
+              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <MessageSquare className="text-muted-foreground/50 mb-6 h-16 w-16" />
+                <h3 className="mb-3 text-xl font-semibold">Chat History</h3>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  View your past conversations with Kronus. Conversations with summaries are indexed
+                  for quick retrieval.
+                </p>
+                <Link href="/chat">
+                  <Button className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Open Chat
+                  </Button>
+                </Link>
+              </div>
             </TabsContent>
           </div>
         </ScrollArea>
@@ -1895,7 +2336,7 @@ What project would you like to add?`;
               <Input
                 id="category-name"
                 value={categoryForm.name}
-                onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g., AI & Development"
               />
             </div>
@@ -1910,12 +2351,12 @@ What project would you like to add?`;
                     <button
                       key={color}
                       type="button"
-                      className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      className={`h-8 w-8 rounded-full border-2 transition-all ${
                         categoryForm.color === color
-                          ? "ring-2 ring-offset-2 ring-primary scale-110"
+                          ? "ring-primary scale-110 ring-2 ring-offset-2"
                           : "hover:scale-105"
                       } ${colorClasses.barColor}`}
-                      onClick={() => setCategoryForm(prev => ({ ...prev, color }))}
+                      onClick={() => setCategoryForm((prev) => ({ ...prev, color }))}
                       title={color}
                     />
                   );
@@ -1933,15 +2374,21 @@ What project would you like to add?`;
                     <button
                       key={iconName}
                       type="button"
-                      className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg border-2 transition-all ${
                         categoryForm.icon === iconName
-                          ? `${colorClasses.bgColor} border-current ring-2 ring-offset-1 ring-primary`
+                          ? `${colorClasses.bgColor} ring-primary border-current ring-2 ring-offset-1`
                           : "border-muted hover:border-muted-foreground/50"
                       }`}
-                      onClick={() => setCategoryForm(prev => ({ ...prev, icon: iconName }))}
+                      onClick={() => setCategoryForm((prev) => ({ ...prev, icon: iconName }))}
                       title={iconName}
                     >
-                      <span className={categoryForm.icon === iconName ? colorClasses.color : "text-muted-foreground"}>
+                      <span
+                        className={
+                          categoryForm.icon === iconName
+                            ? colorClasses.color
+                            : "text-muted-foreground"
+                        }
+                      >
                         {iconElement}
                       </span>
                     </button>
@@ -1953,7 +2400,9 @@ What project would you like to add?`;
             {/* Preview */}
             <div className="grid gap-2">
               <Label>Preview</Label>
-              <div className={`flex items-center gap-3 rounded-lg border p-3 ${getColorClasses(categoryForm.color).bgColor}`}>
+              <div
+                className={`flex items-center gap-3 rounded-lg border p-3 ${getColorClasses(categoryForm.color).bgColor}`}
+              >
                 <span className={getColorClasses(categoryForm.color).color}>
                   {CATEGORY_ICONS[categoryForm.icon] || <Tag className="h-4 w-4" />}
                 </span>
@@ -1965,7 +2414,7 @@ What project would you like to add?`;
 
             {/* Error Message */}
             {categoryError && (
-              <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
                 {categoryError}
               </div>
             )}
@@ -1977,11 +2426,17 @@ What project would you like to add?`;
                 type="button"
                 variant="destructive"
                 onClick={handleDeleteCategory}
-                disabled={deletingCategory || savingCategory || getSkillCountInCategory(editingCategory.name) > 0}
+                disabled={
+                  deletingCategory ||
+                  savingCategory ||
+                  getSkillCountInCategory(editingCategory.name) > 0
+                }
                 className="mr-auto"
-                title={getSkillCountInCategory(editingCategory.name) > 0
-                  ? `Cannot delete: ${getSkillCountInCategory(editingCategory.name)} skills use this category`
-                  : "Delete category"}
+                title={
+                  getSkillCountInCategory(editingCategory.name) > 0
+                    ? `Cannot delete: ${getSkillCountInCategory(editingCategory.name)} skills use this category`
+                    : "Delete category"
+                }
               >
                 {deletingCategory ? (
                   "Deleting..."
@@ -1993,10 +2448,19 @@ What project would you like to add?`;
                 )}
               </Button>
             )}
-            <Button type="button" variant="outline" onClick={closeCategoryDialog} disabled={savingCategory || deletingCategory}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeCategoryDialog}
+              disabled={savingCategory || deletingCategory}
+            >
               Cancel
             </Button>
-            <Button type="button" onClick={handleSaveCategory} disabled={savingCategory || deletingCategory || !categoryForm.name.trim()}>
+            <Button
+              type="button"
+              onClick={handleSaveCategory}
+              disabled={savingCategory || deletingCategory || !categoryForm.name.trim()}
+            >
               {savingCategory ? "Saving..." : editingCategory ? "Update" : "Create"}
             </Button>
           </DialogFooter>
@@ -2034,7 +2498,7 @@ What project would you like to add?`;
               <Input
                 id="doctype-name"
                 value={docTypeForm.name}
-                onChange={(e) => setDocTypeForm(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => setDocTypeForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g., essay, poem, system-prompt"
               />
             </div>
@@ -2045,7 +2509,9 @@ What project would you like to add?`;
               <Input
                 id="doctype-desc"
                 value={docTypeForm.description}
-                onChange={(e) => setDocTypeForm(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) =>
+                  setDocTypeForm((prev) => ({ ...prev, description: e.target.value }))
+                }
                 placeholder="Brief description of this type"
               />
             </div>
@@ -2054,16 +2520,16 @@ What project would you like to add?`;
             {documentTypes.length > 0 && !editingDocType && (
               <div className="grid gap-2">
                 <Label>Existing Types</Label>
-                <div className="max-h-40 overflow-y-auto border rounded-lg p-2 space-y-1">
+                <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border p-2">
                   {documentTypes.map((dt) => (
                     <button
                       key={dt.id}
                       type="button"
                       onClick={() => openDocTypeDialog(dt)}
-                      className="w-full text-left px-2 py-1.5 rounded hover:bg-muted flex items-center justify-between group"
+                      className="hover:bg-muted group flex w-full items-center justify-between rounded px-2 py-1.5 text-left"
                     >
-                      <span className="font-medium text-sm">{dt.name}</span>
-                      <span className="text-xs text-muted-foreground group-hover:text-foreground">
+                      <span className="text-sm font-medium">{dt.name}</span>
+                      <span className="text-muted-foreground group-hover:text-foreground text-xs">
                         {getDocCountWithType(dt.name)} docs • Edit
                       </span>
                     </button>
@@ -2074,7 +2540,7 @@ What project would you like to add?`;
 
             {/* Error Message */}
             {docTypeError && (
-              <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
                 {docTypeError}
               </div>
             )}
@@ -2086,11 +2552,15 @@ What project would you like to add?`;
                 type="button"
                 variant="destructive"
                 onClick={handleDeleteDocType}
-                disabled={deletingDocType || savingDocType || getDocCountWithType(editingDocType.name) > 0}
+                disabled={
+                  deletingDocType || savingDocType || getDocCountWithType(editingDocType.name) > 0
+                }
                 className="mr-auto"
-                title={getDocCountWithType(editingDocType.name) > 0
-                  ? `Cannot delete: ${getDocCountWithType(editingDocType.name)} documents use this type`
-                  : "Delete type"}
+                title={
+                  getDocCountWithType(editingDocType.name) > 0
+                    ? `Cannot delete: ${getDocCountWithType(editingDocType.name)} documents use this type`
+                    : "Delete type"
+                }
               >
                 {deletingDocType ? (
                   "Deleting..."
@@ -2102,10 +2572,19 @@ What project would you like to add?`;
                 )}
               </Button>
             )}
-            <Button type="button" variant="outline" onClick={closeDocTypeDialog} disabled={savingDocType || deletingDocType}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeDocTypeDialog}
+              disabled={savingDocType || deletingDocType}
+            >
               Cancel
             </Button>
-            <Button type="button" onClick={handleSaveDocType} disabled={savingDocType || deletingDocType || !docTypeForm.name.trim()}>
+            <Button
+              type="button"
+              onClick={handleSaveDocType}
+              disabled={savingDocType || deletingDocType || !docTypeForm.name.trim()}
+            >
               {savingDocType ? "Saving..." : editingDocType ? "Update" : "Create"}
             </Button>
           </DialogFooter>

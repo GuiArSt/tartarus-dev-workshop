@@ -6,13 +6,58 @@ import { createExperienceSchema } from "@/lib/validations/schemas";
 import { ConflictError } from "@/lib/errors";
 
 /**
+ * Generate AI summary for work experience (async, non-blocking)
+ */
+async function generateExperienceSummary(expId: string, exp: any): Promise<void> {
+  try {
+    const achievements =
+      typeof exp.achievements === "string"
+        ? JSON.parse(exp.achievements || "[]")
+        : exp.achievements || [];
+    const content = `
+Position: ${exp.title} at ${exp.company}
+${exp.department ? `Department: ${exp.department}` : ""}
+Location: ${exp.location}
+Period: ${exp.dateStart} - ${exp.dateEnd || "Present"}
+Role Summary: ${exp.tagline}
+${exp.note ? `Notes: ${exp.note}` : ""}
+${achievements.length ? `Key Achievements:\n${achievements.map((a: string) => `- ${a}`).join("\n")}` : ""}
+    `.trim();
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3005"}/api/ai/summarize`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "work_experience",
+          title: `${exp.title} at ${exp.company}`,
+          content,
+          metadata: { company: exp.company, dateStart: exp.dateStart, dateEnd: exp.dateEnd },
+        }),
+      }
+    );
+
+    if (response.ok) {
+      const { summary } = await response.json();
+      const db = getDatabase();
+      db.prepare("UPDATE work_experience SET summary = ? WHERE id = ?").run(summary, expId);
+    }
+  } catch (error) {
+    console.error("Failed to generate experience summary:", error);
+  }
+}
+
+/**
  * GET /api/cv/experience
  *
  * List all work experience.
  */
 export const GET = withErrorHandler(async () => {
   const db = getDatabase();
-  const experience = db.prepare("SELECT * FROM work_experience ORDER BY dateStart DESC").all() as any[];
+  const experience = db
+    .prepare("SELECT * FROM work_experience ORDER BY dateStart DESC")
+    .all() as any[];
   const experienceParsed = experience.map((e) => ({
     ...e,
     achievements: JSON.parse(e.achievements || "[]"),
@@ -54,6 +99,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 
   const exp = db.prepare("SELECT * FROM work_experience WHERE id = ?").get(body.id) as any;
+
+  // Generate summary asynchronously (don't block response)
+  generateExperienceSummary(body.id, exp).catch(console.error);
+
   return NextResponse.json({
     ...exp,
     achievements: JSON.parse(exp.achievements || "[]"),

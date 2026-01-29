@@ -4,32 +4,32 @@
  * Registers the kronus_ask tool and observability resources with the MCP server
  */
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { z } from 'zod';
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
 
-import { logger } from '../../shared/logger.js';
-import type { JournalConfig } from '../../shared/types.js';
-import { KronusAskInputSchema } from './types.js';
-import { askKronus } from './agent.js';
+import { logger } from "../../shared/logger.js";
+import type { JournalConfig } from "../../shared/types.js";
+import { KronusAskInputSchema } from "./types.js";
+import { askKronus } from "./agent.js";
 import {
   getRecentKronusChats,
   getKronusChatsByRepository,
   getRecentTraces,
   getTraceSpans,
   getTraceStats,
-} from '../../shared/observability.js';
+} from "../../shared/observability.js";
 
 /**
  * Register Kronus tools with the MCP server
  */
 export function registerKronusTools(server: McpServer, config: JournalConfig) {
-  logger.info('Registering Kronus tools...');
+  logger.info("Registering Kronus tools...");
 
   // Tool: Ask Kronus
   server.registerTool(
-    'kronus_ask',
+    "kronus_ask",
     {
-      title: 'Ask Kronus',
+      title: "Ask Kronus",
       description: `Ask Kronus, the knowledge oracle, about projects, work history, or repository data.
 
 ## When to Use
@@ -67,48 +67,52 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
     async ({ question, repository, depth }) => {
       try {
         const response = await askKronus(
-          { question, repository, depth: depth || 'quick' },
-          config
+          { question, repository, depth: depth || "quick" },
+          config,
         );
 
         // Format response with sources
         let text = response.answer;
 
         if (response.sources.length > 0) {
-          text += '\n\n---\n**Sources:**\n';
+          text += "\n\n---\n**Sources:**\n";
           for (const source of response.sources) {
             text += `- ${source.type}: ${source.identifier}`;
             if (source.title) text += ` (${source.title})`;
-            text += '\n';
+            text += "\n";
           }
         }
 
         text += `\n_Depth: ${response.depth_used}_`;
 
         return {
-          content: [{
-            type: 'text' as const,
-            text,
-          }],
+          content: [
+            {
+              type: "text" as const,
+              text,
+            },
+          ],
         };
       } catch (error) {
-        logger.error('kronus_ask error:', error);
+        logger.error("kronus_ask error:", error);
         return {
-          content: [{
-            type: 'text' as const,
-            text: `Kronus encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          }],
+          content: [
+            {
+              type: "text" as const,
+              text: `Kronus encountered an error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            },
+          ],
           isError: true,
         };
       }
-    }
+    },
   );
 
   // Tool: Get Kronus chat history
   server.registerTool(
-    'kronus_history',
+    "kronus_history",
     {
-      title: 'Kronus Chat History',
+      title: "Kronus Chat History",
       description: `Get recent Kronus conversations. Useful for reviewing past questions and answers.
 
 ## Use Cases
@@ -116,8 +120,13 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
 - Find answers to questions asked before
 - Check what was discussed about a specific repository`,
       inputSchema: {
-        repository: z.string().optional().describe('Filter by repository name'),
-        limit: z.number().min(1).max(100).default(20).describe('Number of chats to return (default: 20)'),
+        repository: z.string().optional().describe("Filter by repository name"),
+        limit: z
+          .number()
+          .min(1)
+          .max(100)
+          .default(20)
+          .describe("Number of chats to return (default: 20)"),
       },
     },
     async ({ repository, limit }) => {
@@ -128,7 +137,9 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
 
         if (chats.length === 0) {
           return {
-            content: [{ type: 'text' as const, text: 'No Kronus conversations found.' }],
+            content: [
+              { type: "text" as const, text: "No Kronus conversations found." },
+            ],
           };
         }
 
@@ -136,28 +147,33 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
         for (const chat of chats) {
           text += `### ${chat.created_at}\n`;
           text += `**Q:** ${chat.question}\n`;
-          text += `**A:** ${chat.answer.substring(0, 300)}${chat.answer.length > 300 ? '...' : ''}\n`;
+          text += `**A:** ${chat.answer.substring(0, 300)}${chat.answer.length > 300 ? "..." : ""}\n`;
           text += `_Depth: ${chat.depth} | Tokens: ${chat.input_tokens ?? 0}/${chat.output_tokens ?? 0}_\n\n`;
         }
 
         return {
-          content: [{ type: 'text' as const, text }],
+          content: [{ type: "text" as const, text }],
         };
       } catch (error) {
-        logger.error('kronus_history error:', error);
+        logger.error("kronus_history error:", error);
         return {
-          content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` }],
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            },
+          ],
           isError: true,
         };
       }
-    }
+    },
   );
 
   // Tool: Get observability stats
   server.registerTool(
-    'kronus_stats',
+    "kronus_stats",
     {
-      title: 'Kronus & AI Stats',
+      title: "Kronus & AI Stats",
       description: `Get observability statistics for AI usage: traces, tokens, costs.
 
 ## Metrics
@@ -167,7 +183,12 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
 - Average latency
 - Error rate`,
       inputSchema: {
-        days: z.number().min(1).max(90).default(7).describe('Number of days to include (default: 7)'),
+        days: z
+          .number()
+          .min(1)
+          .max(90)
+          .default(7)
+          .describe("Number of days to include (default: 7)"),
       },
     },
     async ({ days }) => {
@@ -178,97 +199,79 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
         text += `- **Total Traces:** ${stats.total_traces}\n`;
         text += `- **Kronus Chats:** ${stats.kronus_chats}\n`;
         text += `- **Total Tokens:** ${stats.total_tokens?.toLocaleString() ?? 0}\n`;
-        text += `- **Total Cost:** $${stats.total_cost?.toFixed(4) ?? '0.00'}\n`;
+        text += `- **Total Cost:** $${stats.total_cost?.toFixed(4) ?? "0.00"}\n`;
         text += `- **Avg Latency:** ${Math.round(stats.avg_latency_ms ?? 0)}ms\n`;
         text += `- **Error Rate:** ${((stats.error_rate ?? 0) * 100).toFixed(1)}%\n`;
 
         return {
-          content: [{ type: 'text' as const, text }],
+          content: [{ type: "text" as const, text }],
         };
       } catch (error) {
-        logger.error('kronus_stats error:', error);
+        logger.error("kronus_stats error:", error);
         return {
-          content: [{ type: 'text' as const, text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` }],
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            },
+          ],
           isError: true,
         };
       }
-    }
+    },
   );
 
   // Register resources for observability
-  try {
-    server.registerResource(
-      'observability-chats',
-      'observability://chats',
-      {
-        title: 'Kronus Chat History',
-        description: 'Recent Kronus conversations',
-        mimeType: 'application/json',
-      },
-      async () => {
-        const chats = getRecentKronusChats(50);
-        return {
-          contents: [
-            {
-              uri: 'observability://chats',
-              mimeType: 'application/json',
-              text: JSON.stringify(chats, null, 2),
-            },
-          ],
-        };
-      }
-    );
-    logger.debug('Registered resource: observability://chats');
+  server.registerResource(
+    "observability://chats",
+    "Kronus Chat History",
+    async () => {
+      const chats = getRecentKronusChats(50);
+      return {
+        contents: [
+          {
+            uri: "observability://chats",
+            mimeType: "application/json",
+            text: JSON.stringify(chats, null, 2),
+          },
+        ],
+      };
+    },
+  );
 
-    server.registerResource(
-      'observability-traces',
-      'observability://traces',
-      {
-        title: 'AI Traces (Recent)',
-        description: 'Recent AI operation traces',
-        mimeType: 'application/json',
-      },
-      async () => {
-        const traces = getRecentTraces(50);
-        return {
-          contents: [
-            {
-              uri: 'observability://traces',
-              mimeType: 'application/json',
-              text: JSON.stringify(traces, null, 2),
-            },
-          ],
-        };
-      }
-    );
-    logger.debug('Registered resource: observability://traces');
+  server.registerResource(
+    "observability://traces",
+    "AI Traces (Recent)",
+    async () => {
+      const traces = getRecentTraces(50);
+      return {
+        contents: [
+          {
+            uri: "observability://traces",
+            mimeType: "application/json",
+            text: JSON.stringify(traces, null, 2),
+          },
+        ],
+      };
+    },
+  );
 
-    server.registerResource(
-      'observability-stats',
-      'observability://stats',
-      {
-        title: 'AI Usage Statistics',
-        description: 'AI usage statistics and metrics',
-        mimeType: 'application/json',
-      },
-      async () => {
-        const stats = getTraceStats(7);
-        return {
-          contents: [
-            {
-              uri: 'observability://stats',
-              mimeType: 'application/json',
-              text: JSON.stringify(stats, null, 2),
-            },
-          ],
-        };
-      }
-    );
-    logger.debug('Registered resource: observability://stats');
-  } catch (error) {
-    logger.error('Failed to register observability resources:', error);
-    throw error;
-  }
+  server.registerResource(
+    "observability://stats",
+    "AI Usage Statistics",
+    async () => {
+      const stats = getTraceStats(7);
+      return {
+        contents: [
+          {
+            uri: "observability://stats",
+            mimeType: "application/json",
+            text: JSON.stringify(stats, null, 2),
+          },
+        ],
+      };
+    },
+  );
 
-  logger.success('Kronus tools registered (3 tools, 3 resources)');
+  logger.success("Kronus tools registered (3 tools, 3 resources)");
 }

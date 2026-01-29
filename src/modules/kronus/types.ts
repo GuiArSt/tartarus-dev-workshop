@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /**
  * Kronus Agent Types
@@ -76,9 +76,18 @@ import { z } from 'zod';
  * Input schema for kronus_ask tool
  */
 export const KronusAskInputSchema = z.object({
-  question: z.string().min(1).describe('Question about projects, work, or repository data'),
-  repository: z.string().optional().describe('Focus on specific repository (optional)'),
-  depth: z.enum(['quick', 'deep']).default('quick').describe('quick=summaries only, deep=full content access'),
+  question: z
+    .string()
+    .min(1)
+    .describe("Question about projects, work, or repository data"),
+  repository: z
+    .string()
+    .optional()
+    .describe("Focus on specific repository (optional)"),
+  depth: z
+    .enum(["quick", "deep"])
+    .default("quick")
+    .describe("quick=summaries only, deep=full content access"),
 });
 
 export type KronusAskInput = z.infer<typeof KronusAskInputSchema>;
@@ -89,14 +98,25 @@ export type KronusAskInput = z.infer<typeof KronusAskInputSchema>;
 export interface KronusResponse {
   answer: string;
   sources: KronusSource[];
-  depth_used: 'quick' | 'deep';
+  depth_used: "quick" | "deep";
 }
 
 /**
  * Source reference in Kronus response
  */
 export interface KronusSource {
-  type: 'journal_entry' | 'project_summary' | 'document' | 'linear_issue' | 'linear_project' | 'attachment';
+  type:
+    | "journal_entry"
+    | "project_summary"
+    | "document"
+    | "linear_issue"
+    | "linear_project"
+    | "attachment"
+    | "skill"
+    | "work_experience"
+    | "education"
+    | "portfolio_project"
+    | "conversation";
   identifier: string; // commit_hash, slug, ENG-XXX, etc.
   title?: string;
   relevance?: string; // Why this source was used
@@ -119,6 +139,17 @@ export interface SummariesIndex {
 
   // Media & attachments
   attachments: AttachmentIndex[];
+
+  // CV data
+  skills: SkillIndex[];
+  experience: WorkExperienceIndex[];
+  education: EducationIndex[];
+
+  // Portfolio
+  portfolioProjects: PortfolioProjectIndex[];
+
+  // Conversations (summaries only when available)
+  conversations: ConversationIndex[];
 }
 
 /**
@@ -189,4 +220,71 @@ export interface AttachmentIndex {
   filename: string;
   mime_type: string;
   description: string | null;
+}
+
+/**
+ * Skill Index - Technical capabilities and expertise
+ */
+export interface SkillIndex {
+  id: string;
+  name: string;
+  category: string;
+  magnitude: number; // 1-5 proficiency level
+  summary: string | null;
+}
+
+/**
+ * Work Experience Index - Professional job history
+ */
+export interface WorkExperienceIndex {
+  id: string;
+  title: string;
+  company: string;
+  startDate: string;
+  endDate: string | null;
+  summary: string | null;
+}
+
+/**
+ * Education Index - Academic background
+ */
+export interface EducationIndex {
+  id: string;
+  degree: string;
+  field: string;
+  institution: string;
+  startDate: string;
+  endDate: string | null;
+  summary: string | null;
+}
+
+/**
+ * Portfolio Project Index - Showcased deliverables and case studies
+ *
+ * Distinct from Journal Project Summary (Entry 0):
+ * - Portfolio = Shipped work, case studies, showcased deliverables
+ * - Entry 0 = Living documentation of an active codebase
+ */
+export interface PortfolioProjectIndex {
+  id: string;
+  title: string;
+  category: string;
+  status: string;
+  summary: string | null;
+  technologies: string[] | null;
+}
+
+/**
+ * Conversation Index - Chat history with summaries
+ *
+ * Note: Summaries are manually generated, not auto-generated on save,
+ * since conversations are constantly being saved during active chats.
+ */
+export interface ConversationIndex {
+  id: string;
+  title: string | null;
+  summary: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
 }

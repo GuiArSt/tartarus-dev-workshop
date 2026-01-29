@@ -6,6 +6,54 @@ import { createEducationSchema } from "@/lib/validations/schemas";
 import { ConflictError } from "@/lib/errors";
 
 /**
+ * Generate AI summary for education (async, non-blocking)
+ */
+async function generateEducationSummary(eduId: string, edu: any): Promise<void> {
+  try {
+    const focusAreas =
+      typeof edu.focusAreas === "string"
+        ? JSON.parse(edu.focusAreas || "[]")
+        : edu.focusAreas || [];
+    const achievements =
+      typeof edu.achievements === "string"
+        ? JSON.parse(edu.achievements || "[]")
+        : edu.achievements || [];
+    const content = `
+Degree: ${edu.degree} in ${edu.field}
+Institution: ${edu.institution}
+Location: ${edu.location}
+Period: ${edu.dateStart} - ${edu.dateEnd}
+Summary: ${edu.tagline}
+${edu.note ? `Notes: ${edu.note}` : ""}
+${focusAreas.length ? `Focus Areas: ${focusAreas.join(", ")}` : ""}
+${achievements.length ? `Achievements:\n${achievements.map((a: string) => `- ${a}`).join("\n")}` : ""}
+    `.trim();
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3005"}/api/ai/summarize`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "education",
+          title: `${edu.degree} in ${edu.field} at ${edu.institution}`,
+          content,
+          metadata: { institution: edu.institution, degree: edu.degree, field: edu.field },
+        }),
+      }
+    );
+
+    if (response.ok) {
+      const { summary } = await response.json();
+      const db = getDatabase();
+      db.prepare("UPDATE education SET summary = ? WHERE id = ?").run(summary, eduId);
+    }
+  } catch (error) {
+    console.error("Failed to generate education summary:", error);
+  }
+}
+
+/**
  * GET /api/cv/education
  *
  * List all education entries.
@@ -56,6 +104,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 
   const edu = db.prepare("SELECT * FROM education WHERE id = ?").get(body.id) as any;
+
+  // Generate summary asynchronously (don't block response)
+  generateEducationSummary(body.id, edu).catch(console.error);
+
   return NextResponse.json({
     ...edu,
     focusAreas: JSON.parse(edu.focusAreas || "[]"),

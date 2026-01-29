@@ -7,6 +7,69 @@ import { portfolioQuerySchema, createPortfolioProjectSchema } from "@/lib/valida
 import { ConflictError } from "@/lib/errors";
 
 /**
+ * Generate AI summary for portfolio project (async, non-blocking)
+ */
+async function generatePortfolioSummary(projectId: string, project: any): Promise<void> {
+  try {
+    const technologies =
+      typeof project.technologies === "string"
+        ? JSON.parse(project.technologies || "[]")
+        : project.technologies || [];
+    const metrics =
+      typeof project.metrics === "string"
+        ? JSON.parse(project.metrics || "{}")
+        : project.metrics || {};
+    const tags =
+      typeof project.tags === "string" ? JSON.parse(project.tags || "[]") : project.tags || [];
+
+    const content = `
+Project: ${project.title}
+Category: ${project.category}
+${project.company ? `Company: ${project.company}` : ""}
+${project.role ? `Role: ${project.role}` : ""}
+Status: ${project.status}
+${project.dateCompleted ? `Completed: ${project.dateCompleted}` : ""}
+${project.excerpt ? `Summary: ${project.excerpt}` : ""}
+${project.description ? `Description: ${project.description}` : ""}
+${technologies.length ? `Technologies: ${technologies.join(", ")}` : ""}
+${
+  Object.keys(metrics).length
+    ? `Metrics: ${Object.entries(metrics)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(", ")}`
+    : ""
+}
+${tags.length ? `Tags: ${tags.join(", ")}` : ""}
+    `.trim();
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3005"}/api/ai/summarize`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "portfolio_project",
+          title: project.title,
+          content,
+          metadata: { category: project.category, status: project.status, technologies },
+        }),
+      }
+    );
+
+    if (response.ok) {
+      const { summary } = await response.json();
+      const db = getDrizzleDb();
+      db.update(portfolioProjects)
+        .set({ summary })
+        .where(eq(portfolioProjects.id, projectId))
+        .run();
+    }
+  } catch (error) {
+    console.error("Failed to generate portfolio summary:", error);
+  }
+}
+
+/**
  * GET /api/portfolio-projects
  *
  * List all portfolio projects with optional filtering.
@@ -97,6 +160,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     .from(portfolioProjects)
     .where(eq(portfolioProjects.id, body.id))
     .get();
+
+  // Generate summary asynchronously (don't block response)
+  if (project) {
+    generatePortfolioSummary(body.id, project).catch(console.error);
+  }
 
   return NextResponse.json({
     ...project,

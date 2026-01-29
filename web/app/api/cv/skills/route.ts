@@ -6,6 +6,45 @@ import { createSkillSchema } from "@/lib/validations/schemas";
 import { ConflictError } from "@/lib/errors";
 
 /**
+ * Generate AI summary for a skill (async, non-blocking)
+ */
+async function generateSkillSummary(skillId: string, skill: any): Promise<void> {
+  try {
+    const content = `
+Skill: ${skill.name}
+Category: ${skill.category}
+Proficiency: ${skill.magnitude}/5
+Description: ${skill.description}
+${skill.tags?.length ? `Tags: ${JSON.parse(skill.tags || "[]").join(", ")}` : ""}
+${skill.firstUsed ? `First used: ${skill.firstUsed}` : ""}
+${skill.lastUsed ? `Last used: ${skill.lastUsed}` : ""}
+    `.trim();
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3005"}/api/ai/summarize`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "skill",
+          title: skill.name,
+          content,
+          metadata: { category: skill.category, magnitude: skill.magnitude },
+        }),
+      }
+    );
+
+    if (response.ok) {
+      const { summary } = await response.json();
+      const db = getDatabase();
+      db.prepare("UPDATE skills SET summary = ? WHERE id = ?").run(summary, skillId);
+    }
+  } catch (error) {
+    console.error("Failed to generate skill summary:", error);
+  }
+}
+
+/**
  * GET /api/cv/skills
  *
  * List all skills.
@@ -54,6 +93,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 
   const skill = db.prepare("SELECT * FROM skills WHERE id = ?").get(body.id) as any;
+
+  // Generate summary asynchronously (don't block response)
+  generateSkillSummary(body.id, skill).catch(console.error);
+
   return NextResponse.json({
     ...skill,
     tags: JSON.parse(skill.tags || "[]"),

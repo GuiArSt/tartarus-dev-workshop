@@ -7,15 +7,15 @@
  * Uses AI SDK 6.0 generateText pattern with a light system prompt + summaries index.
  */
 
-import { anthropic } from '@ai-sdk/anthropic';
-import { generateText, tool } from 'ai';
-import { z } from 'zod';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import { anthropic } from "@ai-sdk/anthropic";
+import { generateText, tool } from "ai";
+import { z } from "zod";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
-import { logger } from '../../shared/logger.js';
-import type { JournalConfig } from '../../shared/types.js';
+import { logger } from "../../shared/logger.js";
+import type { JournalConfig } from "../../shared/types.js";
 import {
   startTrace,
   startSpan,
@@ -24,7 +24,7 @@ import {
   storeKronusChat,
   calculateCost,
   getCurrentTraceId,
-} from '../../shared/observability.js';
+} from "../../shared/observability.js";
 import type {
   KronusAskInput,
   KronusResponse,
@@ -35,7 +35,12 @@ import type {
   LinearProjectIndex,
   DocumentIndex,
   AttachmentIndex,
-} from './types.js';
+  SkillIndex,
+  WorkExperienceIndex,
+  EducationIndex,
+  PortfolioProjectIndex,
+  ConversationIndex,
+} from "./types.js";
 import {
   getEntriesByRepositoryPaginated,
   listAllProjectSummariesPaginated,
@@ -46,7 +51,7 @@ import {
   getProjectSummary,
   getLinearIssue,
   getLinearProject,
-} from '../journal/db/database.js';
+} from "../journal/db/database.js";
 
 /**
  * Get project root for Soul.xml loading
@@ -56,13 +61,16 @@ function getProjectRoot(): string {
   if (soulPathEnv) {
     const resolved = path.resolve(soulPathEnv.replace(/^~/, os.homedir()));
     const dir = path.dirname(resolved);
-    if (fs.existsSync(path.join(dir, 'package.json'))) {
+    if (fs.existsSync(path.join(dir, "package.json"))) {
       return dir;
     }
   }
 
   const cwd = process.cwd();
-  if (fs.existsSync(path.join(cwd, 'Soul.xml')) || fs.existsSync(path.join(cwd, 'package.json'))) {
+  if (
+    fs.existsSync(path.join(cwd, "Soul.xml")) ||
+    fs.existsSync(path.join(cwd, "package.json"))
+  ) {
     return cwd;
   }
 
@@ -74,14 +82,16 @@ function getProjectRoot(): string {
  */
 function loadKronusSoulMinimal(): string {
   const projectRoot = getProjectRoot();
-  const agentName = process.env.AGENT_NAME || 'Kronus';
-  const soulPathEnv = process.env.SOUL_XML_PATH || process.env.AGENT_SOUL_PATH || 'Soul.xml';
-  const soulPath = soulPathEnv.startsWith('/') || soulPathEnv.startsWith('~')
-    ? path.resolve(soulPathEnv.replace(/^~/, os.homedir()))
-    : path.join(projectRoot, soulPathEnv);
+  const agentName = process.env.AGENT_NAME || "Kronus";
+  const soulPathEnv =
+    process.env.SOUL_XML_PATH || process.env.AGENT_SOUL_PATH || "Soul.xml";
+  const soulPath =
+    soulPathEnv.startsWith("/") || soulPathEnv.startsWith("~")
+      ? path.resolve(soulPathEnv.replace(/^~/, os.homedir()))
+      : path.join(projectRoot, soulPathEnv);
 
   try {
-    const soulContent = fs.readFileSync(soulPath, 'utf-8');
+    const soulContent = fs.readFileSync(soulPath, "utf-8");
     // Extract just the core identity section (first 1000 chars or so)
     const coreMatch = soulContent.match(/<soul[^>]*>([\s\S]*?)<\/soul>/i);
     if (coreMatch) {
@@ -100,7 +110,7 @@ Your voice is wise, empathetic, with subtle humor. You speak with precision.`;
  */
 async function fetchDocumentSummaries(): Promise<DocumentIndex[]> {
   try {
-    const tartarusUrl = process.env.TARTARUS_URL || 'http://localhost:3777';
+    const tartarusUrl = process.env.TARTARUS_URL || "http://localhost:3005";
     const response = await fetch(`${tartarusUrl}/api/documents?limit=50`);
     if (!response.ok) return [];
 
@@ -113,7 +123,130 @@ async function fetchDocumentSummaries(): Promise<DocumentIndex[]> {
       language: doc.language || null,
     }));
   } catch (error) {
-    logger.warn('Failed to fetch documents for Kronus index:', error);
+    logger.warn("Failed to fetch documents for Kronus index:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch skills from Tartarus API
+ */
+async function fetchSkillsSummaries(): Promise<SkillIndex[]> {
+  try {
+    const tartarusUrl = process.env.TARTARUS_URL || "http://localhost:3005";
+    const response = await fetch(`${tartarusUrl}/api/cv/skills`);
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return (data.skills || []).map((skill: any) => ({
+      id: skill.id,
+      name: skill.name,
+      category: skill.category,
+      magnitude: skill.magnitude,
+      summary: skill.summary || null,
+    }));
+  } catch (error) {
+    logger.warn("Failed to fetch skills for Kronus index:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch work experience from Tartarus API
+ */
+async function fetchExperienceSummaries(): Promise<WorkExperienceIndex[]> {
+  try {
+    const tartarusUrl = process.env.TARTARUS_URL || "http://localhost:3005";
+    const response = await fetch(`${tartarusUrl}/api/cv/experience`);
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return (data.experience || []).map((exp: any) => ({
+      id: exp.id,
+      title: exp.title,
+      company: exp.company,
+      startDate: exp.startDate,
+      endDate: exp.endDate || null,
+      summary: exp.summary || null,
+    }));
+  } catch (error) {
+    logger.warn("Failed to fetch experience for Kronus index:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch education from Tartarus API
+ */
+async function fetchEducationSummaries(): Promise<EducationIndex[]> {
+  try {
+    const tartarusUrl = process.env.TARTARUS_URL || "http://localhost:3005";
+    const response = await fetch(`${tartarusUrl}/api/cv/education`);
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return (data.education || []).map((edu: any) => ({
+      id: edu.id,
+      degree: edu.degree,
+      field: edu.field,
+      institution: edu.institution,
+      startDate: edu.startDate,
+      endDate: edu.endDate || null,
+      summary: edu.summary || null,
+    }));
+  } catch (error) {
+    logger.warn("Failed to fetch education for Kronus index:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch portfolio projects from Tartarus API
+ */
+async function fetchPortfolioSummaries(): Promise<PortfolioProjectIndex[]> {
+  try {
+    const tartarusUrl = process.env.TARTARUS_URL || "http://localhost:3005";
+    const response = await fetch(`${tartarusUrl}/api/portfolio-projects`);
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return (data.projects || []).map((proj: any) => ({
+      id: proj.id,
+      title: proj.title,
+      category: proj.category,
+      status: proj.status,
+      summary: proj.summary || null,
+      technologies: proj.technologies || null,
+    }));
+  } catch (error) {
+    logger.warn("Failed to fetch portfolio projects for Kronus index:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch conversations with summaries from Tartarus API
+ * Note: Only includes conversations that have summaries (manually generated)
+ */
+async function fetchConversationSummaries(): Promise<ConversationIndex[]> {
+  try {
+    const tartarusUrl = process.env.TARTARUS_URL || "http://localhost:3005";
+    const response = await fetch(
+      `${tartarusUrl}/api/conversations?limit=50&hasSummary=true`,
+    );
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return (data.conversations || []).map((conv: any) => ({
+      id: conv.id,
+      title: conv.title || null,
+      summary: conv.summary || null,
+      createdAt: conv.createdAt,
+      updatedAt: conv.updatedAt,
+      messageCount: conv.messageCount || 0,
+    }));
+  } catch (error) {
+    logger.warn("Failed to fetch conversations for Kronus index:", error);
     return [];
   }
 }
@@ -121,12 +254,14 @@ async function fetchDocumentSummaries(): Promise<DocumentIndex[]> {
 /**
  * Build the summaries index for quick mode
  */
-export async function buildSummariesIndex(repository?: string): Promise<SummariesIndex> {
+export async function buildSummariesIndex(
+  repository?: string,
+): Promise<SummariesIndex> {
   // Project summaries (Entry 0s)
   const { summaries } = listAllProjectSummariesPaginated(50, 0);
   const projectSummaries: ProjectSummaryIndex[] = summaries
-    .filter(s => !repository || s.repository === repository)
-    .map(s => ({
+    .filter((s) => !repository || s.repository === repository)
+    .map((s) => ({
       repository: s.repository,
       summary: s.summary,
       status: s.status,
@@ -138,8 +273,13 @@ export async function buildSummariesIndex(repository?: string): Promise<Summarie
   // Journal entries - get recent entries (last 30)
   let journalEntries: JournalEntryIndex[] = [];
   if (repository) {
-    const { entries } = getEntriesByRepositoryPaginated(repository, 30, 0, false);
-    journalEntries = entries.map(e => ({
+    const { entries } = getEntriesByRepositoryPaginated(
+      repository,
+      30,
+      0,
+      false,
+    );
+    journalEntries = entries.map((e) => ({
       commit_hash: e.commit_hash,
       repository: e.repository,
       branch: e.branch,
@@ -150,21 +290,28 @@ export async function buildSummariesIndex(repository?: string): Promise<Summarie
   } else {
     // Get entries from all repos (limited)
     for (const ps of projectSummaries.slice(0, 5)) {
-      const { entries } = getEntriesByRepositoryPaginated(ps.repository, 10, 0, false);
-      journalEntries.push(...entries.map(e => ({
-        commit_hash: e.commit_hash,
-        repository: e.repository,
-        branch: e.branch,
-        date: e.date,
-        summary: e.summary || null,
-        why: e.why,
-      })));
+      const { entries } = getEntriesByRepositoryPaginated(
+        ps.repository,
+        10,
+        0,
+        false,
+      );
+      journalEntries.push(
+        ...entries.map((e) => ({
+          commit_hash: e.commit_hash,
+          repository: e.repository,
+          branch: e.branch,
+          date: e.date,
+          summary: e.summary || null,
+          why: e.why,
+        })),
+      );
     }
   }
 
   // Linear issues
   const { issues } = listLinearIssues({ includeDeleted: false, limit: 50 });
-  const linearIssues: LinearIssueIndex[] = issues.map(i => ({
+  const linearIssues: LinearIssueIndex[] = issues.map((i) => ({
     identifier: i.identifier,
     title: i.title,
     summary: i.summary,
@@ -175,7 +322,7 @@ export async function buildSummariesIndex(repository?: string): Promise<Summarie
 
   // Linear projects
   const { projects } = listLinearProjects({ includeDeleted: false, limit: 20 });
-  const linearProjects: LinearProjectIndex[] = projects.map(p => ({
+  const linearProjects: LinearProjectIndex[] = projects.map((p) => ({
     id: p.id,
     name: p.name,
     summary: p.summary,
@@ -190,14 +337,27 @@ export async function buildSummariesIndex(repository?: string): Promise<Summarie
   let attachments: AttachmentIndex[] = [];
   for (const entry of journalEntries.slice(0, 10)) {
     const entryAttachments = getAttachmentMetadataByCommit(entry.commit_hash);
-    attachments.push(...entryAttachments.map(a => ({
-      id: a.id,
-      commit_hash: entry.commit_hash,
-      filename: a.filename,
-      mime_type: a.mime_type,
-      description: a.description,
-    })));
+    attachments.push(
+      ...entryAttachments.map((a) => ({
+        id: a.id,
+        commit_hash: entry.commit_hash,
+        filename: a.filename,
+        mime_type: a.mime_type,
+        description: a.description,
+      })),
+    );
   }
+
+  // CV data (from Tartarus)
+  const skills = await fetchSkillsSummaries();
+  const experience = await fetchExperienceSummaries();
+  const education = await fetchEducationSummaries();
+
+  // Portfolio (from Tartarus)
+  const portfolioProjects = await fetchPortfolioSummaries();
+
+  // Conversations with summaries (from Tartarus)
+  const conversations = await fetchConversationSummaries();
 
   return {
     projectSummaries,
@@ -206,6 +366,11 @@ export async function buildSummariesIndex(repository?: string): Promise<Summarie
     linearProjects,
     documents,
     attachments,
+    skills,
+    experience,
+    education,
+    portfolioProjects,
+    conversations,
   };
 }
 
@@ -213,54 +378,55 @@ export async function buildSummariesIndex(repository?: string): Promise<Summarie
  * Format summaries index for the AI prompt
  */
 function formatIndexForPrompt(index: SummariesIndex): string {
-  let formatted = '';
+  let formatted = "";
 
   // Project summaries
   if (index.projectSummaries.length > 0) {
-    formatted += '## Project Summaries (Entry 0)\n';
+    formatted += "## Project Summaries (Entry 0)\n";
     for (const ps of index.projectSummaries) {
       formatted += `\n### ${ps.repository}\n`;
-      formatted += `- Summary: ${ps.summary || 'Not set'}\n`;
-      formatted += `- Status: ${ps.status || 'Unknown'}\n`;
-      formatted += `- Technologies: ${ps.technologies || 'Not listed'}\n`;
+      formatted += `- Summary: ${ps.summary || "Not set"}\n`;
+      formatted += `- Status: ${ps.status || "Unknown"}\n`;
+      formatted += `- Technologies: ${ps.technologies || "Not listed"}\n`;
       formatted += `- Entries: ${ps.entry_count || 0}, Updated: ${ps.updated_at}\n`;
     }
   }
 
   // Journal entries
   if (index.journalEntries.length > 0) {
-    formatted += '\n## Recent Journal Entries\n';
+    formatted += "\n## Recent Journal Entries\n";
     for (const e of index.journalEntries) {
       formatted += `\n- **${e.commit_hash.substring(0, 7)}** (${e.repository}/${e.branch}) [${e.date}]\n`;
-      formatted += `  ${e.summary || e.why?.substring(0, 100) || 'No summary'}\n`;
+      formatted += `  ${e.summary || e.why?.substring(0, 100) || "No summary"}\n`;
     }
   }
 
   // Linear issues
   if (index.linearIssues.length > 0) {
-    formatted += '\n## Linear Issues\n';
+    formatted += "\n## Linear Issues\n";
     for (const i of index.linearIssues) {
-      formatted += `- **${i.identifier}**: ${i.title} [${i.stateName || 'No state'}]`;
+      formatted += `- **${i.identifier}**: ${i.title} [${i.stateName || "No state"}]`;
       if (i.projectName) formatted += ` (Project: ${i.projectName})`;
-      formatted += '\n';
+      formatted += "\n";
       if (i.summary) formatted += `  ${i.summary}\n`;
     }
   }
 
   // Linear projects
   if (index.linearProjects.length > 0) {
-    formatted += '\n## Linear Projects\n';
+    formatted += "\n## Linear Projects\n";
     for (const p of index.linearProjects) {
-      formatted += `- **${p.name}** [${p.state || 'Unknown'}]`;
-      if (p.progress !== null) formatted += ` (${Math.round((p.progress || 0) * 100)}% complete)`;
-      formatted += '\n';
+      formatted += `- **${p.name}** [${p.state || "Unknown"}]`;
+      if (p.progress !== null)
+        formatted += ` (${Math.round((p.progress || 0) * 100)}% complete)`;
+      formatted += "\n";
       if (p.summary) formatted += `  ${p.summary}\n`;
     }
   }
 
   // Documents
   if (index.documents.length > 0) {
-    formatted += '\n## Documents\n';
+    formatted += "\n## Documents\n";
     for (const d of index.documents) {
       formatted += `- **${d.slug}** (${d.type}): ${d.title}\n`;
       if (d.summary) formatted += `  ${d.summary}\n`;
@@ -269,11 +435,73 @@ function formatIndexForPrompt(index: SummariesIndex): string {
 
   // Attachments
   if (index.attachments.length > 0) {
-    formatted += '\n## Attachments\n';
+    formatted += "\n## Attachments\n";
     for (const a of index.attachments) {
       formatted += `- ${a.filename} (${a.mime_type}) - ${a.commit_hash.substring(0, 7)}`;
       if (a.description) formatted += `: ${a.description}`;
-      formatted += '\n';
+      formatted += "\n";
+    }
+  }
+
+  // Skills
+  if (index.skills.length > 0) {
+    formatted += "\n## Skills\n";
+    // Group by category
+    const byCategory = new Map<string, typeof index.skills>();
+    for (const s of index.skills) {
+      const cat = s.category || "Other";
+      if (!byCategory.has(cat)) byCategory.set(cat, []);
+      byCategory.get(cat)!.push(s);
+    }
+    for (const [category, skills] of byCategory) {
+      formatted += `\n### ${category}\n`;
+      for (const s of skills) {
+        formatted += `- **${s.name}** (${s.magnitude}/5)`;
+        if (s.summary) formatted += `: ${s.summary}`;
+        formatted += "\n";
+      }
+    }
+  }
+
+  // Work Experience
+  if (index.experience.length > 0) {
+    formatted += "\n## Work Experience\n";
+    for (const e of index.experience) {
+      formatted += `\n### ${e.title} at ${e.company}\n`;
+      formatted += `- Period: ${e.startDate} - ${e.endDate || "Present"}\n`;
+      if (e.summary) formatted += `- ${e.summary}\n`;
+    }
+  }
+
+  // Education
+  if (index.education.length > 0) {
+    formatted += "\n## Education\n";
+    for (const e of index.education) {
+      formatted += `\n### ${e.degree} in ${e.field}\n`;
+      formatted += `- Institution: ${e.institution}\n`;
+      formatted += `- Period: ${e.startDate} - ${e.endDate || "Present"}\n`;
+      if (e.summary) formatted += `- ${e.summary}\n`;
+    }
+  }
+
+  // Portfolio Projects
+  if (index.portfolioProjects.length > 0) {
+    formatted += "\n## Portfolio Projects\n";
+    for (const p of index.portfolioProjects) {
+      formatted += `\n### ${p.title}\n`;
+      formatted += `- Category: ${p.category} | Status: ${p.status}\n`;
+      if (p.technologies?.length)
+        formatted += `- Tech: ${p.technologies.join(", ")}\n`;
+      if (p.summary) formatted += `- ${p.summary}\n`;
+    }
+  }
+
+  // Conversations (with summaries)
+  if (index.conversations.length > 0) {
+    formatted += "\n## Conversations\n";
+    for (const c of index.conversations) {
+      formatted += `- **${c.title || "Untitled"}** (${c.messageCount} messages, ${c.createdAt})\n`;
+      if (c.summary) formatted += `  ${c.summary}\n`;
     }
   }
 
@@ -285,7 +513,7 @@ function formatIndexForPrompt(index: SummariesIndex): string {
  */
 async function fetchDocument(slug: string): Promise<string | null> {
   try {
-    const tartarusUrl = process.env.TARTARUS_URL || 'http://localhost:3777';
+    const tartarusUrl = process.env.TARTARUS_URL || "http://localhost:3005";
     const response = await fetch(`${tartarusUrl}/api/documents/${slug}`);
     if (!response.ok) return null;
     const doc = await response.json();
@@ -301,9 +529,10 @@ async function fetchDocument(slug: string): Promise<string | null> {
 function createDeepModeTools() {
   return {
     readJournalEntry: tool({
-      description: 'Read full content of a specific journal entry by commit hash. Use when summary lacks detail.',
-      inputSchema: z.object({
-        commit_hash: z.string().min(7).describe('The commit hash (7+ chars)'),
+      description:
+        "Read full content of a specific journal entry by commit hash. Use when summary lacks detail.",
+      parameters: z.object({
+        commit_hash: z.string().min(7).describe("The commit hash (7+ chars)"),
       }),
       execute: async ({ commit_hash }) => {
         const entry = getEntryByCommit(commit_hash);
@@ -323,9 +552,10 @@ function createDeepModeTools() {
     }),
 
     readProjectSummary: tool({
-      description: 'Read full Entry 0 (project summary) for a repository. Use for architecture, tech stack, patterns.',
-      inputSchema: z.object({
-        repository: z.string().describe('Repository name'),
+      description:
+        "Read full Entry 0 (project summary) for a repository. Use for architecture, tech stack, patterns.",
+      parameters: z.object({
+        repository: z.string().describe("Repository name"),
       }),
       execute: async ({ repository }) => {
         const summary = getProjectSummary(repository);
@@ -351,9 +581,12 @@ function createDeepModeTools() {
     }),
 
     readLinearIssue: tool({
-      description: 'Read full Linear issue details by identifier (e.g., ENG-123).',
-      inputSchema: z.object({
-        identifier: z.string().describe('Linear issue identifier (e.g., ENG-123)'),
+      description:
+        "Read full Linear issue details by identifier (e.g., ENG-123).",
+      parameters: z.object({
+        identifier: z
+          .string()
+          .describe("Linear issue identifier (e.g., ENG-123)"),
       }),
       execute: async ({ identifier }) => {
         const issue = getLinearIssue(identifier);
@@ -373,9 +606,9 @@ function createDeepModeTools() {
     }),
 
     readLinearProject: tool({
-      description: 'Read full Linear project details by ID.',
-      inputSchema: z.object({
-        id: z.string().describe('Linear project ID'),
+      description: "Read full Linear project details by ID.",
+      parameters: z.object({
+        id: z.string().describe("Linear project ID"),
       }),
       execute: async ({ id }) => {
         const project = getLinearProject(id);
@@ -394,9 +627,10 @@ function createDeepModeTools() {
     }),
 
     readDocument: tool({
-      description: 'Read full document content from repository (writings, prompts, notes) by slug.',
-      inputSchema: z.object({
-        slug: z.string().describe('Document slug'),
+      description:
+        "Read full document content from repository (writings, prompts, notes) by slug.",
+      parameters: z.object({
+        slug: z.string().describe("Document slug"),
       }),
       execute: async ({ slug }) => {
         const content = await fetchDocument(slug);
@@ -414,22 +648,24 @@ function createDeepModeTools() {
  */
 export async function askKronus(
   input: KronusAskInput,
-  config: JournalConfig
+  config: JournalConfig,
 ): Promise<KronusResponse> {
-  const { question, repository, depth = 'quick' } = input;
+  const { question, repository, depth = "quick" } = input;
   const startTime = Date.now();
 
   // Start observability trace
-  const traceContext = startTrace('kronus_ask', {
+  const traceContext = startTrace("kronus_ask", {
     question: question.substring(0, 100),
     repository,
     depth,
   });
 
-  logger.info(`Kronus receiving question: "${question}" (depth: ${depth}, repo: ${repository || 'all'})`);
+  logger.info(
+    `Kronus receiving question: "${question}" (depth: ${depth}, repo: ${repository || "all"})`,
+  );
 
   // Build summaries index
-  const indexSpanId = startSpan('build_summaries_index', { type: 'span' });
+  const indexSpanId = startSpan("build_summaries_index", { type: "span" });
   const index = await buildSummariesIndex(repository);
   const formattedIndex = formatIndexForPrompt(index);
   endSpan(indexSpanId, {
@@ -437,6 +673,12 @@ export async function askKronus(
       projects: index.projectSummaries.length,
       entries: index.journalEntries.length,
       issues: index.linearIssues.length,
+      documents: index.documents.length,
+      skills: index.skills.length,
+      experience: index.experience.length,
+      education: index.education.length,
+      portfolio: index.portfolioProjects.length,
+      conversations: index.conversations.length,
     },
   });
 
@@ -449,14 +691,13 @@ export async function askKronus(
 - Entry 0 (project_summaries) may be outdated - cross-check with recent journal entries dates
 - Be concise and direct
 - Cite sources by identifier (commit_hash, slug, ENG-XXX, project name)
-- For repository documents, include slug/ID, type (writing/prompt/note), and direct path: repository://document/{slug_or_id}
 - For dates, note recency - newest entries are most accurate for current state
 - If the index doesn't have enough information, say so clearly
 - Do not make up information not in the index`;
 
   const depthInstructions =
-    depth === 'quick'
-      ? '\n\n## Mode: Quick\nAnswer using summaries only. Do not request additional information.'
+    depth === "quick"
+      ? "\n\n## Mode: Quick\nAnswer using summaries only. Do not request additional information."
       : `\n\n## Mode: Deep
 You have tools to read SPECIFIC items in full when summaries lack detail:
 - **readJournalEntry(commit_hash)**: Full entry with why, what_changed, decisions, files_changed
@@ -475,14 +716,14 @@ ${baseInstructions}${depthInstructions}`;
 
   // Set API key for Anthropic
   const originalKey = process.env.ANTHROPIC_API_KEY;
-  const modelName = 'claude-haiku-4-5';
+  const modelName = "claude-haiku-4-5";
 
   try {
     process.env.ANTHROPIC_API_KEY = config.aiApiKey;
 
     // Start generation span
-    const genSpanId = startSpan('kronus_generation', {
-      type: 'generation',
+    const genSpanId = startSpan("kronus_generation", {
+      type: "generation",
       model: modelName,
       input: { question, depth },
     });
@@ -491,7 +732,7 @@ ${baseInstructions}${depthInstructions}`;
     const model = anthropic(modelName);
 
     // Deep mode: provide tools for specific content retrieval
-    const tools = depth === 'deep' ? createDeepModeTools() : undefined;
+    const tools = depth === "deep" ? createDeepModeTools() : undefined;
 
     const result = await generateText({
       model,
@@ -499,7 +740,7 @@ ${baseInstructions}${depthInstructions}`;
       prompt: question,
       temperature: 0.5, // Lower temp for factual accuracy
       tools,
-      maxSteps: depth === 'deep' ? 5 : 1, // Allow tool use iterations in deep mode
+      maxSteps: depth === "deep" ? 5 : 1, // Allow tool use iterations in deep mode
     });
 
     // Extract token usage from result
@@ -521,11 +762,12 @@ ${baseInstructions}${depthInstructions}`;
     const latencyMs = Date.now() - startTime;
 
     // Extract tool calls for storage
-    const toolCalls = result.steps?.flatMap((step) =>
-      step.toolCalls?.map((tc) => ({
-        name: tc.toolName,
-        args: tc.args,
-      })) ?? []
+    const toolCalls = result.steps?.flatMap(
+      (step) =>
+        step.toolCalls?.map((tc) => ({
+          name: tc.toolName,
+          args: tc.args,
+        })) ?? [],
     );
 
     // Store chat in database
@@ -541,7 +783,7 @@ ${baseInstructions}${depthInstructions}`;
       output_tokens: outputTokens,
       latency_ms: latencyMs,
       cost_usd: cost,
-      status: 'success',
+      status: "success",
     });
 
     // End trace
@@ -558,17 +800,18 @@ ${baseInstructions}${depthInstructions}`;
     };
   } catch (error) {
     const latencyMs = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
 
     // Store failed chat
     storeKronusChat({
       trace_id: traceContext.traceId,
       question,
-      answer: '',
+      answer: "",
       repository,
       depth,
       latency_ms: latencyMs,
-      status: 'error',
+      status: "error",
       error_message: errorMessage,
     });
 
@@ -579,7 +822,7 @@ ${baseInstructions}${depthInstructions}`;
     if (originalKey !== undefined) process.env.ANTHROPIC_API_KEY = originalKey;
     else delete process.env.ANTHROPIC_API_KEY;
 
-    logger.error('Kronus agent error:', error);
+    logger.error("Kronus agent error:", error);
     throw new Error(`Kronus failed to answer: ${errorMessage}`);
   }
 }
@@ -587,20 +830,23 @@ ${baseInstructions}${depthInstructions}`;
 /**
  * Extract source references from the answer text
  */
-function extractSources(answer: string, index: SummariesIndex): KronusResponse['sources'] {
-  const sources: KronusResponse['sources'] = [];
+function extractSources(
+  answer: string,
+  index: SummariesIndex,
+): KronusResponse["sources"] {
+  const sources: KronusResponse["sources"] = [];
   const seen = new Set<string>();
 
   // Check for commit hashes (7+ char hex)
   const commitMatches = answer.match(/\b[a-f0-9]{7,40}\b/gi) || [];
   for (const hash of commitMatches) {
-    const entry = index.journalEntries.find(e =>
-      e.commit_hash.toLowerCase().startsWith(hash.toLowerCase())
+    const entry = index.journalEntries.find((e) =>
+      e.commit_hash.toLowerCase().startsWith(hash.toLowerCase()),
     );
     if (entry && !seen.has(entry.commit_hash)) {
       seen.add(entry.commit_hash);
       sources.push({
-        type: 'journal_entry',
+        type: "journal_entry",
         identifier: entry.commit_hash,
         title: entry.why?.substring(0, 50),
       });
@@ -610,11 +856,11 @@ function extractSources(answer: string, index: SummariesIndex): KronusResponse['
   // Check for Linear identifiers (ENG-XXX, etc.)
   const linearMatches = answer.match(/\b[A-Z]{2,5}-\d+\b/g) || [];
   for (const identifier of linearMatches) {
-    const issue = index.linearIssues.find(i => i.identifier === identifier);
+    const issue = index.linearIssues.find((i) => i.identifier === identifier);
     if (issue && !seen.has(identifier)) {
       seen.add(identifier);
       sources.push({
-        type: 'linear_issue',
+        type: "linear_issue",
         identifier,
         title: issue.title,
       });
@@ -626,7 +872,7 @@ function extractSources(answer: string, index: SummariesIndex): KronusResponse['
     if (answer.includes(project.name) && !seen.has(project.id)) {
       seen.add(project.id);
       sources.push({
-        type: 'linear_project',
+        type: "linear_project",
         identifier: project.id,
         title: project.name,
       });
@@ -638,9 +884,60 @@ function extractSources(answer: string, index: SummariesIndex): KronusResponse['
     if (answer.includes(ps.repository) && !seen.has(ps.repository)) {
       seen.add(ps.repository);
       sources.push({
-        type: 'project_summary',
+        type: "project_summary",
         identifier: ps.repository,
         title: ps.repository,
+      });
+    }
+  }
+
+  // Check for skill names mentioned
+  for (const skill of index.skills) {
+    if (
+      answer.toLowerCase().includes(skill.name.toLowerCase()) &&
+      !seen.has(`skill:${skill.id}`)
+    ) {
+      seen.add(`skill:${skill.id}`);
+      sources.push({
+        type: "skill",
+        identifier: skill.id,
+        title: skill.name,
+      });
+    }
+  }
+
+  // Check for work experience (company names)
+  for (const exp of index.experience) {
+    if (answer.includes(exp.company) && !seen.has(`exp:${exp.id}`)) {
+      seen.add(`exp:${exp.id}`);
+      sources.push({
+        type: "work_experience",
+        identifier: exp.id,
+        title: `${exp.title} at ${exp.company}`,
+      });
+    }
+  }
+
+  // Check for education (institution names)
+  for (const edu of index.education) {
+    if (answer.includes(edu.institution) && !seen.has(`edu:${edu.id}`)) {
+      seen.add(`edu:${edu.id}`);
+      sources.push({
+        type: "education",
+        identifier: edu.id,
+        title: `${edu.degree} at ${edu.institution}`,
+      });
+    }
+  }
+
+  // Check for portfolio project titles
+  for (const proj of index.portfolioProjects) {
+    if (answer.includes(proj.title) && !seen.has(`portfolio:${proj.id}`)) {
+      seen.add(`portfolio:${proj.id}`);
+      sources.push({
+        type: "portfolio_project",
+        identifier: proj.id,
+        title: proj.title,
       });
     }
   }
