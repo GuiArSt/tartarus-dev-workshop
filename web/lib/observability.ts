@@ -32,9 +32,8 @@ function logSpanEnd(
   error?: string
 ) {
   const status = error ? "ERROR" : "OK";
-  const tokenInfo = tokens?.input || tokens?.output
-    ? ` tokens=${tokens.input ?? 0}/${tokens.output ?? 0}`
-    : "";
+  const tokenInfo =
+    tokens?.input || tokens?.output ? ` tokens=${tokens.input ?? 0}/${tokens.output ?? 0}` : "";
   const costInfo = cost ? ` cost=$${cost.toFixed(4)}` : "";
   const errorInfo = error ? ` error="${error}"` : "";
   console.log(
@@ -51,7 +50,9 @@ function logTraceEnd(latencyMs: number, totalCost?: number, error?: string) {
   const status = error ? "ERROR" : "OK";
   const costInfo = totalCost ? ` total_cost=$${totalCost.toFixed(4)}` : "";
   const errorInfo = error ? ` error="${error}"` : "";
-  console.log(`${LOG_PREFIX} ========== TRACE END: ${status} latency=${latencyMs}ms${costInfo}${errorInfo} ==========\n`);
+  console.log(
+    `${LOG_PREFIX} ========== TRACE END: ${status} latency=${latencyMs}ms${costInfo}${errorInfo} ==========\n`
+  );
 }
 
 // ============================================================================
@@ -94,11 +95,7 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   "claude-opus-4-5-20251101": { input: 15.0, output: 75.0 },
 };
 
-function calculateCost(
-  model: string,
-  inputTokens: number,
-  outputTokens: number
-): number {
+function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
   const costs = MODEL_COSTS[model];
   if (!costs) return 0;
   return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
@@ -162,10 +159,12 @@ export function startTrace(name: string): TraceContext {
   const spanId = generateId();
 
   const db = getDatabase();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO ai_traces (id, trace_id, parent_span_id, name, type, status, started_at)
     VALUES (?, ?, NULL, ?, 'span', 'running', datetime('now'))
-  `).run(spanId, traceId, name);
+  `
+  ).run(spanId, traceId, name);
 
   currentContext = { traceId, spanId };
 
@@ -193,10 +192,12 @@ export function startSpan(
   const parentSpanId = currentContext?.spanId ?? null;
 
   const db = getDatabase();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO ai_traces (id, trace_id, parent_span_id, name, type, model, input, status, metadata, started_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, datetime('now'))
-  `).run(
+  `
+  ).run(
     spanId,
     traceId,
     parentSpanId,
@@ -249,7 +250,8 @@ export function endSpan(
     ? calculateCost(spanData.model, options.inputTokens ?? 0, options.outputTokens ?? 0)
     : 0;
 
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE ai_traces SET
       output = ?,
       input_tokens = ?,
@@ -261,7 +263,8 @@ export function endSpan(
       error_message = ?,
       ended_at = datetime('now')
     WHERE id = ?
-  `).run(
+  `
+  ).run(
     options.output ? JSON.stringify(options.output) : null,
     options.inputTokens ?? null,
     options.outputTokens ?? null,
@@ -269,23 +272,35 @@ export function endSpan(
     latencyMs,
     cost || null,
     options.error ? "error" : "success",
-    options.error ? (typeof options.error === "string" ? options.error : options.error.message) : null,
+    options.error
+      ? typeof options.error === "string"
+        ? options.error
+        : options.error.message
+      : null,
     spanId
   );
 
   // Log span end
-  const spanName = db.prepare("SELECT name FROM ai_traces WHERE id = ?").get(spanId) as { name: string } | undefined;
+  const spanName = db.prepare("SELECT name FROM ai_traces WHERE id = ?").get(spanId) as
+    | { name: string }
+    | undefined;
   logSpanEnd(
     spanName?.name ?? spanId,
     spanId,
     latencyMs,
     { input: options.inputTokens, output: options.outputTokens },
     cost || undefined,
-    options.error ? (typeof options.error === "string" ? options.error : options.error.message) : undefined
+    options.error
+      ? typeof options.error === "string"
+        ? options.error
+        : options.error.message
+      : undefined
   );
 
   // Restore parent context
-  const previousContext = (globalThis as Record<string, unknown>)[`_trace_parent_${spanId}`] as TraceContext | null;
+  const previousContext = (globalThis as Record<string, unknown>)[
+    `_trace_parent_${spanId}`
+  ] as TraceContext | null;
   currentContext = previousContext;
   delete (globalThis as Record<string, unknown>)[`_trace_parent_${spanId}`];
 }
@@ -309,25 +324,37 @@ export function endTrace(options: { error?: Error | string } = {}): void {
 
     // Calculate total cost for trace
     const totals = db
-      .prepare(`
+      .prepare(
+        `
         SELECT SUM(cost_usd) as total_cost, SUM(input_tokens) as total_input, SUM(output_tokens) as total_output
         FROM ai_traces WHERE trace_id = ? AND type = 'generation'
-      `)
-      .get(traceId) as { total_cost: number | null; total_input: number | null; total_output: number | null };
+      `
+      )
+      .get(traceId) as {
+      total_cost: number | null;
+      total_input: number | null;
+      total_output: number | null;
+    };
 
-    db.prepare(`
+    db.prepare(
+      `
       UPDATE ai_traces SET
         input_tokens = ?, output_tokens = ?, total_tokens = ?,
         latency_ms = ?, cost_usd = ?, status = ?, error_message = ?, ended_at = datetime('now')
       WHERE id = ?
-    `).run(
+    `
+    ).run(
       totals.total_input,
       totals.total_output,
       (totals.total_input ?? 0) + (totals.total_output ?? 0),
       latencyMs,
       totals.total_cost,
       options.error ? "error" : "success",
-      options.error ? (typeof options.error === "string" ? options.error : options.error.message) : null,
+      options.error
+        ? typeof options.error === "string"
+          ? options.error
+          : options.error.message
+        : null,
       rootSpan.id
     );
 
@@ -335,7 +362,11 @@ export function endTrace(options: { error?: Error | string } = {}): void {
     logTraceEnd(
       latencyMs,
       totals.total_cost ?? undefined,
-      options.error ? (typeof options.error === "string" ? options.error : options.error.message) : undefined
+      options.error
+        ? typeof options.error === "string"
+          ? options.error
+          : options.error.message
+        : undefined
     );
   }
 
@@ -367,7 +398,11 @@ export function observe<T extends unknown[], R>(
     try {
       const result = await fn(...args);
       const tokens = options.extractTokens?.(result) ?? {};
-      endSpan(spanId, { output: result, inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens });
+      endSpan(spanId, {
+        output: result,
+        inputTokens: tokens.inputTokens,
+        outputTokens: tokens.outputTokens,
+      });
       return result;
     } catch (error) {
       endSpan(spanId, { error: error instanceof Error ? error : String(error) });
@@ -384,7 +419,9 @@ export function getRecentTraces(limit = 50): TraceSpan[] {
   const db = getDatabase();
   ensureTracesTable();
   return db
-    .prepare("SELECT * FROM ai_traces WHERE parent_span_id IS NULL ORDER BY started_at DESC LIMIT ?")
+    .prepare(
+      "SELECT * FROM ai_traces WHERE parent_span_id IS NULL ORDER BY started_at DESC LIMIT ?"
+    )
     .all(limit) as TraceSpan[];
 }
 
@@ -410,7 +447,8 @@ export function getTraceStats(days = 7): {
   cutoff.setDate(cutoff.getDate() - days);
 
   const stats = db
-    .prepare(`
+    .prepare(
+      `
       SELECT
         COUNT(DISTINCT trace_id) as total_traces,
         SUM(CASE WHEN type = 'generation' THEN total_tokens ELSE 0 END) as total_tokens,
@@ -418,7 +456,8 @@ export function getTraceStats(days = 7): {
         AVG(CASE WHEN parent_span_id IS NULL THEN latency_ms END) as avg_latency_ms,
         AVG(CASE WHEN status = 'error' THEN 1.0 ELSE 0.0 END) as error_rate
       FROM ai_traces WHERE started_at >= ?
-    `)
+    `
+    )
     .get(cutoff.toISOString()) as {
     total_traces: number;
     total_tokens: number;
@@ -428,14 +467,23 @@ export function getTraceStats(days = 7): {
   };
 
   const byModel = db
-    .prepare(`
+    .prepare(
+      `
       SELECT model, COUNT(*) as count, SUM(total_tokens) as tokens, SUM(cost_usd) as cost
       FROM ai_traces WHERE started_at >= ? AND model IS NOT NULL GROUP BY model
-    `)
-    .all(cutoff.toISOString()) as Array<{ model: string; count: number; tokens: number; cost: number }>;
+    `
+    )
+    .all(cutoff.toISOString()) as Array<{
+    model: string;
+    count: number;
+    tokens: number;
+    cost: number;
+  }>;
 
   return {
     ...stats,
-    by_model: Object.fromEntries(byModel.map((m) => [m.model, { count: m.count, tokens: m.tokens, cost: m.cost }])),
+    by_model: Object.fromEntries(
+      byModel.map((m) => [m.model, { count: m.count, tokens: m.tokens, cost: m.cost }])
+    ),
   };
 }

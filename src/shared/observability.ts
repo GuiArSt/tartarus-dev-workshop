@@ -10,12 +10,12 @@
  * Storage: SQLite tables (ai_traces, kronus_chats)
  */
 
-import Database from 'better-sqlite3';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import Database from "better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { logger } from './logger.js';
+import { logger } from "./logger.js";
 
 let db: Database.Database | null = null;
 
@@ -31,8 +31,8 @@ function getDbPath(): string {
   let currentDir = __dirname;
   for (let i = 0; i < 10; i++) {
     if (
-      fs.existsSync(path.join(currentDir, 'package.json')) ||
-      fs.existsSync(path.join(currentDir, 'Soul.xml'))
+      fs.existsSync(path.join(currentDir, "package.json")) ||
+      fs.existsSync(path.join(currentDir, "Soul.xml"))
     ) {
       break;
     }
@@ -41,7 +41,7 @@ function getDbPath(): string {
     currentDir = parent;
   }
 
-  return path.join(currentDir, 'data', 'observability.db');
+  return path.join(currentDir, "data", "observability.db");
 }
 
 function ensureDb(): Database.Database {
@@ -54,8 +54,8 @@ function ensureDb(): Database.Database {
   }
 
   db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('busy_timeout = 5000');
+  db.pragma("journal_mode = WAL");
+  db.pragma("busy_timeout = 5000");
 
   // Create tables
   db.exec(`
@@ -123,7 +123,7 @@ export interface TraceSpan {
   trace_id: string;
   parent_span_id: string | null;
   name: string;
-  type: 'generation' | 'span' | 'event';
+  type: "generation" | "span" | "event";
   model?: string;
   input?: unknown;
   output?: unknown;
@@ -132,7 +132,7 @@ export interface TraceSpan {
   total_tokens?: number;
   latency_ms?: number;
   cost_usd?: number;
-  status: 'running' | 'success' | 'error';
+  status: "running" | "success" | "error";
   error_message?: string;
   metadata?: Record<string, unknown>;
   started_at: string;
@@ -145,14 +145,14 @@ export interface KronusChat {
   question: string;
   answer: string;
   repository?: string;
-  depth: 'quick' | 'deep';
+  depth: "quick" | "deep";
   sources?: unknown[];
   tool_calls?: unknown[];
   input_tokens?: number;
   output_tokens?: number;
   latency_ms?: number;
   cost_usd?: number;
-  status: 'success' | 'error';
+  status: "success" | "error";
   error_message?: string;
   created_at?: string;
 }
@@ -167,19 +167,19 @@ export interface TraceContext {
 // ============================================================================
 
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-  'claude-sonnet-4-5-20250929': { input: 3.0, output: 15.0 },
-  'claude-haiku-4-5-20250514': { input: 0.8, output: 4.0 },
-  'claude-opus-4-5-20251101': { input: 15.0, output: 75.0 },
+  "claude-sonnet-4-5-20250929": { input: 3.0, output: 15.0 },
+  "claude-haiku-4-5-20250514": { input: 0.8, output: 4.0 },
+  "claude-opus-4-5-20251101": { input: 15.0, output: 75.0 },
   // AI SDK model aliases
-  'claude-haiku-4-5': { input: 0.8, output: 4.0 },
-  'claude-sonnet-4-5': { input: 3.0, output: 15.0 },
-  'claude-opus-4-5': { input: 15.0, output: 75.0 },
+  "claude-haiku-4-5": { input: 0.8, output: 4.0 },
+  "claude-sonnet-4-5": { input: 3.0, output: 15.0 },
+  "claude-opus-4-5": { input: 15.0, output: 75.0 },
 };
 
 export function calculateCost(
   model: string,
   inputTokens: number,
-  outputTokens: number
+  outputTokens: number,
 ): number {
   const costs = MODEL_COSTS[model];
   if (!costs) return 0;
@@ -204,7 +204,10 @@ const contextStack: Map<string, TraceContext | null> = new Map();
 /**
  * Start a new trace (top-level operation)
  */
-export function startTrace(name: string, metadata?: Record<string, unknown>): TraceContext {
+export function startTrace(
+  name: string,
+  metadata?: Record<string, unknown>,
+): TraceContext {
   const database = ensureDb();
   const traceId = generateId();
   const spanId = generateId();
@@ -214,7 +217,7 @@ export function startTrace(name: string, metadata?: Record<string, unknown>): Tr
       `
     INSERT INTO ai_traces (id, trace_id, parent_span_id, name, type, status, metadata, started_at)
     VALUES (?, ?, NULL, ?, 'span', 'running', ?, datetime('now'))
-  `
+  `,
     )
     .run(spanId, traceId, name, metadata ? JSON.stringify(metadata) : null);
 
@@ -230,11 +233,11 @@ export function startTrace(name: string, metadata?: Record<string, unknown>): Tr
 export function startSpan(
   name: string,
   options: {
-    type?: 'generation' | 'span' | 'event';
+    type?: "generation" | "span" | "event";
     model?: string;
     input?: unknown;
     metadata?: Record<string, unknown>;
-  } = {}
+  } = {},
 ): string {
   const database = ensureDb();
   const spanId = generateId();
@@ -246,24 +249,26 @@ export function startSpan(
       `
     INSERT INTO ai_traces (id, trace_id, parent_span_id, name, type, model, input, status, metadata, started_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, datetime('now'))
-  `
+  `,
     )
     .run(
       spanId,
       traceId,
       parentSpanId,
       name,
-      options.type ?? 'span',
+      options.type ?? "span",
       options.model ?? null,
       options.input ? JSON.stringify(options.input) : null,
-      options.metadata ? JSON.stringify(options.metadata) : null
+      options.metadata ? JSON.stringify(options.metadata) : null,
     );
 
   // Store previous context for restoration
   contextStack.set(spanId, currentContext);
   currentContext = { traceId, spanId };
 
-  logger.debug(`[Span] START ${name} span=${spanId} model=${options.model || 'none'}`);
+  logger.debug(
+    `[Span] START ${name} span=${spanId} model=${options.model || "none"}`,
+  );
 
   return spanId;
 }
@@ -278,10 +283,12 @@ export function endSpan(
     inputTokens?: number;
     outputTokens?: number;
     error?: Error | string;
-  } = {}
+  } = {},
 ): void {
   const database = ensureDb();
-  const spanData = database.prepare('SELECT started_at, model, name FROM ai_traces WHERE id = ?').get(spanId) as
+  const spanData = database
+    .prepare("SELECT started_at, model, name FROM ai_traces WHERE id = ?")
+    .get(spanId) as
     | { started_at: string; model: string | null; name: string }
     | undefined;
 
@@ -293,7 +300,13 @@ export function endSpan(
   const latencyMs = Date.now() - new Date(spanData.started_at).getTime();
   const totalTokens = (options.inputTokens ?? 0) + (options.outputTokens ?? 0);
 
-  const cost = spanData.model ? calculateCost(spanData.model, options.inputTokens ?? 0, options.outputTokens ?? 0) : 0;
+  const cost = spanData.model
+    ? calculateCost(
+        spanData.model,
+        options.inputTokens ?? 0,
+        options.outputTokens ?? 0,
+      )
+    : 0;
 
   database
     .prepare(
@@ -309,7 +322,7 @@ export function endSpan(
       error_message = ?,
       ended_at = datetime('now')
     WHERE id = ?
-  `
+  `,
     )
     .run(
       options.output ? JSON.stringify(options.output) : null,
@@ -318,14 +331,18 @@ export function endSpan(
       totalTokens || null,
       latencyMs,
       cost || null,
-      options.error ? 'error' : 'success',
-      options.error ? (typeof options.error === 'string' ? options.error : options.error.message) : null,
-      spanId
+      options.error ? "error" : "success",
+      options.error
+        ? typeof options.error === "string"
+          ? options.error
+          : options.error.message
+        : null,
+      spanId,
     );
 
-  const status = options.error ? 'ERROR' : 'OK';
+  const status = options.error ? "ERROR" : "OK";
   logger.debug(
-    `[Span] END ${spanData.name} span=${spanId} ${status} latency=${latencyMs}ms tokens=${options.inputTokens ?? 0}/${options.outputTokens ?? 0}`
+    `[Span] END ${spanData.name} span=${spanId} ${status} latency=${latencyMs}ms tokens=${options.inputTokens ?? 0}/${options.outputTokens ?? 0}`,
   );
 
   // Restore parent context
@@ -345,8 +362,12 @@ export function endTrace(options: { error?: Error | string } = {}): void {
 
   // Find root span
   const rootSpan = database
-    .prepare('SELECT id, started_at, name FROM ai_traces WHERE trace_id = ? AND parent_span_id IS NULL')
-    .get(traceId) as { id: string; started_at: string; name: string } | undefined;
+    .prepare(
+      "SELECT id, started_at, name FROM ai_traces WHERE trace_id = ? AND parent_span_id IS NULL",
+    )
+    .get(traceId) as
+    | { id: string; started_at: string; name: string }
+    | undefined;
 
   if (rootSpan) {
     const latencyMs = Date.now() - new Date(rootSpan.started_at).getTime();
@@ -357,9 +378,13 @@ export function endTrace(options: { error?: Error | string } = {}): void {
         `
         SELECT SUM(cost_usd) as total_cost, SUM(input_tokens) as total_input, SUM(output_tokens) as total_output
         FROM ai_traces WHERE trace_id = ? AND type = 'generation'
-      `
+      `,
       )
-      .get(traceId) as { total_cost: number | null; total_input: number | null; total_output: number | null };
+      .get(traceId) as {
+      total_cost: number | null;
+      total_input: number | null;
+      total_output: number | null;
+    };
 
     database
       .prepare(
@@ -368,7 +393,7 @@ export function endTrace(options: { error?: Error | string } = {}): void {
         input_tokens = ?, output_tokens = ?, total_tokens = ?,
         latency_ms = ?, cost_usd = ?, status = ?, error_message = ?, ended_at = datetime('now')
       WHERE id = ?
-    `
+    `,
       )
       .run(
         totals.total_input,
@@ -376,13 +401,19 @@ export function endTrace(options: { error?: Error | string } = {}): void {
         (totals.total_input ?? 0) + (totals.total_output ?? 0),
         latencyMs,
         totals.total_cost,
-        options.error ? 'error' : 'success',
-        options.error ? (typeof options.error === 'string' ? options.error : options.error.message) : null,
-        rootSpan.id
+        options.error ? "error" : "success",
+        options.error
+          ? typeof options.error === "string"
+            ? options.error
+            : options.error.message
+          : null,
+        rootSpan.id,
       );
 
-    const status = options.error ? 'ERROR' : 'OK';
-    logger.debug(`[Trace] END ${rootSpan.name} ${status} latency=${latencyMs}ms cost=$${totals.total_cost?.toFixed(4) ?? '0'}`);
+    const status = options.error ? "ERROR" : "OK";
+    logger.debug(
+      `[Trace] END ${rootSpan.name} ${status} latency=${latencyMs}ms cost=$${totals.total_cost?.toFixed(4) ?? "0"}`,
+    );
   }
 
   currentContext = null;
@@ -402,7 +433,9 @@ export function getCurrentTraceId(): string | null {
 /**
  * Store a Kronus chat conversation
  */
-export function storeKronusChat(chat: Omit<KronusChat, 'id' | 'created_at'>): number {
+export function storeKronusChat(
+  chat: Omit<KronusChat, "id" | "created_at">,
+): number {
   const database = ensureDb();
 
   const result = database
@@ -412,7 +445,7 @@ export function storeKronusChat(chat: Omit<KronusChat, 'id' | 'created_at'>): nu
       trace_id, question, answer, repository, depth, sources, tool_calls,
       input_tokens, output_tokens, latency_ms, cost_usd, status, error_message
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `
+  `,
     )
     .run(
       chat.trace_id,
@@ -427,10 +460,12 @@ export function storeKronusChat(chat: Omit<KronusChat, 'id' | 'created_at'>): nu
       chat.latency_ms ?? null,
       chat.cost_usd ?? null,
       chat.status,
-      chat.error_message ?? null
+      chat.error_message ?? null,
     );
 
-  logger.info(`[KronusChat] Stored chat trace=${chat.trace_id} depth=${chat.depth}`);
+  logger.info(
+    `[KronusChat] Stored chat trace=${chat.trace_id} depth=${chat.depth}`,
+  );
   return result.lastInsertRowid as number;
 }
 
@@ -439,7 +474,9 @@ export function storeKronusChat(chat: Omit<KronusChat, 'id' | 'created_at'>): nu
  */
 export function getRecentKronusChats(limit = 50): KronusChat[] {
   const database = ensureDb();
-  const rows = database.prepare('SELECT * FROM kronus_chats ORDER BY created_at DESC LIMIT ?').all(limit) as any[];
+  const rows = database
+    .prepare("SELECT * FROM kronus_chats ORDER BY created_at DESC LIMIT ?")
+    .all(limit) as any[];
 
   return rows.map((row) => ({
     ...row,
@@ -451,10 +488,15 @@ export function getRecentKronusChats(limit = 50): KronusChat[] {
 /**
  * Get Kronus chats by repository
  */
-export function getKronusChatsByRepository(repository: string, limit = 50): KronusChat[] {
+export function getKronusChatsByRepository(
+  repository: string,
+  limit = 50,
+): KronusChat[] {
   const database = ensureDb();
   const rows = database
-    .prepare('SELECT * FROM kronus_chats WHERE repository = ? ORDER BY created_at DESC LIMIT ?')
+    .prepare(
+      "SELECT * FROM kronus_chats WHERE repository = ? ORDER BY created_at DESC LIMIT ?",
+    )
     .all(repository, limit) as any[];
 
   return rows.map((row) => ({
@@ -471,13 +513,19 @@ export function getKronusChatsByRepository(repository: string, limit = 50): Kron
 export function getRecentTraces(limit = 50): TraceSpan[] {
   const database = ensureDb();
   return database
-    .prepare('SELECT * FROM ai_traces WHERE parent_span_id IS NULL ORDER BY started_at DESC LIMIT ?')
+    .prepare(
+      "SELECT * FROM ai_traces WHERE parent_span_id IS NULL ORDER BY started_at DESC LIMIT ?",
+    )
     .all(limit) as TraceSpan[];
 }
 
 export function getTraceSpans(traceId: string): TraceSpan[] {
   const database = ensureDb();
-  return database.prepare('SELECT * FROM ai_traces WHERE trace_id = ? ORDER BY started_at ASC').all(traceId) as TraceSpan[];
+  return database
+    .prepare(
+      "SELECT * FROM ai_traces WHERE trace_id = ? ORDER BY started_at ASC",
+    )
+    .all(traceId) as TraceSpan[];
 }
 
 export function getTraceStats(days = 7): {
@@ -503,7 +551,7 @@ export function getTraceStats(days = 7): {
         AVG(CASE WHEN parent_span_id IS NULL THEN latency_ms END) as avg_latency_ms,
         AVG(CASE WHEN status = 'error' THEN 1.0 ELSE 0.0 END) as error_rate
       FROM ai_traces WHERE started_at >= ?
-    `
+    `,
     )
     .get(cutoff.toISOString()) as {
     total_traces: number;
@@ -514,7 +562,7 @@ export function getTraceStats(days = 7): {
   };
 
   const kronusStats = database
-    .prepare('SELECT COUNT(*) as count FROM kronus_chats WHERE created_at >= ?')
+    .prepare("SELECT COUNT(*) as count FROM kronus_chats WHERE created_at >= ?")
     .get(cutoff.toISOString()) as { count: number };
 
   return {
@@ -531,6 +579,6 @@ export function closeObservabilityDb(): void {
   if (db) {
     db.close();
     db = null;
-    logger.info('Observability DB closed');
+    logger.info("Observability DB closed");
   }
 }

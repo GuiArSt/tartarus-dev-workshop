@@ -16,9 +16,7 @@ export const GET = withErrorHandler(async () => {
   const experience = db
     .prepare("SELECT * FROM work_experience ORDER BY dateStart DESC")
     .all() as any[];
-  const education = db
-    .prepare("SELECT * FROM education ORDER BY dateStart DESC")
-    .all() as any[];
+  const education = db.prepare("SELECT * FROM education ORDER BY dateStart DESC").all() as any[];
 
   // Parse JSON fields
   const skillsParsed = skills.map((s) => ({
@@ -37,7 +35,9 @@ export const GET = withErrorHandler(async () => {
     achievements: JSON.parse(e.achievements || "[]"),
   }));
 
-  console.log(`[CV API] Returning: ${skillsParsed.length} skills, ${experienceParsed.length} experience, ${educationParsed.length} education`);
+  console.log(
+    `[CV API] Returning: ${skillsParsed.length} skills, ${experienceParsed.length} experience, ${educationParsed.length} education`
+  );
   return NextResponse.json({
     skills: skillsParsed,
     experience: experienceParsed,

@@ -154,7 +154,10 @@ export function getToolActionDescription(toolName: string, args: Record<string, 
 /**
  * Format tool arguments for display in confirmation UI
  */
-export function formatToolArgsForDisplay(toolName: string, args: Record<string, any>): Record<string, string> {
+export function formatToolArgsForDisplay(
+  toolName: string,
+  args: Record<string, any>
+): Record<string, string> {
   const display: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(args)) {
@@ -162,9 +165,10 @@ export function formatToolArgsForDisplay(toolName: string, args: Record<string, 
 
     // Format arrays
     if (Array.isArray(value)) {
-      display[key] = value.length > 3
-        ? `[${value.slice(0, 3).join(", ")}...+${value.length - 3}]`
-        : `[${value.join(", ")}]`;
+      display[key] =
+        value.length > 3
+          ? `[${value.slice(0, 3).join(", ")}...+${value.length - 3}]`
+          : `[${value.join(", ")}]`;
       continue;
     }
 
@@ -206,7 +210,10 @@ export interface PendingToolAction {
 /**
  * Create a pending action from a tool call
  */
-export function createPendingAction(toolName: string, args: Record<string, any>): PendingToolAction {
+export function createPendingAction(
+  toolName: string,
+  args: Record<string, any>
+): PendingToolAction {
   return {
     id: `${toolName}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
     toolName,
@@ -300,10 +307,14 @@ export function formatArgsForDiffView(toolName: string, args: Record<string, any
         });
         lines.push(`]`);
       } else {
-        lines.push(`${key}: [${value.map(v => JSON.stringify(v)).join(", ")}]`);
+        lines.push(`${key}: [${value.map((v) => JSON.stringify(v)).join(", ")}]`);
       }
     } else if (typeof value === "object") {
-      lines.push(`${key}: ${JSON.stringify(value, null, 2).split("\n").join("\n" + indent)}`);
+      lines.push(
+        `${key}: ${JSON.stringify(value, null, 2)
+          .split("\n")
+          .join("\n" + indent)}`
+      );
     } else if (typeof value === "string" && value.length > 100) {
       // Long strings - show with line breaks preserved
       lines.push(`${key}: """`);

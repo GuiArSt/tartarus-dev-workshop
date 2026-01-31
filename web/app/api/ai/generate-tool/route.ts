@@ -19,7 +19,9 @@ const ToolDefinitionSchema = z.object({
     .describe("1-2 sentence description explaining when and why to use this tool"),
   inputSchema: z
     .record(z.string(), z.string())
-    .describe("Object mapping field names to Zod schema definitions as strings, e.g. { 'name': 'string().min(1)', 'count': 'number().optional()' }"),
+    .describe(
+      "Object mapping field names to Zod schema definitions as strings, e.g. { 'name': 'string().min(1)', 'count': 'number().optional()' }"
+    ),
   promptTemplate: z
     .string()
     .describe("Instructions for the AI on how to use this tool effectively"),
@@ -34,10 +36,7 @@ export async function POST(req: Request) {
     const { description, examples, context } = await req.json();
 
     if (!description) {
-      return NextResponse.json(
-        { error: "Description is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Description is required" }, { status: 400 });
     }
 
     // Use Claude Haiku 4.5 for fast, cost-effective tool generation

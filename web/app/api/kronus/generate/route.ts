@@ -35,9 +35,10 @@ function loadKronusSoul(): string {
   const projectRoot = getProjectRoot();
   const agentName = process.env.AGENT_NAME || "Kronus";
   const soulPathEnv = process.env.SOUL_XML_PATH || process.env.AGENT_SOUL_PATH || "Soul.xml";
-  const soulPath = soulPathEnv.startsWith("/") || soulPathEnv.startsWith("~")
-    ? path.resolve(soulPathEnv.replace(/^~/, os.homedir()))
-    : path.join(projectRoot, soulPathEnv);
+  const soulPath =
+    soulPathEnv.startsWith("/") || soulPathEnv.startsWith("~")
+      ? path.resolve(soulPathEnv.replace(/^~/, os.homedir()))
+      : path.join(projectRoot, soulPathEnv);
 
   try {
     return fs.readFileSync(soulPath, "utf-8");
@@ -179,13 +180,3 @@ Respond with valid JSON matching the schema.`;
     );
   }
 }
-
-
-
-
-
-
-
-
-
-

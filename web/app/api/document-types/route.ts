@@ -33,15 +33,22 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const body = await requireBody(createDocumentTypeSchema, request);
 
   // Generate ID from name
-  const id = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  const id = body.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 
   // Get max sortOrder
-  const maxOrder = db.prepare("SELECT MAX(sortOrder) as max FROM document_types").get() as { max: number | null };
+  const maxOrder = db.prepare("SELECT MAX(sortOrder) as max FROM document_types").get() as {
+    max: number | null;
+  };
   const sortOrder = (maxOrder?.max || 0) + 1;
 
   try {
-    db.prepare("INSERT INTO document_types (id, name, description, color, icon, sortOrder) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(id, body.name, body.description, body.color, body.icon, sortOrder);
+    db.prepare(
+      "INSERT INTO document_types (id, name, description, color, icon, sortOrder) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(id, body.name, body.description, body.color, body.icon, sortOrder);
   } catch (error: any) {
     if (error.message?.includes("UNIQUE constraint")) {
       throw new ConflictError("Document type with this name already exists");

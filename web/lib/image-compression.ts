@@ -14,7 +14,7 @@ export interface CompressionResult {
   compressedSize: number;
   compressionRatio: number;
   wasCompressed: boolean;
-  method: 'none' | 'format' | 'quality' | 'resize';
+  method: "none" | "format" | "quality" | "resize";
   format: string;
   width?: number;
   height?: number;
@@ -51,7 +51,7 @@ function loadImage(source: File | Blob): Promise<HTMLImageElement> {
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('Failed to load image'));
+      reject(new Error("Failed to load image"));
     };
 
     img.src = url;
@@ -61,18 +61,14 @@ function loadImage(source: File | Blob): Promise<HTMLImageElement> {
 /**
  * Draw image to canvas and export as blob
  */
-function canvasToBlob(
-  canvas: HTMLCanvasElement,
-  format: string,
-  quality: number
-): Promise<Blob> {
+function canvasToBlob(canvas: HTMLCanvasElement, format: string, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (blob) {
           resolve(blob);
         } else {
-          reject(new Error('Failed to convert canvas to blob'));
+          reject(new Error("Failed to convert canvas to blob"));
         }
       },
       format,
@@ -84,23 +80,19 @@ function canvasToBlob(
 /**
  * Draw image to canvas at specified dimensions
  */
-function drawToCanvas(
-  img: HTMLImageElement,
-  width: number,
-  height: number
-): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
+function drawToCanvas(img: HTMLImageElement, width: number, height: number): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
 
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   if (!ctx) {
-    throw new Error('Failed to get canvas context');
+    throw new Error("Failed to get canvas context");
   }
 
   // Use high-quality image smoothing for downscaling
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(img, 0, 0, width, height);
 
   return canvas;
@@ -149,7 +141,7 @@ export async function compressImage(
       compressedSize: originalSize,
       compressionRatio: 1,
       wasCompressed: false,
-      method: 'none',
+      method: "none",
       format: file.type,
     };
   }
@@ -160,16 +152,12 @@ export async function compressImage(
   const originalHeight = img.naturalHeight;
 
   // Calculate initial dimensions (respecting maxDimension)
-  let { width, height } = calculateDimensions(
-    originalWidth,
-    originalHeight,
-    opts.maxDimension
-  );
+  let { width, height } = calculateDimensions(originalWidth, originalHeight, opts.maxDimension);
 
   // Strategy 1: Try format conversion (PNG -> JPEG)
   // This often provides significant size reduction without visible quality loss
-  const isPng = file.type === 'image/png';
-  let format = isPng ? 'image/jpeg' : file.type;
+  const isPng = file.type === "image/png";
+  const format = isPng ? "image/jpeg" : file.type;
   let quality = opts.initialQuality;
 
   let canvas = drawToCanvas(img, width, height);
@@ -183,7 +171,7 @@ export async function compressImage(
       compressedSize: blob.size,
       compressionRatio: blob.size / originalSize,
       wasCompressed: true,
-      method: 'format',
+      method: "format",
       format,
       width,
       height,
@@ -203,7 +191,7 @@ export async function compressImage(
       compressedSize: blob.size,
       compressionRatio: blob.size / originalSize,
       wasCompressed: true,
-      method: 'quality',
+      method: "quality",
       format,
       width,
       height,
@@ -231,7 +219,7 @@ export async function compressImage(
     compressedSize: blob.size,
     compressionRatio: blob.size / originalSize,
     wasCompressed: true,
-    method: 'resize',
+    method: "resize",
     format,
     width,
     height,
@@ -264,9 +252,9 @@ export function fileToDataUrl(file: File | Blob): Promise<string> {
  * Format bytes to human-readable string
  */
 export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) return "0 B";
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }

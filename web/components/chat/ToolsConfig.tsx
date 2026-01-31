@@ -8,6 +8,7 @@ import {
   Wrench,
   BookOpen,
   GitBranch,
+  Github,
   Briefcase,
   Image,
   Search,
@@ -27,6 +28,7 @@ export interface ToolsConfigState {
   journal: boolean;
   repository: boolean;
   linear: boolean;
+  git: boolean;
   media: boolean;
   imageGeneration: boolean;
   webSearch: boolean;
@@ -41,6 +43,7 @@ const DEFAULT_CONFIG: ToolsConfigState = {
   journal: true,
   repository: true,
   linear: true,
+  git: false,
   media: true,
   imageGeneration: false,
   webSearch: false,
@@ -48,14 +51,33 @@ const DEFAULT_CONFIG: ToolsConfigState = {
 
 // Tool category metadata
 const CORE_TOOLS = [
-  { key: "journal", name: "Journal", icon: BookOpen, description: "Entries & summaries", count: 12 },
-  { key: "repository", name: "Repository", icon: GitBranch, description: "Docs, skills, CV", count: 11 },
+  {
+    key: "journal",
+    name: "Journal",
+    icon: BookOpen,
+    description: "Entries & summaries",
+    count: 12,
+  },
+  {
+    key: "repository",
+    name: "Repository",
+    icon: GitBranch,
+    description: "Docs, skills, CV",
+    count: 11,
+  },
   { key: "linear", name: "Linear", icon: Briefcase, description: "Issues & projects", count: 7 },
+  { key: "git", name: "Git", icon: Github, description: "GitHub/GitLab repos", count: 3 },
   { key: "media", name: "Media", icon: Image, description: "Asset management", count: 3 },
 ] as const;
 
 const MULTIMODAL_TOOLS = [
-  { key: "imageGeneration", name: "Image Gen", icon: Sparkles, description: "FLUX, Gemini, Imagen", count: 1 },
+  {
+    key: "imageGeneration",
+    name: "Image Gen",
+    icon: Sparkles,
+    description: "FLUX, Gemini, Imagen",
+    count: 1,
+  },
   { key: "webSearch", name: "Web Search", icon: Search, description: "Perplexity AI", count: 4 },
 ] as const;
 
@@ -71,6 +93,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
       journal: true,
       repository: true,
       linear: true,
+      git: true,
       media: true,
       imageGeneration: true,
       webSearch: true,
@@ -82,6 +105,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
       journal: true,
       repository: true,
       linear: true,
+      git: false,
       media: true,
       imageGeneration: false,
       webSearch: false,
@@ -93,6 +117,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
     ...(config.journal ? [12] : []),
     ...(config.repository ? [11] : []),
     ...(config.linear ? [7] : []),
+    ...(config.git ? [3] : []),
     ...(config.media ? [3] : []),
     ...(config.imageGeneration ? [1] : []),
     ...(config.webSearch ? [4] : []),
@@ -114,7 +139,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
           <Wrench className="h-4 w-4" />
           <span className="hidden sm:inline">Tools</span>
           <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full font-mono"
+            className="rounded-full px-1.5 py-0.5 font-mono text-[10px]"
             style={{
               backgroundColor: hasMultimodal ? TARTARUS.purpleGlow : TARTARUS.surface,
               color: hasMultimodal ? TARTARUS.purple : TARTARUS.textMuted,
@@ -125,7 +150,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[320px] z-[100] shadow-2xl rounded-xl p-0 overflow-hidden"
+        className="z-[100] w-[320px] overflow-hidden rounded-xl p-0 shadow-2xl"
         align="start"
         sideOffset={8}
         style={popoverStyles.container}
@@ -133,7 +158,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
         <div style={popoverStyles.inner}>
           {/* Header */}
           <div
-            className="px-4 py-3 flex items-center justify-between"
+            className="flex items-center justify-between px-4 py-3"
             style={{ borderBottom: `1px solid ${TARTARUS.borderSubtle}` }}
           >
             <div>
@@ -143,14 +168,14 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
             <div className="flex gap-1">
               <button
                 onClick={enableCore}
-                className="hover:bg-white/5 rounded"
+                className="rounded hover:bg-white/5"
                 style={headerStyles.actionButton}
               >
                 Core
               </button>
               <button
                 onClick={enableAll}
-                className="hover:bg-white/5 rounded"
+                className="rounded hover:bg-white/5"
                 style={headerStyles.actionButton}
               >
                 All
@@ -159,7 +184,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
           </div>
 
           {/* Content */}
-          <div className="px-4 py-3 space-y-4">
+          <div className="space-y-4 px-4 py-3">
             {/* Core Tools */}
             <div>
               <div style={sectionStyles.label}>Core</div>
@@ -169,7 +194,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
                       onClick={() => toggleCategory(key as keyof ToolsConfigState)}
                     >
                       <Switch
@@ -182,9 +207,9 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                         className="h-4 w-4 transition-colors"
                         style={{ color: enabled ? TARTARUS.teal : TARTARUS.textDim }}
                       />
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <span
-                          className="text-[13px] font-medium transition-colors block"
+                          className="block text-[13px] font-medium transition-colors"
                           style={{ color: enabled ? TARTARUS.text : TARTARUS.textMuted }}
                         >
                           {name}
@@ -194,7 +219,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                         </span>
                       </div>
                       <span
-                        className="text-[11px] font-mono px-2 py-0.5 rounded"
+                        className="rounded px-2 py-0.5 font-mono text-[11px]"
                         style={{
                           color: TARTARUS.textDim,
                           backgroundColor: TARTARUS.surface,
@@ -210,16 +235,14 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
 
             {/* Multimodal Tools */}
             <div style={sectionStyles.divider}>
-              <div style={{ ...sectionStyles.label, color: TARTARUS.purple }}>
-                Multimodal
-              </div>
+              <div style={{ ...sectionStyles.label, color: TARTARUS.purple }}>Multimodal</div>
               <div className="space-y-1">
                 {MULTIMODAL_TOOLS.map(({ key, name, icon: Icon, description, count }) => {
                   const enabled = config[key as keyof ToolsConfigState];
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
                       onClick={() => toggleCategory(key as keyof ToolsConfigState)}
                     >
                       <Switch
@@ -232,9 +255,9 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                         className="h-4 w-4 transition-colors"
                         style={{ color: enabled ? TARTARUS.purple : TARTARUS.textDim }}
                       />
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <span
-                          className="text-[13px] font-medium transition-colors block"
+                          className="block text-[13px] font-medium transition-colors"
                           style={{ color: enabled ? TARTARUS.text : TARTARUS.textMuted }}
                         >
                           {name}
@@ -244,7 +267,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                         </span>
                       </div>
                       <span
-                        className="text-[11px] font-mono px-2 py-0.5 rounded"
+                        className="rounded px-2 py-0.5 font-mono text-[11px]"
                         style={{
                           color: TARTARUS.textDim,
                           backgroundColor: TARTARUS.surface,
@@ -261,14 +284,17 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
 
           {/* Footer */}
           <div
-            className="px-4 py-3 flex items-center justify-between"
-            style={{ borderTop: `1px solid ${TARTARUS.borderSubtle}`, backgroundColor: TARTARUS.surface }}
+            className="flex items-center justify-between px-4 py-3"
+            style={{
+              borderTop: `1px solid ${TARTARUS.borderSubtle}`,
+              backgroundColor: TARTARUS.surface,
+            }}
           >
             <span className="text-[12px]" style={{ color: TARTARUS.textMuted }}>
               Total tools enabled
             </span>
             <span
-              className="text-[13px] font-mono font-medium"
+              className="font-mono text-[13px] font-medium"
               style={{ color: hasMultimodal ? TARTARUS.purple : TARTARUS.teal }}
             >
               {enabledToolCount}

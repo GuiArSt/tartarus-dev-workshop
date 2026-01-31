@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Send,
   User,
@@ -44,6 +45,10 @@ import {
   Maximize2,
   Minimize2,
   Brain,
+  Gauge,
+  Eye,
+  EyeOff,
+  Wand2,
 } from "lucide-react";
 import { cn, formatDateShort } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -53,9 +58,24 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { SoulConfig, SoulConfigState, DEFAULT_CONFIG } from "./SoulConfig";
-import { FormatConfig, FormatConfigState, DEFAULT_FORMAT_CONFIG, KRONUS_FONTS, KRONUS_FONT_SIZES } from "./FormatConfig";
-import { ToolsConfig, ToolsConfigState, DEFAULT_CONFIG as DEFAULT_TOOLS_CONFIG } from "./ToolsConfig";
-import { ModelConfig, ModelConfigState, DEFAULT_CONFIG as DEFAULT_MODEL_CONFIG } from "./ModelConfig";
+import {
+  FormatConfig,
+  FormatConfigState,
+  DEFAULT_FORMAT_CONFIG,
+  KRONUS_FONTS,
+  KRONUS_FONT_SIZES,
+} from "./FormatConfig";
+import {
+  ToolsConfig,
+  ToolsConfigState,
+  DEFAULT_CONFIG as DEFAULT_TOOLS_CONFIG,
+} from "./ToolsConfig";
+import {
+  ModelConfig,
+  ModelConfigState,
+  DEFAULT_CONFIG as DEFAULT_MODEL_CONFIG,
+  MODEL_CONTEXT_LIMITS,
+} from "./ModelConfig";
 import { isLinearTool, getLinearPreview } from "./LinearPreview";
 import { compressImage, formatBytes, CompressionResult } from "@/lib/image-compression";
 import {
@@ -72,63 +92,74 @@ import { computeSmartDiff, type DiffResult } from "@/lib/diff";
 const markdownComponents = {
   // H1: Primary header - large, bold, gold accent, clear visual break
   h1: ({ children }: any) => (
-    <h1 className="text-[1.4em] font-bold mt-5 mb-2 text-[var(--kronus-ivory)] border-b border-[var(--kronus-gold)]/30 pb-1">
+    <h1 className="mt-5 mb-2 border-b border-[var(--kronus-gold)]/30 pb-1 text-[1.4em] font-bold text-[var(--kronus-ivory)]">
       {children}
     </h1>
   ),
   // H2: Section header - medium size, teal accent with subtle underline
   h2: ({ children }: any) => (
-    <h2 className="text-[1.25em] font-semibold mt-5 mb-2 text-[var(--kronus-teal)] border-b border-[var(--kronus-teal)]/20 pb-1">
+    <h2 className="mt-5 mb-2 border-b border-[var(--kronus-teal)]/20 pb-1 text-[1.25em] font-semibold text-[var(--kronus-teal)]">
       {children}
     </h2>
   ),
   // H3: Subsection - smaller, muted teal, no underline
   h3: ({ children }: any) => (
-    <h3 className="text-[1.1em] font-medium mt-4 mb-1.5 text-[var(--kronus-teal-dim)]">
+    <h3 className="mt-4 mb-1.5 text-[1.1em] font-medium text-[var(--kronus-teal-dim)]">
       {children}
     </h3>
   ),
   // H4-H6: Minor headers
   h4: ({ children }: any) => (
-    <h4 className="font-semibold mt-2 mb-0.5 text-[var(--kronus-ivory)]">{children}</h4>
+    <h4 className="mt-2 mb-0.5 font-semibold text-[var(--kronus-ivory)]">{children}</h4>
   ),
   h5: ({ children }: any) => (
-    <h5 className="font-medium mt-2 mb-0.5 text-[var(--kronus-ivory-dim)]">{children}</h5>
+    <h5 className="mt-2 mb-0.5 font-medium text-[var(--kronus-ivory-dim)]">{children}</h5>
   ),
   h6: ({ children }: any) => (
-    <h6 className="font-medium mt-2 mb-0.5 text-[var(--kronus-ivory-muted)] text-[0.9em]">{children}</h6>
+    <h6 className="mt-2 mb-0.5 text-[0.9em] font-medium text-[var(--kronus-ivory-muted)]">
+      {children}
+    </h6>
   ),
   p: ({ children }: any) => (
     <p className="mb-3 leading-relaxed text-[var(--kronus-ivory-dim)]">{children}</p>
   ),
   ul: ({ children }: any) => (
-    <ul className="list-disc list-outside mb-3 mt-2 space-y-1.5 ml-6 text-[var(--kronus-ivory-dim)]">{children}</ul>
+    <ul className="mt-2 mb-3 ml-6 list-outside list-disc space-y-1.5 text-[var(--kronus-ivory-dim)]">
+      {children}
+    </ul>
   ),
   ol: ({ children }: any) => (
-    <ol className="list-decimal list-outside mb-3 mt-2 space-y-2 ml-6 text-[var(--kronus-ivory-dim)]">{children}</ol>
+    <ol className="mt-2 mb-3 ml-6 list-outside list-decimal space-y-2 text-[var(--kronus-ivory-dim)]">
+      {children}
+    </ol>
   ),
   li: ({ children }: any) => (
-    <li className="leading-relaxed marker:text-[var(--kronus-teal)] pl-1.5">{children}</li>
+    <li className="pl-1.5 leading-relaxed marker:text-[var(--kronus-teal)]">{children}</li>
   ),
   pre: ({ children }: any) => (
-    <pre className="bg-[var(--kronus-deep)] border border-[var(--kronus-border)] p-4 rounded-lg my-3 overflow-x-auto">
+    <pre className="my-3 overflow-x-auto rounded-lg border border-[var(--kronus-border)] bg-[var(--kronus-deep)] p-4">
       {children}
     </pre>
   ),
   code: ({ children, className }: any) => {
     const isInline = !className;
     return isInline ? (
-      <code className="bg-[var(--kronus-deep)] px-1.5 py-0.5 rounded text-[0.85em] font-mono text-[var(--kronus-teal)]">
+      <code className="rounded bg-[var(--kronus-deep)] px-1.5 py-0.5 font-mono text-[0.85em] text-[var(--kronus-teal)]">
         {children}
       </code>
     ) : (
-      <code className={cn("block text-[0.9em] font-mono text-[var(--kronus-teal)] leading-relaxed whitespace-pre-wrap", className)}>
+      <code
+        className={cn(
+          "block font-mono text-[0.9em] leading-relaxed whitespace-pre-wrap text-[var(--kronus-teal)]",
+          className
+        )}
+      >
         {children}
       </code>
     );
   },
   blockquote: ({ children }: any) => (
-    <blockquote className="border-l-3 border-[var(--kronus-teal)]/60 pl-6 pr-4 ml-2 my-5 py-3 text-[var(--kronus-ivory-muted)] italic bg-[var(--kronus-teal-soft)] rounded-r-md [&>p]:mb-0 [&>p]:py-1">
+    <blockquote className="my-5 ml-2 rounded-r-md border-l-3 border-[var(--kronus-teal)]/60 bg-[var(--kronus-teal-soft)] py-3 pr-4 pl-6 text-[var(--kronus-ivory-muted)] italic [&>p]:mb-0 [&>p]:py-1">
       {children}
     </blockquote>
   ),
@@ -139,31 +170,42 @@ const markdownComponents = {
   ),
   // em: Inline italic, NOT block - for emphasis within text
   em: ({ children }: any) => (
-    <em className="italic text-[var(--kronus-ivory-muted)]">{children}</em>
+    <em className="text-[var(--kronus-ivory-muted)] italic">{children}</em>
   ),
   a: ({ children, href }: any) => (
-    <a href={href} className="text-[var(--kronus-teal)] underline underline-offset-2 hover:text-[var(--kronus-gold)]" target="_blank" rel="noopener noreferrer">{children}</a>
+    <a
+      href={href}
+      className="text-[var(--kronus-teal)] underline underline-offset-2 hover:text-[var(--kronus-gold)]"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
   ),
-  table: ({ children }: any) => (
-    <table className="w-full my-2 border-collapse">{children}</table>
-  ),
+  table: ({ children }: any) => <table className="my-2 w-full border-collapse">{children}</table>,
   th: ({ children }: any) => (
-    <th className="border border-[var(--kronus-border)] bg-[var(--kronus-deep)] px-2 py-1.5 text-left text-[var(--kronus-ivory)] font-semibold">{children}</th>
+    <th className="border border-[var(--kronus-border)] bg-[var(--kronus-deep)] px-2 py-1.5 text-left font-semibold text-[var(--kronus-ivory)]">
+      {children}
+    </th>
   ),
   td: ({ children }: any) => (
-    <td className="border border-[var(--kronus-border)] px-2 py-1.5 text-[var(--kronus-ivory-dim)]">{children}</td>
+    <td className="border border-[var(--kronus-border)] px-2 py-1.5 text-[var(--kronus-ivory-dim)]">
+      {children}
+    </td>
   ),
   // Images - render inline images from media assets
   img: ({ src, alt }: any) => (
-    <span className="block my-3">
+    <span className="my-3 block">
       <img
         src={src}
         alt={alt || "Image"}
-        className="max-w-full h-auto rounded-lg border border-[var(--kronus-border)] shadow-lg"
+        className="h-auto max-w-full rounded-lg border border-[var(--kronus-border)] shadow-lg"
         style={{ maxHeight: "400px", objectFit: "contain" }}
         loading="lazy"
       />
-      {alt && <span className="block text-xs text-[var(--kronus-ivory-muted)] mt-1 italic">{alt}</span>}
+      {alt && (
+        <span className="mt-1 block text-xs text-[var(--kronus-ivory-muted)] italic">{alt}</span>
+      )}
     </span>
   ),
 };
@@ -186,7 +228,7 @@ const TAG_COLORS = [
 function getTagColor(tagName: string): { color: string; bg: string } {
   let hash = 0;
   for (let i = 0; i < tagName.length; i++) {
-    hash = ((hash << 5) - hash) + tagName.charCodeAt(i);
+    hash = (hash << 5) - hash + tagName.charCodeAt(i);
     hash = hash & hash;
   }
   return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
@@ -211,7 +253,12 @@ function processKronusTags(text: string): React.ReactNode[] {
       const beforeText = text.slice(lastIndex, match.index);
       if (beforeText.trim()) {
         elements.push(
-          <ReactMarkdown key={`md-${keyIndex++}`} remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>
+          <ReactMarkdown
+            key={`md-${keyIndex++}`}
+            remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+            components={markdownComponents}
+          >
             {beforeText}
           </ReactMarkdown>
         );
@@ -222,15 +269,22 @@ function processKronusTags(text: string): React.ReactNode[] {
     elements.push(
       <div
         key={`tag-${keyIndex++}`}
-        className="my-4 p-4 rounded-lg border-l-4"
+        className="my-4 rounded-lg border-l-4 p-4"
         style={{ borderColor: color, backgroundColor: bg }}
       >
-        <div className="flex items-center gap-2 mb-2 text-sm font-semibold uppercase tracking-wide" style={{ color }}>
+        <div
+          className="mb-2 flex items-center gap-2 text-sm font-semibold tracking-wide uppercase"
+          style={{ color }}
+        >
           <span className="opacity-70">✦</span>
           <span>{tagName}</span>
         </div>
         <div className="text-[var(--kronus-ivory-dim)] italic">
-          <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+            components={markdownComponents}
+          >
             {content.trim()}
           </ReactMarkdown>
         </div>
@@ -245,18 +299,30 @@ function processKronusTags(text: string): React.ReactNode[] {
     const afterText = text.slice(lastIndex);
     if (afterText.trim()) {
       elements.push(
-        <ReactMarkdown key={`md-${keyIndex++}`} remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>
+        <ReactMarkdown
+          key={`md-${keyIndex++}`}
+          remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+          components={markdownComponents}
+        >
           {afterText}
         </ReactMarkdown>
       );
     }
   }
 
-  return elements.length > 0 ? elements : [
-    <ReactMarkdown key="fallback" remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>
-      {text}
-    </ReactMarkdown>
-  ];
+  return elements.length > 0
+    ? elements
+    : [
+        <ReactMarkdown
+          key="fallback"
+          remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+          components={markdownComponents}
+        >
+          {text}
+        </ReactMarkdown>,
+      ];
 }
 
 // Memoized markdown renderer for completed messages
@@ -272,7 +338,11 @@ const MemoizedMarkdown = memo(function MemoizedMarkdown({ text }: { text: string
   }
 
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]} rehypePlugins={[rehypeKatex]} components={markdownComponents}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      components={markdownComponents}
+    >
       {text}
     </ReactMarkdown>
   );
@@ -284,7 +354,10 @@ const StreamingText = memo(function StreamingText({ text }: { text: string }) {
 });
 
 // Detect if text contains a confirmation request pattern
-function detectConfirmationRequest(text: string): { isConfirmation: boolean; proposedChanges?: string } {
+function detectConfirmationRequest(text: string): {
+  isConfirmation: boolean;
+  proposedChanges?: string;
+} {
   // Look for patterns like "Accept these changes?", "Confirm?", "Should I..."
   const confirmPatterns = [
     /\*\*Accept (?:these changes|this change)\?\*\*/i,
@@ -293,11 +366,13 @@ function detectConfirmationRequest(text: string): { isConfirmation: boolean; pro
     /\[Yes\/No\]/i,
   ];
 
-  const isConfirmation = confirmPatterns.some(pattern => pattern.test(text));
+  const isConfirmation = confirmPatterns.some((pattern) => pattern.test(text));
 
   // Extract the proposed changes section if present
   let proposedChanges: string | undefined;
-  const changesMatch = text.match(/📝\s*\*\*Proposed Changes[^*]*\*\*[:\s]*([\s\S]*?)(?:\*\*Accept|$)/i);
+  const changesMatch = text.match(
+    /📝\s*\*\*Proposed Changes[^*]*\*\*[:\s]*([\s\S]*?)(?:\*\*Accept|$)/i
+  );
   if (changesMatch) {
     proposedChanges = changesMatch[1].trim();
   }
@@ -322,12 +397,12 @@ const ConfirmationButtons = memo(function ConfirmationButtons({
   const [showDetails, setShowDetails] = useState(false);
 
   return (
-    <div className="mt-4 p-3 rounded-lg bg-[var(--kronus-surface)] border border-[var(--kronus-border)]">
+    <div className="mt-4 rounded-lg border border-[var(--kronus-border)] bg-[var(--kronus-surface)] p-3">
       <div className="flex items-center gap-3">
         <button
           onClick={onConfirm}
           disabled={disabled}
-          className="px-4 py-2 rounded-lg bg-[var(--kronus-teal)] text-white font-medium hover:bg-[var(--kronus-teal)]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          className="flex items-center gap-2 rounded-lg bg-[var(--kronus-teal)] px-4 py-2 font-medium text-white transition-colors hover:bg-[var(--kronus-teal)]/80 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Check className="h-4 w-4" />
           Yes, proceed
@@ -335,7 +410,7 @@ const ConfirmationButtons = memo(function ConfirmationButtons({
         <button
           onClick={onReject}
           disabled={disabled}
-          className="px-4 py-2 rounded-lg bg-[var(--kronus-error)]/20 text-[var(--kronus-error)] font-medium hover:bg-[var(--kronus-error)]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          className="flex items-center gap-2 rounded-lg bg-[var(--kronus-error)]/20 px-4 py-2 font-medium text-[var(--kronus-error)] transition-colors hover:bg-[var(--kronus-error)]/30 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <X className="h-4 w-4" />
           No, cancel
@@ -343,7 +418,7 @@ const ConfirmationButtons = memo(function ConfirmationButtons({
         {proposedChanges && (
           <button
             onClick={() => setShowDetails(!showDetails)}
-            className="px-4 py-2 rounded-lg bg-[var(--kronus-gold)]/20 text-[var(--kronus-gold)] font-medium hover:bg-[var(--kronus-gold)]/30 transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 rounded-lg bg-[var(--kronus-gold)]/20 px-4 py-2 font-medium text-[var(--kronus-gold)] transition-colors hover:bg-[var(--kronus-gold)]/30"
           >
             {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             {showDetails ? "Hide details" : "Review changes"}
@@ -351,8 +426,10 @@ const ConfirmationButtons = memo(function ConfirmationButtons({
         )}
       </div>
       {showDetails && proposedChanges && (
-        <div className="mt-3 p-3 rounded bg-[var(--kronus-deep)] border border-[var(--kronus-border)] text-sm">
-          <pre className="whitespace-pre-wrap text-[var(--kronus-ivory-dim)] font-mono">{proposedChanges}</pre>
+        <div className="mt-3 rounded border border-[var(--kronus-border)] bg-[var(--kronus-deep)] p-3 text-sm">
+          <pre className="font-mono whitespace-pre-wrap text-[var(--kronus-ivory-dim)]">
+            {proposedChanges}
+          </pre>
         </div>
       )}
     </div>
@@ -385,31 +462,33 @@ const ThinkingDisplay = memo(function ThinkingDisplay({
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className={cn(
-          "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all",
+          "flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-all",
           isStreaming
-            ? "bg-[var(--kronus-purple)]/20 text-[var(--kronus-purple)] animate-pulse"
+            ? "animate-pulse bg-[var(--kronus-purple)]/20 text-[var(--kronus-purple)]"
             : "bg-[var(--kronus-surface)] text-[var(--kronus-ivory-muted)] hover:bg-[var(--kronus-surface)]/80"
         )}
       >
         <Brain className="h-4 w-4" />
         <span>{isStreaming ? "Thinking..." : "View thinking"}</span>
         {isExpanded ? (
-          <ChevronUp className="h-3 w-3 ml-1" />
+          <ChevronUp className="ml-1 h-3 w-3" />
         ) : (
-          <ChevronDown className="h-3 w-3 ml-1" />
+          <ChevronDown className="ml-1 h-3 w-3" />
         )}
       </button>
       {isExpanded && (
         <div
           className={cn(
-            "mt-2 p-3 rounded-lg border text-sm font-mono whitespace-pre-wrap overflow-x-auto max-h-[300px] overflow-y-auto",
+            "mt-2 max-h-[300px] overflow-x-auto overflow-y-auto rounded-lg border p-3 font-mono text-sm whitespace-pre-wrap",
             isStreaming
-              ? "bg-[var(--kronus-purple)]/5 border-[var(--kronus-purple)]/30 text-[var(--kronus-ivory-dim)]"
-              : "bg-[var(--kronus-deep)] border-[var(--kronus-border)] text-[var(--kronus-ivory-muted)]"
+              ? "border-[var(--kronus-purple)]/30 bg-[var(--kronus-purple)]/5 text-[var(--kronus-ivory-dim)]"
+              : "border-[var(--kronus-border)] bg-[var(--kronus-deep)] text-[var(--kronus-ivory-muted)]"
           )}
         >
           {reasoning}
-          {isStreaming && <span className="inline-block w-2 h-4 ml-1 bg-[var(--kronus-purple)] animate-pulse" />}
+          {isStreaming && (
+            <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-[var(--kronus-purple)]" />
+          )}
         </div>
       )}
     </div>
@@ -431,6 +510,8 @@ interface ToolState {
 interface SavedConversation {
   id: number;
   title: string;
+  summary?: string | null;
+  summary_updated_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -444,11 +525,18 @@ export function ChatInterface() {
   // Conversation management
   const [showHistory, setShowHistory] = useState(false);
   const [savedConversations, setSavedConversations] = useState<SavedConversation[]>([]);
+  const [conversationsTotal, setConversationsTotal] = useState(0);
+  const [conversationsOffset, setConversationsOffset] = useState(0);
+  const conversationsLimit = 20;
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveTitle, setSaveTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [input, setInput] = useState("");
+  const [generatingSummaryFor, setGeneratingSummaryFor] = useState<number | null>(null);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  // Track message count at last save to detect real changes vs loads
+  const lastSavedMessageCountRef = useRef<number>(0);
 
   // Image upload state
   const [selectedFiles, setSelectedFiles] = useState<FileList | undefined>(undefined);
@@ -482,6 +570,9 @@ export function ChatInterface() {
   // Context compression state
   const [isCompressingContext, setIsCompressingContext] = useState(false);
 
+  // Soul context tokens - fetched from stats API for accurate total context calculation
+  const [soulContextTokens, setSoulContextTokens] = useState<number>(0);
+
   // Edit user message state
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageContent, setEditingMessageContent] = useState("");
@@ -512,6 +603,39 @@ export function ChatInterface() {
         setAgentName("Kronus");
       });
   }, []);
+
+  // Fetch soul context tokens when soulConfig changes (for accurate total context)
+  useEffect(() => {
+    const effectiveSoulConfig = lockedSoulConfig || soulConfig;
+    fetch("/api/kronus/stats")
+      .then((res) => res.json())
+      .then((stats) => {
+        // Calculate total soul context tokens based on enabled sections
+        const linearProjectTokens = effectiveSoulConfig.linearIncludeCompleted
+          ? (stats.linear?.projects?.tokensAll ?? stats.linearProjectsTokens ?? 0)
+          : (stats.linear?.projects?.tokensActive ?? stats.linearProjectsTokens ?? 0);
+        const linearIssueTokens = effectiveSoulConfig.linearIncludeCompleted
+          ? (stats.linear?.issues?.tokensAll ?? stats.linearIssuesTokens ?? 0)
+          : (stats.linear?.issues?.tokensActive ?? stats.linearIssuesTokens ?? 0);
+
+        const total =
+          (stats.baseTokens || 6000) +
+          (effectiveSoulConfig.writings ? stats.writingsTokens || 0 : 0) +
+          (effectiveSoulConfig.portfolioProjects ? stats.portfolioProjectsTokens || 0 : 0) +
+          (effectiveSoulConfig.skills ? stats.skillsTokens || 0 : 0) +
+          (effectiveSoulConfig.workExperience ? stats.workExperienceTokens || 0 : 0) +
+          (effectiveSoulConfig.education ? stats.educationTokens || 0 : 0) +
+          (effectiveSoulConfig.journalEntries ? stats.journalEntriesTokens || 0 : 0) +
+          (effectiveSoulConfig.linearProjects ? linearProjectTokens : 0) +
+          (effectiveSoulConfig.linearIssues ? linearIssueTokens : 0);
+
+        setSoulContextTokens(total);
+      })
+      .catch(() => {
+        // Fallback estimate
+        setSoulContextTokens(80000);
+      });
+  }, [soulConfig, lockedSoulConfig]);
 
   // Auto-respond after tool calls - instance-based (sessionStorage)
   // Each browser tab/session has its own setting - doesn't affect other users
@@ -558,7 +682,9 @@ export function ChatInterface() {
   const { messages, sendMessage, status, setMessages, addToolResult, error, stop } = useChat({
     transport: chatTransport,
     // Conditionally auto-respond after tool calls - each browser session controls this independently
-    sendAutomaticallyWhen: autoRespondAfterTools ? lastAssistantMessageIsCompleteWithToolCalls : undefined,
+    sendAutomaticallyWhen: autoRespondAfterTools
+      ? lastAssistantMessageIsCompleteWithToolCalls
+      : undefined,
 
     async onToolCall({ toolCall }) {
       const { toolName, input, toolCallId } = toolCall;
@@ -722,19 +848,22 @@ export function ChatInterface() {
           }
 
           case "journal_upsert_project_summary": {
-            const res = await fetch(`/api/repositories/${encodeURIComponent(String(typedArgs.repository))}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                git_url: typedArgs.git_url,
-                summary: typedArgs.summary,
-                purpose: typedArgs.purpose,
-                architecture: typedArgs.architecture,
-                key_decisions: typedArgs.key_decisions,
-                technologies: typedArgs.technologies,
-                status: typedArgs.status,
-              }),
-            });
+            const res = await fetch(
+              `/api/repositories/${encodeURIComponent(String(typedArgs.repository))}`,
+              {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  git_url: typedArgs.git_url,
+                  summary: typedArgs.summary,
+                  purpose: typedArgs.purpose,
+                  architecture: typedArgs.architecture,
+                  key_decisions: typedArgs.key_decisions,
+                  technologies: typedArgs.technologies,
+                  status: typedArgs.status,
+                }),
+              }
+            );
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to upsert project summary");
@@ -838,6 +967,29 @@ export function ChatInterface() {
             break;
           }
 
+          // === Linear Cache Tools (read from local DB) ===
+          case "linear_get_issue": {
+            const { identifier } = typedArgs as { identifier: string };
+            const res = await fetch(
+              `/api/integrations/linear/cache/issues/${encodeURIComponent(identifier)}`
+            );
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || "Failed to fetch issue from cache");
+            output = JSON.stringify(result, null, 2);
+            break;
+          }
+
+          case "linear_get_project": {
+            const { projectId } = typedArgs as { projectId: string };
+            const res = await fetch(
+              `/api/integrations/linear/cache/projects/${encodeURIComponent(projectId)}`
+            );
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || "Failed to fetch project from cache");
+            output = JSON.stringify(result, null, 2);
+            break;
+          }
+
           // NOTE: Old document_*, skill_*, experience_*, education_* tools removed
           // All repository operations now use repository_* prefix handlers below
 
@@ -855,26 +1007,30 @@ export function ChatInterface() {
                 num_inference_steps: typedArgs.num_inference_steps,
               }),
             });
-            
+
             const data = await res.json();
             if (!res.ok) {
               const errorMsg = data.error || "Failed to generate image";
-              const details = data.details ? `
-Details: ${data.details}` : "";
+              const details = data.details
+                ? `
+Details: ${data.details}`
+                : "";
               throw new Error(`${errorMsg}${details}`);
             }
-            
+
             if (!data.images || data.images.length === 0) {
-              throw new Error("No images were generated. Please try again with a different prompt.");
+              throw new Error(
+                "No images were generated. Please try again with a different prompt."
+              );
             }
-            
+
             // Auto-save each generated image to Media Library
-            const savedAssets: Array<{id: number, filename: string, url: string}> = [];
+            const savedAssets: Array<{ id: number; filename: string; url: string }> = [];
             for (let i = 0; i < data.images.length; i++) {
               const imageUrl = data.images[i];
               const timestamp = Date.now();
               const filename = `generated-${timestamp}-${i + 1}.png`;
-              
+
               try {
                 const saveRes = await fetch("/api/media", {
                   method: "POST",
@@ -888,7 +1044,7 @@ Details: ${data.details}` : "";
                     tags: ["ai-generated"],
                   }),
                 });
-                
+
                 if (saveRes.ok) {
                   const saveData = await saveRes.json();
                   savedAssets.push({ id: saveData.id, filename: saveData.filename, url: imageUrl });
@@ -897,7 +1053,7 @@ Details: ${data.details}` : "";
                 console.error("Failed to auto-save image:", saveErr);
               }
             }
-            
+
             // Store image URLs and saved IDs in tool state for display
             setToolStates((prev) => ({
               ...prev,
@@ -908,13 +1064,15 @@ Details: ${data.details}` : "";
                 prompt: data.prompt,
               },
             }));
-            
+
             // Format output with saved asset info
             if (savedAssets.length > 0) {
               const assetList = savedAssets.map((a) => `• ID ${a.id}: ${a.filename}`).join("\n");
               output = `✅ Generated ${data.images.length} image(s) using ${data.model}\n\n📁 Saved to Media Library:\n${assetList}\n\nYou can edit metadata (description, tags, links) using the update_media tool with the asset ID.`;
             } else {
-              const imageList = data.images.map((url: string, idx: number) => `${idx + 1}. ${url}`).join("\n");
+              const imageList = data.images
+                .map((url: string, idx: number) => `${idx + 1}. ${url}`)
+                .join("\n");
               output = `✅ Generated ${data.images.length} image(s) using ${data.model}:\n${imageList}`;
             }
             break;
@@ -936,15 +1094,15 @@ Details: ${data.details}` : "";
                 document_id: typedArgs.document_id,
               }),
             });
-            
+
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to save image");
-            
-            let links = [];
+
+            const links = [];
             if (data.commit_hash) links.push(`Journal: ${data.commit_hash.substring(0, 7)}`);
             if (data.document_id) links.push(`Document: #${data.document_id}`);
             const linkInfo = links.length > 0 ? `\n• Linked to: ${links.join(", ")}` : "";
-            
+
             output = `✅ Image saved to Media Library\n• ID: ${data.id}\n• Filename: ${data.filename}\n• Size: ${Math.round(data.file_size / 1024)} KB${linkInfo}`;
             break;
           }
@@ -997,17 +1155,17 @@ Details: ${data.details}` : "";
                 document_id: typedArgs.document_id,
               }),
             });
-            
+
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to update media");
-            
-            let updates = [];
+
+            const updates = [];
             if (typedArgs.description) updates.push("description");
             if (typedArgs.tags) updates.push("tags");
             if (typedArgs.commit_hash) updates.push("journal link");
             if (typedArgs.document_id) updates.push("document link");
             if (typedArgs.filename) updates.push("filename");
-            
+
             output = `✅ Updated media asset #${typedArgs.id}\nModified: ${updates.join(", ") || "no changes"}`;
             break;
           }
@@ -1043,19 +1201,21 @@ Details: ${data.details}` : "";
             if (typedArgs.search) params.set("search", String(typedArgs.search));
             if (typedArgs.limit) params.set("limit", String(typedArgs.limit));
             if (typedArgs.offset) params.set("offset", String(typedArgs.offset));
-            
+
             const res = await fetch(`/api/documents?${params.toString()}`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to search documents");
-            
+
             if (!data.documents || data.documents.length === 0) {
               output = "No documents found.";
             } else {
-              const docList = data.documents.map((d: any) => {
-                const tags = d.metadata?.tags?.join(", ") || "";
-                return `• [${d.id}] ${d.title} (${d.type})${tags ? ` [${tags}]` : ""}`;
-              }).join("\n");
-              const paginationInfo = data.has_more 
+              const docList = data.documents
+                .map((d: any) => {
+                  const tags = d.metadata?.tags?.join(", ") || "";
+                  return `• [${d.id}] ${d.title} (${d.type})${tags ? ` [${tags}]` : ""}`;
+                })
+                .join("\n");
+              const paginationInfo = data.has_more
                 ? `\n\nShowing ${data.documents.length} of ${data.total} documents. Use offset=${data.offset + data.documents.length} to see more.`
                 : `\n\nFound ${data.total} total document(s).`;
               output = `Found ${data.documents.length} document(s):\n${docList}${paginationInfo}`;
@@ -1065,7 +1225,8 @@ Details: ${data.details}` : "";
 
           case "repository_get_document": {
             let url = "/api/documents";
-            if (typedArgs.id) url += `/${typedArgs.id}`;  // Now supports ID lookup
+            if (typedArgs.id)
+              url += `/${typedArgs.id}`; // Now supports ID lookup
             else if (typedArgs.slug) url += `/${encodeURIComponent(String(typedArgs.slug))}`;
             else throw new Error("Either id or slug is required");
 
@@ -1094,12 +1255,15 @@ Details: ${data.details}` : "";
           }
 
           case "repository_create_document": {
-            const slug = String(typedArgs.title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+            const slug = String(typedArgs.title)
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/(^-|-$)/g, "");
             const metadata = {
               ...(typedArgs.metadata || {}),
               tags: typedArgs.tags || [],
             };
-            
+
             const res = await fetch("/api/documents", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -1111,10 +1275,10 @@ Details: ${data.details}` : "";
                 metadata,
               }),
             });
-            
+
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to create document");
-            
+
             output = `✅ Created document: "${typedArgs.title}"\nID: ${data.id}\nSlug: ${slug}`;
             break;
           }
@@ -1136,9 +1300,9 @@ Details: ${data.details}` : "";
             // Merge metadata: preserve existing, override with new values
             if (typedArgs.tags || typedArgs.metadata) {
               updateData.metadata = {
-                ...existingMeta,                    // Keep existing metadata (type, year, language, etc.)
-                ...(typedArgs.metadata || {}),      // Override with any new metadata fields
-                tags: typedArgs.tags ?? existingMeta.tags,  // Use new tags if provided, else keep existing
+                ...existingMeta, // Keep existing metadata (type, year, language, etc.)
+                ...(typedArgs.metadata || {}), // Override with any new metadata fields
+                tags: typedArgs.tags ?? existingMeta.tags, // Use new tags if provided, else keep existing
               };
             }
 
@@ -1159,18 +1323,21 @@ Details: ${data.details}` : "";
             const res = await fetch("/api/cv");
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to list skills");
-            
+
             let skills = data.skills || [];
             if (typedArgs.category) {
               skills = skills.filter((s: any) => s.category === typedArgs.category);
             }
-            
+
             if (skills.length === 0) {
               output = "No skills found.";
             } else {
-              const skillList = skills.map((s: any) => 
-                `• ${s.name} [${s.category}] - ${s.magnitude}/5 - ${s.description || "No description"}`
-              ).join("\n");
+              const skillList = skills
+                .map(
+                  (s: any) =>
+                    `• ${s.name} [${s.category}] - ${s.magnitude}/5 - ${s.description || "No description"}`
+                )
+                .join("\n");
               output = `Found ${skills.length} skill(s):\n${skillList}`;
             }
             break;
@@ -1231,9 +1398,12 @@ Details: ${data.details}` : "";
             if (exp.length === 0) {
               output = "No work experience found.";
             } else {
-              const expList = exp.map((e: any) =>
-                `• ${e.title} at ${e.company} (${e.dateStart} - ${e.dateEnd || "Present"})\n  ${e.tagline || ""}`
-              ).join("\n");
+              const expList = exp
+                .map(
+                  (e: any) =>
+                    `• ${e.title} at ${e.company} (${e.dateStart} - ${e.dateEnd || "Present"})\n  ${e.tagline || ""}`
+                )
+                .join("\n");
               output = `Found ${exp.length} experience(s):\n${expList}`;
             }
             break;
@@ -1273,9 +1443,12 @@ Details: ${data.details}` : "";
             if (edu.length === 0) {
               output = "No education found.";
             } else {
-              const eduList = edu.map((e: any) =>
-                `• ${e.degree} in ${e.field} - ${e.institution} (${e.dateStart} - ${e.dateEnd})`
-              ).join("\n");
+              const eduList = edu
+                .map(
+                  (e: any) =>
+                    `• ${e.degree} in ${e.field} - ${e.institution} (${e.dateStart} - ${e.dateEnd})`
+                )
+                .join("\n");
               output = `Found ${edu.length} education(s):\n${eduList}`;
             }
             break;
@@ -1352,7 +1525,8 @@ Details: ${data.details}` : "";
           // ===== Portfolio Projects Tools =====
           case "repository_list_portfolio_projects": {
             const params = new URLSearchParams();
-            if (typedArgs.featured !== undefined) params.set("featured", String(typedArgs.featured));
+            if (typedArgs.featured !== undefined)
+              params.set("featured", String(typedArgs.featured));
             if (typedArgs.status) params.set("status", String(typedArgs.status));
 
             const res = await fetch(`/api/portfolio-projects?${params.toString()}`);
@@ -1360,9 +1534,12 @@ Details: ${data.details}` : "";
             if (!res.ok) throw new Error(data.error || "Failed to list portfolio projects");
 
             const projects = data.projects || data;
-            output = `📁 **Portfolio Projects** (${projects.length} found)\n\n${projects.map((p: any) =>
-              `- **${p.title}** (${p.category}) ${p.featured ? "⭐" : ""}\n  Status: ${p.status} | Technologies: ${(p.technologies || []).join(", ")}`
-            ).join("\n\n")}`;
+            output = `📁 **Portfolio Projects** (${projects.length} found)\n\n${projects
+              .map(
+                (p: any) =>
+                  `- **${p.title}** (${p.category}) ${p.featured ? "⭐" : ""}\n  Status: ${p.status} | Technologies: ${(p.technologies || []).join(", ")}`
+              )
+              .join("\n\n")}`;
             break;
           }
 
@@ -1371,7 +1548,8 @@ Details: ${data.details}` : "";
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to get portfolio project");
 
-            output = `📁 **${data.title}**\n\n` +
+            output =
+              `📁 **${data.title}**\n\n` +
               `**Category:** ${data.category}\n` +
               `**Status:** ${data.status} ${data.featured ? "⭐ Featured" : ""}\n` +
               (data.company ? `**Company:** ${data.company}\n` : "") +
@@ -1429,6 +1607,69 @@ Details: ${data.details}` : "";
             if (!res.ok) throw new Error(data.error || "Failed to update portfolio project");
 
             output = `✅ Updated portfolio project: **${data.title || typedArgs.id}**`;
+            break;
+          }
+
+          // ===== Git Repository Tools =====
+          case "git_parse_repo_url": {
+            const res = await fetch(
+              `/api/git?action=parse_url&url=${encodeURIComponent(String(typedArgs.url))}`
+            );
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to parse repository URL");
+            output = `📦 **Parsed Repository URL**\n- Platform: ${data.platform}\n- Owner: ${data.owner}\n- Repo: ${data.repo}`;
+            break;
+          }
+
+          case "git_get_file_tree": {
+            const params = new URLSearchParams({
+              action: "file_tree",
+              platform: String(typedArgs.platform),
+              owner: String(typedArgs.owner),
+              repo: String(typedArgs.repo),
+              ref: String(typedArgs.ref || "main"),
+            });
+            const res = await fetch(`/api/git?${params}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to get file tree");
+            output = `🌳 **File Tree** (${data.count} files)\n\`\`\`\n${data.formatted}\n\`\`\``;
+            break;
+          }
+
+          case "git_read_file": {
+            const params = new URLSearchParams({
+              action: "read_file",
+              platform: String(typedArgs.platform),
+              owner: String(typedArgs.owner),
+              repo: String(typedArgs.repo),
+              path: String(typedArgs.path),
+              ref: String(typedArgs.ref || "main"),
+            });
+            const res = await fetch(`/api/git?${params}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to read file");
+            // Detect language from extension for syntax highlighting
+            const ext = typedArgs.path?.toString().split(".").pop() || "";
+            const langMap: Record<string, string> = {
+              ts: "typescript",
+              tsx: "tsx",
+              js: "javascript",
+              jsx: "jsx",
+              py: "python",
+              rs: "rust",
+              go: "go",
+              rb: "ruby",
+              json: "json",
+              yaml: "yaml",
+              yml: "yaml",
+              md: "markdown",
+              css: "css",
+              scss: "scss",
+              html: "html",
+              sql: "sql",
+            };
+            const lang = langMap[ext] || ext;
+            output = `📄 **${typedArgs.path}** (${data.size} bytes)\n\`\`\`${lang}\n${data.content}\n\`\`\``;
             break;
           }
 
@@ -1520,18 +1761,23 @@ Details: ${data.details}` : "";
     },
   });
 
-  // Load conversation history
-  const loadConversations = useCallback(async () => {
-    try {
-      const res = await fetch("/api/conversations?limit=20");
-      const data = await res.json();
-      setSavedConversations(data.conversations || []);
-      return data.conversations || [];
-    } catch (error) {
-      console.error("Failed to load conversations:", error);
-      return [];
-    }
-  }, []);
+  // Load conversation history with pagination
+  const loadConversations = useCallback(
+    async (offset = 0) => {
+      try {
+        const res = await fetch(`/api/conversations?limit=${conversationsLimit}&offset=${offset}`);
+        const data = await res.json();
+        setSavedConversations(data.conversations || []);
+        setConversationsTotal(data.total || 0);
+        setConversationsOffset(offset);
+        return data.conversations || [];
+      } catch (error) {
+        console.error("Failed to load conversations:", error);
+        return [];
+      }
+    },
+    [conversationsLimit]
+  );
 
   // On mount: check for prefill first, otherwise load most recent conversation
   useEffect(() => {
@@ -1596,7 +1842,9 @@ Details: ${data.details}` : "";
     scrollTimeoutRef.current = requestAnimationFrame(() => {
       if (scrollRef.current) {
         // Find the actual viewport element inside Radix ScrollArea
-        const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+        const viewport = scrollRef.current.querySelector(
+          "[data-radix-scroll-area-viewport]"
+        ) as HTMLElement | null;
         if (viewport) {
           viewport.scrollTop = viewport.scrollHeight;
         }
@@ -1613,7 +1861,9 @@ Details: ${data.details}` : "";
   const getScrollViewport = useCallback(() => {
     if (!scrollRef.current) return null;
     // Radix ScrollArea puts the scrollable content inside a viewport element
-    return scrollRef.current.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+    return scrollRef.current.querySelector(
+      "[data-radix-scroll-area-viewport]"
+    ) as HTMLElement | null;
   }, []);
 
   // Scroll to first message
@@ -1633,47 +1883,54 @@ Details: ${data.details}` : "";
   }, [getScrollViewport]);
 
   // Search messages
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
-    if (!query.trim()) {
-      setSearchResults([]);
-      setCurrentSearchIndex(0);
-      return;
-    }
-
-    const lowerQuery = query.toLowerCase();
-    const results: number[] = [];
-
-    messages.forEach((message, index) => {
-      const textParts = message.parts
-        ?.filter((p: any) => p.type === "text")
-        .map((p: any) => p.text)
-        .join(" ") || "";
-
-      if (textParts.toLowerCase().includes(lowerQuery)) {
-        results.push(index);
+  const handleSearch = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      if (!query.trim()) {
+        setSearchResults([]);
+        setCurrentSearchIndex(0);
+        return;
       }
-    });
 
-    setSearchResults(results);
-    setCurrentSearchIndex(0);
+      const lowerQuery = query.toLowerCase();
+      const results: number[] = [];
 
-    // Scroll to first result
-    if (results.length > 0) {
-      scrollToSearchResult(results[0]);
-    }
-  }, [messages]);
+      messages.forEach((message, index) => {
+        const textParts =
+          message.parts
+            ?.filter((p: any) => p.type === "text")
+            .map((p: any) => p.text)
+            .join(" ") || "";
+
+        if (textParts.toLowerCase().includes(lowerQuery)) {
+          results.push(index);
+        }
+      });
+
+      setSearchResults(results);
+      setCurrentSearchIndex(0);
+
+      // Scroll to first result
+      if (results.length > 0) {
+        scrollToSearchResult(results[0]);
+      }
+    },
+    [messages]
+  );
 
   // Scroll to a specific search result
-  const scrollToSearchResult = useCallback((messageIndex: number) => {
-    const message = messages[messageIndex];
-    if (message) {
-      const element = messageRefs.current.get(message.id);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
+  const scrollToSearchResult = useCallback(
+    (messageIndex: number) => {
+      const message = messages[messageIndex];
+      if (message) {
+        const element = messageRefs.current.get(message.id);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
       }
-    }
-  }, [messages]);
+    },
+    [messages]
+  );
 
   // Navigate search results
   const nextSearchResult = useCallback(() => {
@@ -1754,7 +2011,7 @@ Details: ${data.details}` : "";
           wasCompressed: false,
           format: "application/pdf",
           compressionRatio: 1,
-          method: "none"
+          method: "none",
         });
         dataTransfer.items.add(file);
       }
@@ -1789,47 +2046,56 @@ Details: ${data.details}` : "";
   }, []);
 
   // Handle file selection from input
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      processFiles(Array.from(files));
-    }
-  }, [processFiles]);
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        processFiles(Array.from(files));
+      }
+    },
+    [processFiles]
+  );
 
   // Handle paste event (Ctrl+V / Cmd+V with images)
-  const handlePaste = useCallback((e: ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
+  const handlePaste = useCallback(
+    (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
 
-    const pasteFiles: File[] = [];
-    for (const item of Array.from(items)) {
-      if (item.type.startsWith("image/") || item.type === "application/pdf") {
-        const file = item.getAsFile();
-        if (file) {
-          pasteFiles.push(file);
+      const pasteFiles: File[] = [];
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/") || item.type === "application/pdf") {
+          const file = item.getAsFile();
+          if (file) {
+            pasteFiles.push(file);
+          }
         }
       }
-    }
 
-    if (pasteFiles.length > 0) {
-      e.preventDefault();
-      processFiles(pasteFiles);
-    }
-  }, [processFiles]);
+      if (pasteFiles.length > 0) {
+        e.preventDefault();
+        processFiles(pasteFiles);
+      }
+    },
+    [processFiles]
+  );
 
   // Handle drop event
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    const files = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith("image/") || f.type === "application/pdf"
-    );
+      const files = Array.from(e.dataTransfer.files).filter(
+        (f) => f.type.startsWith("image/") || f.type === "application/pdf"
+      );
 
-    if (files.length > 0) {
-      processFiles(files);
-    }
-  }, [processFiles]);
+      if (files.length > 0) {
+        processFiles(files);
+      }
+    },
+    [processFiles]
+  );
 
   // Handle drag over
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1875,7 +2141,8 @@ Details: ${data.details}` : "";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!input.trim() && !selectedFiles) || status === "submitted" || status === "streaming") return;
+    if ((!input.trim() && !selectedFiles) || status === "submitted" || status === "streaming")
+      return;
 
     // Lock soul config on first message of a new conversation (affects system prompt context)
     // Tools config is NOT locked - can be changed mid-chat to enable/disable tools dynamically
@@ -1913,10 +2180,11 @@ Details: ${data.details}` : "";
 
     const message = messages[messageIndex];
     // Get the text content from the message
-    const textContent = message.parts
-      ?.filter((p: any) => p.type === "text")
-      .map((p: any) => p.text)
-      .join("\n") || "";
+    const textContent =
+      message.parts
+        ?.filter((p: any) => p.type === "text")
+        .map((p: any) => p.text)
+        .join("\n") || "";
 
     setEditingMessageId(messageId);
     setEditingMessageContent(textContent);
@@ -1980,10 +2248,11 @@ Details: ${data.details}` : "";
 
     // Get the user message content
     const userMessage = messages[lastUserMessageIndex];
-    const textContent = userMessage.parts
-      ?.filter((p: any) => p.type === "text")
-      .map((p: any) => p.text)
-      .join("\n") || "";
+    const textContent =
+      userMessage.parts
+        ?.filter((p: any) => p.type === "text")
+        .map((p: any) => p.text)
+        .join("\n") || "";
 
     // Remove all messages after and including the last user message
     const newMessages = messages.slice(0, lastUserMessageIndex);
@@ -2008,7 +2277,9 @@ Details: ${data.details}` : "";
   };
 
   // Convert DB format messages to AI SDK format (restores tool invocations)
-  const convertDBMessagesToAISDK = (dbMsgs: Array<{ id: string; role: string; content: string; parts?: any[] }>) => {
+  const convertDBMessagesToAISDK = (
+    dbMsgs: Array<{ id: string; role: string; content: string; parts?: any[] }>
+  ) => {
     // Filter out tool messages as UIMessage only accepts user/assistant/system
     return dbMsgs
       .filter((m) => m.role !== "tool")
@@ -2021,10 +2292,15 @@ Details: ${data.details}` : "";
   };
 
   // Convert AI SDK messages to DB format
-  const convertMessagesToDBFormat = (msgs: typeof messages): Array<{ id: string; role: string; content: string }> => {
+  const convertMessagesToDBFormat = (
+    msgs: typeof messages
+  ): Array<{ id: string; role: string; content: string }> => {
     return msgs.map((m) => {
       // Extract text content from parts
-      const textParts = m.parts.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n");
+      const textParts = m.parts
+        .filter((p: any) => p.type === "text")
+        .map((p: any) => p.text)
+        .join("\n");
       return {
         id: m.id,
         role: m.role,
@@ -2054,10 +2330,12 @@ Details: ${data.details}` : "";
     // 2. Status is idle (conversation complete)
     // 3. Last message is from assistant
     // 4. We have at least one user message and one assistant message
+    // 5. Messages count has actually increased (not just a load from history)
     if (
       messages.length >= 2 &&
       status === "ready" &&
-      messages[messages.length - 1]?.role === "assistant"
+      messages[messages.length - 1]?.role === "assistant" &&
+      messages.length > lastSavedMessageCountRef.current
     ) {
       const autoSave = async () => {
         try {
@@ -2065,7 +2343,10 @@ Details: ${data.details}` : "";
           const firstUserMessage = messages.find((m) => m.role === "user");
           if (!firstUserMessage) return;
 
-          const textParts = firstUserMessage.parts.filter((p: any) => p.type === "text").map((p: any) => p.text).join(" ");
+          const textParts = firstUserMessage.parts
+            .filter((p: any) => p.type === "text")
+            .map((p: any) => p.text)
+            .join(" ");
           const title = textParts.substring(0, 50).trim() || "Untitled Conversation";
 
           const dbMessages = convertMessagesToDBFormat(messages);
@@ -2081,6 +2362,7 @@ Details: ${data.details}` : "";
               }),
             });
             if (res.ok) {
+              lastSavedMessageCountRef.current = messages.length;
               loadConversations();
             }
           } else {
@@ -2096,6 +2378,7 @@ Details: ${data.details}` : "";
             const data = await res.json();
             if (res.ok) {
               setCurrentConversationId(data.id);
+              lastSavedMessageCountRef.current = messages.length;
               loadConversations();
             }
           }
@@ -2144,6 +2427,8 @@ Details: ${data.details}` : "";
       if (res.ok) {
         // Convert DB format to AI SDK format
         const convertedMessages = convertDBMessagesToAISDK(data.messages);
+        // Set baseline BEFORE setting messages to prevent auto-save trigger
+        lastSavedMessageCountRef.current = convertedMessages.length;
         setMessages(convertedMessages);
         setCurrentConversationId(id);
         setShowHistory(false);
@@ -2158,6 +2443,7 @@ Details: ${data.details}` : "";
     setMessages([]);
     setCurrentConversationId(null);
     setToolStates({});
+    lastSavedMessageCountRef.current = 0;
     setShowHistory(false);
     setLockedSoulConfig(null); // Unlock soul config for new conversation
     // Note: toolsConfig is never locked - it's always dynamic
@@ -2176,8 +2462,67 @@ Details: ${data.details}` : "";
     }
   };
 
+  // Generate or update summary for a conversation (manual trigger)
+  const handleGenerateSummary = async (convId: number, force: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setGeneratingSummaryFor(convId);
+    try {
+      const res = await fetch(`/api/conversations/${convId}/summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update the conversation in state (including title if regenerated)
+        setSavedConversations((prev) =>
+          prev.map((conv) =>
+            conv.id === convId
+              ? {
+                  ...conv,
+                  title: data.title || conv.title,
+                  summary: data.summary,
+                  summary_updated_at: data.summary_updated_at,
+                }
+              : conv
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Failed to generate summary:", error);
+    } finally {
+      setGeneratingSummaryFor(null);
+    }
+  };
+
+  // Backfill all conversations without summaries
+  const handleBackfillAll = async () => {
+    setIsBackfilling(true);
+    try {
+      const res = await fetch("/api/conversations/backfill-summaries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 100 }), // Process up to 100 conversations
+      });
+      if (res.ok) {
+        // Refresh conversations to show new summaries/titles
+        loadConversations();
+      }
+    } catch (error) {
+      console.error("Failed to backfill summaries:", error);
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
+
+  // Check if conversation has changes since last summary
+  const conversationHasChanges = (conv: SavedConversation): boolean => {
+    if (!conv.summary_updated_at) return true; // No summary = needs one
+    return new Date(conv.updated_at) > new Date(conv.summary_updated_at);
+  };
+
   // Estimate tokens in current conversation (rough: ~4 chars per token)
-  const estimatedTokens = useMemo(() => {
+  const conversationTokens = useMemo(() => {
     const textContent = messages
       .map((m) => {
         const textParts = m.parts?.filter((p) => p.type === "text") || [];
@@ -2187,14 +2532,17 @@ Details: ${data.details}` : "";
     return Math.round(textContent.length / 4);
   }, [messages]);
 
-  // Context limit and warning thresholds
-  const CONTEXT_LIMIT = 200000;
-  const WARNING_THRESHOLD = 0.7; // 70% = 140K tokens
-  const COMPRESS_THRESHOLD = 0.85; // 85% = 170K tokens
+  // Total context = Soul context (system prompt) + Conversation messages
+  const totalContextTokens = soulContextTokens + conversationTokens;
 
-  const contextUsagePercent = (estimatedTokens / CONTEXT_LIMIT) * 100;
-  const showContextWarning = estimatedTokens > CONTEXT_LIMIT * WARNING_THRESHOLD;
-  const showCompressButton = estimatedTokens > CONTEXT_LIMIT * 0.5; // Show at 50%
+  // Context limit based on selected model (dynamic)
+  const CONTEXT_LIMIT = MODEL_CONTEXT_LIMITS[modelConfig.model] || 200000;
+  const WARNING_THRESHOLD = 0.7; // 70%
+  const COMPRESS_THRESHOLD = 0.85; // 85%
+
+  const contextUsagePercent = (totalContextTokens / CONTEXT_LIMIT) * 100;
+  const showContextWarning = totalContextTokens > CONTEXT_LIMIT * WARNING_THRESHOLD;
+  const showCompressButton = totalContextTokens > CONTEXT_LIMIT * 0.5; // Show at 50%
 
   // Handle context compression
   const handleCompressContext = async () => {
@@ -2245,59 +2593,267 @@ Details: ${data.details}` : "";
   };
 
   return (
-    <div className={cn(
-      "kronus-chamber flex h-full relative",
-      kronusTheme === "light" && "kronus-light"
-    )}>
+    <div
+      className={cn(
+        "kronus-chamber relative flex h-full",
+        kronusTheme === "light" && "kronus-light"
+      )}
+    >
       {/* Conversation History Sidebar */}
       {showHistory && (
-        <div className="kronus-sidebar flex w-64 flex-col z-10">
+        <div className="kronus-sidebar z-10 flex w-96 flex-col">
           <div className="flex items-center justify-between border-b p-3">
             <h3 className="text-sm font-semibold">Saved Chats</h3>
-            <Button variant="ghost" size="sm" onClick={handleNewConversation}>
-              <Plus className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={handleBackfillAll}
+                    disabled={isBackfilling}
+                  >
+                    {isBackfilling ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-[var(--kronus-gold)]" />
+                    ) : (
+                      <Wand2 className="h-4 w-4 text-[var(--kronus-teal)]" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isBackfilling ? "Generating summaries..." : "Generate all missing summaries"}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={handleNewConversation}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">New chat</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setShowHistory(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Close sidebar</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
           <ScrollArea className="flex-1">
             <div className="space-y-1 p-2">
               {savedConversations.length === 0 ? (
-                <p className="text-[var(--kronus-ivory-muted)] p-3 text-xs text-center italic">No saved conversations yet</p>
+                <p className="p-3 text-center text-xs text-[var(--kronus-ivory-muted)] italic">
+                  No saved conversations yet
+                </p>
               ) : (
-                savedConversations.map((conv) => (
-                  <div
-                    key={conv.id}
-                    onClick={() => handleLoadConversation(conv.id)}
-                    className={cn(
-                      "kronus-sidebar-item group flex cursor-pointer items-center justify-between p-2",
-                      currentConversationId === conv.id && "active"
-                    )}
-                  >
-                    <div className="min-w-0 flex-1 overflow-wrap-anywhere break-words">
+                savedConversations.map((conv) => {
+                  const hasSummary = !!conv.summary;
+                  const hasChanges = conversationHasChanges(conv);
+                  const isGenerating = generatingSummaryFor === conv.id;
+                  const needsSummary = !hasSummary || hasChanges;
+
+                  return (
+                    <div
+                      key={conv.id}
+                      onClick={() => handleLoadConversation(conv.id)}
+                      className={cn(
+                        "kronus-sidebar-item group cursor-pointer rounded-md p-2.5",
+                        currentConversationId === conv.id && "active"
+                      )}
+                    >
+                      {/* Top row: Icons */}
+                      <div className="mb-1 flex items-center gap-2">
+                        {/* 1. Summary status icon - Eye of Kronus */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help">
+                              {hasSummary ? (
+                                <Eye className="h-4 w-4 text-[var(--kronus-gold)] drop-shadow-[0_0_4px_var(--kronus-gold)]" />
+                              ) : (
+                                <EyeOff className="h-4 w-4 text-[var(--kronus-ivory-muted)] opacity-50" />
+                              )}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="right"
+                            sideOffset={8}
+                            className="z-[100] max-w-[300px] rounded-lg border-2 border-[var(--kronus-gold)]/40 bg-[#0a0a0f] p-4 shadow-2xl"
+                          >
+                            {hasSummary ? (
+                              <div className="space-y-2">
+                                <p className="border-b border-[var(--kronus-gold)]/20 pb-1.5 text-[11px] font-semibold tracking-widest text-[var(--kronus-gold)] uppercase">
+                                  Kronus Remembers
+                                </p>
+                                <p className="text-[13px] leading-relaxed text-[#e8e4d9]">
+                                  {conv.summary}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                <p className="text-[11px] font-semibold tracking-widest text-[#6b6b7b] uppercase">
+                                  Unseen
+                                </p>
+                                <p className="text-xs text-[#6b6b7b] italic">
+                                  No memory yet recorded
+                                </p>
+                              </div>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+
+                        {/* 2. Generate/Update summary button - only active if needs update */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "h-6 w-6 p-0 transition-opacity",
+                                needsSummary ? "opacity-100" : "cursor-not-allowed opacity-30"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (needsSummary) handleGenerateSummary(conv.id, hasChanges, e);
+                              }}
+                              disabled={isGenerating || !needsSummary}
+                            >
+                              {isGenerating ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-[var(--kronus-gold)]" />
+                              ) : (
+                                <RefreshCw
+                                  className={cn(
+                                    "h-4 w-4",
+                                    needsSummary
+                                      ? "text-[var(--kronus-teal)]"
+                                      : "text-[var(--kronus-ivory-muted)]"
+                                  )}
+                                />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="right"
+                            className="border-[var(--kronus-border)] bg-[var(--kronus-surface)]"
+                          >
+                            <div className="text-xs">
+                              <p>
+                                {isGenerating
+                                  ? "Generating..."
+                                  : needsSummary
+                                    ? hasSummary
+                                      ? "Update summary"
+                                      : "Generate summary"
+                                    : "Summary up to date"}
+                              </p>
+                              {conv.summary_updated_at && (
+                                <p className="mt-1 text-[var(--kronus-ivory-muted)]">
+                                  Last: {formatDateShort(conv.summary_updated_at)}
+                                </p>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        {/* Spacer */}
+                        <div className="flex-1" />
+
+                        {/* Delete button - appears on hover */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                              onClick={(e) => handleDeleteConversation(conv.id, e)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-[var(--kronus-error)]" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            className="border-[var(--kronus-border)] bg-[var(--kronus-surface)]"
+                          >
+                            <p className="text-xs">Delete</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+
+                      {/* Title */}
                       <p className="truncate text-sm font-medium">{conv.title}</p>
-                      <p className="text-muted-foreground text-xs">
+
+                      {/* Date */}
+                      <p className="mt-0.5 text-xs text-[var(--kronus-ivory-muted)]">
                         {formatDateShort(conv.updated_at)}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                      onClick={(e) => handleDeleteConversation(conv.id, e)}
-                    >
-                      <Trash2 className="text-destructive h-3 w-3" />
-                    </Button>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </ScrollArea>
+          {/* Pagination */}
+          {conversationsTotal > conversationsLimit && (
+            <div className="border-t p-3">
+              <div className="mb-2 flex items-center justify-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      disabled={conversationsOffset === 0}
+                      onClick={() => loadConversations(conversationsOffset - conversationsLimit)}
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Newer chats</TooltipContent>
+                </Tooltip>
+                <span className="min-w-[60px] text-center text-xs text-[var(--kronus-ivory-muted)]">
+                  {Math.floor(conversationsOffset / conversationsLimit) + 1} /{" "}
+                  {Math.ceil(conversationsTotal / conversationsLimit)}
+                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      disabled={conversationsOffset + conversationsLimit >= conversationsTotal}
+                      onClick={() => loadConversations(conversationsOffset + conversationsLimit)}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Older chats</TooltipContent>
+                </Tooltip>
+              </div>
+              <p className="text-center text-[10px] text-[var(--kronus-ivory-muted)]">
+                {conversationsTotal} conversations
+              </p>
+            </div>
+          )}
         </div>
       )}
 
       {/* Main Chat Area */}
       <div className="flex flex-1 flex-col">
         {/* Toolbar */}
-        <div className="kronus-toolbar flex items-center gap-2 px-4 py-2 z-10">
+        <div className="kronus-toolbar z-10 flex items-center gap-2 px-4 py-2">
           <Button variant="ghost" size="sm" onClick={() => setShowHistory(!showHistory)}>
             <History className="mr-1 h-4 w-4" />
             History
@@ -2307,25 +2863,38 @@ Details: ${data.details}` : "";
             New
           </Button>
           {/* Soul Config - always editable, affects next new chat */}
-          <SoulConfig
-            config={soulConfig}
-            onChange={setSoulConfig}
-          />
+          <SoulConfig config={soulConfig} onChange={setSoulConfig} contextLimit={CONTEXT_LIMIT} />
           {/* Tools Config - controls which tool categories are enabled */}
-          <ToolsConfig
-            config={toolsConfig}
-            onChange={setToolsConfig}
-          />
+          <ToolsConfig config={toolsConfig} onChange={setToolsConfig} />
           {/* Model Config - select AI provider (Gemini, Claude, GPT-4o) */}
-          <ModelConfig
-            config={modelConfig}
-            onChange={setModelConfig}
-          />
+          <ModelConfig config={modelConfig} onChange={setModelConfig} />
           {/* Format Config - font/size, applies immediately */}
-          <FormatConfig
-            config={formatConfig}
-            onChange={setFormatConfig}
-          />
+          <FormatConfig config={formatConfig} onChange={setFormatConfig} />
+
+          {/* Context Usage Indicator - shows total context (soul + conversation) */}
+          {messages.length > 0 && (
+            <div
+              className="ml-2 flex items-center gap-1.5 rounded-md px-2 py-1"
+              style={{
+                backgroundColor:
+                  contextUsagePercent > 70 ? "rgba(212, 175, 55, 0.15)" : "rgba(0, 206, 209, 0.1)",
+                border: `1px solid ${contextUsagePercent > 70 ? "rgba(212, 175, 55, 0.3)" : "rgba(0, 206, 209, 0.2)"}`,
+              }}
+              title={`Total: ${totalContextTokens.toLocaleString()} / ${CONTEXT_LIMIT.toLocaleString()} tokens\nSoul context: ~${soulContextTokens.toLocaleString()}\nConversation: ~${conversationTokens.toLocaleString()}`}
+            >
+              <Gauge
+                className="h-3.5 w-3.5"
+                style={{ color: contextUsagePercent > 70 ? "#D4AF37" : "#00CED1" }}
+              />
+              <span
+                className="font-mono text-[11px] font-medium"
+                style={{ color: contextUsagePercent > 70 ? "#D4AF37" : "#00CED1" }}
+              >
+                {contextUsagePercent.toFixed(0)}%
+              </span>
+            </div>
+          )}
+
           <div className="flex-1" />
           {messages.length > 0 && (
             <>
@@ -2349,12 +2918,7 @@ Details: ${data.details}` : "";
                 <ChevronUp className="h-4 w-4" />
               </Button>
               {/* Jump to last */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={scrollToLast}
-                title="Jump to last message"
-              >
+              <Button variant="ghost" size="sm" onClick={scrollToLast} title="Jump to last message">
                 <ChevronDown className="h-4 w-4" />
               </Button>
               <Button
@@ -2377,13 +2941,13 @@ Details: ${data.details}` : "";
 
         {/* Search Bar */}
         {showSearch && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-[var(--kronus-surface)] border-b border-[var(--kronus-border)]">
+          <div className="flex items-center gap-2 border-b border-[var(--kronus-border)] bg-[var(--kronus-surface)] px-4 py-2">
             <Search className="h-4 w-4 text-[var(--kronus-ivory-muted)]" />
             <Input
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search messages... (Esc to close)"
-              className="flex-1 h-8 bg-[var(--kronus-void)] border-[var(--kronus-border)] text-sm"
+              className="h-8 flex-1 border-[var(--kronus-border)] bg-[var(--kronus-void)] text-sm"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -2397,14 +2961,24 @@ Details: ${data.details}` : "";
               }}
             />
             {searchResults.length > 0 && (
-              <span className="text-xs text-[var(--kronus-ivory-muted)] whitespace-nowrap">
+              <span className="text-xs whitespace-nowrap text-[var(--kronus-ivory-muted)]">
                 {currentSearchIndex + 1} of {searchResults.length}
               </span>
             )}
-            <Button variant="ghost" size="sm" onClick={prevSearchResult} disabled={searchResults.length === 0}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={prevSearchResult}
+              disabled={searchResults.length === 0}
+            >
               <ArrowUp className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={nextSearchResult} disabled={searchResults.length === 0}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={nextSearchResult}
+              disabled={searchResults.length === 0}
+            >
               <ArrowDown className="h-4 w-4" />
             </Button>
             <Button
@@ -2422,7 +2996,7 @@ Details: ${data.details}` : "";
         )}
 
         {/* Messages Area */}
-        <ScrollArea className="flex-1 z-10" ref={scrollRef}>
+        <ScrollArea className="z-10 flex-1" ref={scrollRef}>
           <div
             className="mx-auto max-w-3xl space-y-2 p-4"
             style={{
@@ -2433,33 +3007,44 @@ Details: ${data.details}` : "";
             {messages.length === 0 && (
               <div className="kronus-message p-4">
                 <div className="flex items-start gap-4">
-                  <div className="kronus-avatar flex h-12 w-12 shrink-0 items-center justify-center rounded-full overflow-hidden p-0">
-                    <img src="/chronus-logo.png" alt={agentName} className="h-full w-full object-cover" />
+                  <div className="kronus-avatar flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full p-0">
+                    <img
+                      src="/chronus-logo.png"
+                      alt={agentName}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-xl text-gradient-teal-gold">
+                    <h3 className="text-gradient-teal-gold text-xl font-semibold">
                       {agentName} — Oracle of Tartarus
                     </h3>
-                    <p className="text-[var(--kronus-ivory-dim)] mt-3 leading-relaxed">
-                      Greetings, seeker. I am <span className="text-[var(--kronus-teal)] font-medium">{agentName}</span>, keeper of the Developer Journal and guardian of your coding journey.
+                    <p className="mt-3 leading-relaxed text-[var(--kronus-ivory-dim)]">
+                      Greetings, seeker. I am{" "}
+                      <span className="font-medium text-[var(--kronus-teal)]">{agentName}</span>,
+                      keeper of the Developer Journal and guardian of your coding journey.
                     </p>
-                    <p className="text-[var(--kronus-ivory-muted)] mt-2 leading-relaxed text-sm">
-                      I can help you create and modify journal entries, explore your development history,
-                      access your repository of writings and skills, and manage Linear issues.
-                      Configure my capabilities via <span className="text-[var(--kronus-purple)]">Tools</span> above.
+                    <p className="mt-2 text-sm leading-relaxed text-[var(--kronus-ivory-muted)]">
+                      I can help you create and modify journal entries, explore your development
+                      history, access your repository of writings and skills, and manage Linear
+                      issues. Configure my capabilities via{" "}
+                      <span className="text-[var(--kronus-purple)]">Tools</span> above.
                     </p>
                     <div className="mt-4 space-y-2 text-xs">
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        📜 <strong className="text-[var(--kronus-ivory)]">Journal:</strong> Create entries, explore history, manage attachments
+                        📜 <strong className="text-[var(--kronus-ivory)]">Journal:</strong> Create
+                        entries, explore history, manage attachments
                       </p>
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        📚 <strong className="text-[var(--kronus-ivory)]">Repository:</strong> Writings, skills, experience, education
+                        📚 <strong className="text-[var(--kronus-ivory)]">Repository:</strong>{" "}
+                        Writings, skills, experience, education
                       </p>
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        🔗 <strong className="text-[var(--kronus-ivory)]">Linear:</strong> Issues & projects (drafts require approval)
+                        🔗 <strong className="text-[var(--kronus-ivory)]">Linear:</strong> Issues &
+                        projects (drafts require approval)
                       </p>
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        🌐 <strong className="text-[var(--kronus-ivory)]">Multimodal:</strong> Web search, image generation (enable in Tools)
+                        🌐 <strong className="text-[var(--kronus-ivory)]">Multimodal:</strong> Web
+                        search, image generation (enable in Tools)
                       </p>
                     </div>
                   </div>
@@ -2472,394 +3057,449 @@ Details: ${data.details}` : "";
               const isCurrentSearchResult = searchResults[currentSearchIndex] === messageIndex;
 
               return (
-              <div
-                key={message.id}
-                className="space-y-2"
-                ref={(el) => {
-                  if (el) messageRefs.current.set(message.id, el);
-                }}
-              >
                 <div
-                  className={cn(
-                    "p-2.5 overflow-visible rounded-xl transition-all",
-                    message.role === "user" ? "user-message ml-12" : "kronus-message",
-                    isSearchMatch && "ring-2 ring-[var(--kronus-teal)]/50",
-                    isCurrentSearchResult && "ring-2 ring-[var(--kronus-gold)] bg-[var(--kronus-gold)]/5"
-                  )}
+                  key={message.id}
+                  className="space-y-2"
+                  ref={(el) => {
+                    if (el) messageRefs.current.set(message.id, el);
+                  }}
                 >
-                  {message.role === "user" ? (
-                    /* User message: simple horizontal layout with edit capability */
-                    <div className="group/user-msg flex items-start gap-2.5">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden user-avatar">
-                        <User className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="min-w-0 flex-1 overflow-wrap-anywhere break-words">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-xs font-semibold text-[var(--kronus-gold)]">You</p>
-                          {/* Edit button - visible on hover, hidden during streaming or when editing */}
-                          {editingMessageId !== message.id && status !== "streaming" && status !== "submitted" && (
-                            <button
-                              onClick={() => handleEditMessage(message.id)}
-                              className="opacity-0 group-hover/user-msg:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--kronus-surface)] text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-gold)]"
-                              title="Edit message"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+                  <div
+                    className={cn(
+                      "overflow-visible rounded-xl p-2.5 transition-all",
+                      message.role === "user" ? "user-message ml-12" : "kronus-message",
+                      isSearchMatch && "ring-2 ring-[var(--kronus-teal)]/50",
+                      isCurrentSearchResult &&
+                        "bg-[var(--kronus-gold)]/5 ring-2 ring-[var(--kronus-gold)]"
+                    )}
+                  >
+                    {message.role === "user" ? (
+                      /* User message: simple horizontal layout with edit capability */
+                      <div className="group/user-msg flex items-start gap-2.5">
+                        <div className="user-avatar flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full">
+                          <User className="h-4 w-4 text-white" />
                         </div>
-                        {/* Edit mode UI */}
-                        {editingMessageId === message.id ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              value={editingMessageContent}
-                              onChange={(e) => setEditingMessageContent(e.target.value)}
-                              className="min-h-[80px] bg-[var(--kronus-deep)] border-[var(--kronus-border)] text-[var(--kronus-ivory)] resize-y"
-                              autoFocus
-                            />
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                onClick={handleSubmitEdit}
-                                disabled={!editingMessageContent.trim()}
-                                className="bg-[var(--kronus-gold)] hover:bg-[var(--kronus-gold)]/80 text-[var(--kronus-deep)]"
-                              >
-                                <Send className="h-3 w-3 mr-1" />
-                                Send
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={handleCancelEdit}
-                                className="text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-ivory)]"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="max-w-none break-words overflow-wrap-anywhere">
-                            {message.parts?.map((part, i) => {
-                              if (part.type === "file" && (part as any).mediaType?.startsWith("image/")) {
-                                return (
-                                  <div key={i} className="mb-3">
-                                    <img
-                                      src={(part as any).url}
-                                      alt={(part as any).filename || "Attached image"}
-                                      className="max-w-full max-h-96 rounded-lg border border-[var(--kronus-border)] object-contain"
-                                    />
-                                  </div>
-                                );
-                              }
-                              if (part.type === "text") {
-                                return <MemoizedMarkdown key={i} text={part.text} />;
-                              }
-                              return null;
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    /* Kronus message: avatar + name on one row, content below */
-                    <div className="group/kronus-msg flex flex-col">
-                      {/* Header row: avatar centered with name */}
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden kronus-avatar p-0">
-                          <img src="/chronus-logo.png" alt={agentName} className="h-full w-full object-cover" />
-                        </div>
-                        <p className="text-base font-bold tracking-[0.3em] uppercase text-[var(--kronus-teal)]" style={{ fontFamily: "var(--font-cinzel), serif" }}>
-                          {agentName}
-                        </p>
-                      </div>
-                      {/* Content below header - indented for visual hierarchy */}
-                      <div className="max-w-none break-words overflow-wrap-anywhere pl-6 pr-2">
-                        {/* Reasoning/Thinking display - shown above the response */}
-                        {(() => {
-                          const reasoningParts = message.parts?.filter((p: any) => p.type === "reasoning") || [];
-                          const reasoningText = reasoningParts.map((p: any) => p.text).join("\n");
-                          const isLastMessage = message.id === messages[messages.length - 1]?.id;
-                          const isCurrentlyStreaming = status === "streaming" && message.role === "assistant" && isLastMessage;
-
-                          if (reasoningText) {
-                            return (
-                              <ThinkingDisplay
-                                reasoning={reasoningText}
-                                isStreaming={isCurrentlyStreaming}
-                              />
-                            );
-                          }
-                          return null;
-                        })()}
-                        {message.parts?.map((part, i) => {
-                          // Render image/file parts
-                          if (part.type === "file" && (part as any).mediaType?.startsWith("image/")) {
-                            return (
-                              <div key={i} className="mb-3">
-                                <img
-                                  src={(part as any).url}
-                                  alt={(part as any).filename || "Attached image"}
-                                  className="max-w-full max-h-96 rounded-lg border border-[var(--kronus-border)] object-contain"
-                                />
-                              </div>
-                            );
-                          }
-                          // Skip reasoning parts - already displayed above
-                          if (part.type === "reasoning") {
-                            return null;
-                          }
-                          if (part.type === "text") {
-                            // Check if this is the last message and still streaming
-                            const isLastMessage = message.id === messages[messages.length - 1]?.id;
-                            const isStreaming = status === "streaming" && message.role === "assistant" && isLastMessage;
-
-                            // Use simple text during streaming, full markdown when complete
-                            if (isStreaming) {
-                              return <StreamingText key={i} text={part.text} />;
-                            }
-                            return <MemoizedMarkdown key={i} text={part.text} />;
-                          }
-                          return null;
-                        })}
-                      </div>
-                      {/* Regenerate button - only on last assistant message when not streaming */}
-                      {(() => {
-                        const isLastAssistantMessage = (() => {
-                          for (let j = messages.length - 1; j >= 0; j--) {
-                            if (messages[j].role === "assistant") {
-                              return messages[j].id === message.id;
-                            }
-                          }
-                          return false;
-                        })();
-                        const canRegenerate = isLastAssistantMessage && status !== "streaming" && status !== "submitted";
-
-                        if (!canRegenerate) return null;
-
-                        return (
-                          <div className="pl-6 mt-2 opacity-0 group-hover/kronus-msg:opacity-100 transition-opacity">
-                            <button
-                              onClick={handleRegenerateResponse}
-                              className="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-teal)] hover:bg-[var(--kronus-surface)] transition-colors"
-                              title="Regenerate response"
-                            >
-                              <RefreshCw className="h-3 w-3" />
-                              Regenerate
-                            </button>
-                          </div>
-                        );
-                      })()}
-                      {/* Confirmation buttons for write operations */}
-                      {(() => {
-                        // Only show on last assistant message when not streaming
-                        const isLastAssistantMessage = (() => {
-                          for (let j = messages.length - 1; j >= 0; j--) {
-                            if (messages[j].role === "assistant") {
-                              return messages[j].id === message.id;
-                            }
-                          }
-                          return false;
-                        })();
-                        if (!isLastAssistantMessage || status === "streaming" || status === "submitted") return null;
-
-                        // Get text content from message
-                        const textContent = message.parts
-                          ?.filter((p: any) => p.type === "text")
-                          .map((p: any) => p.text)
-                          .join("\n") || "";
-
-                        const { isConfirmation, proposedChanges } = detectConfirmationRequest(textContent);
-                        if (!isConfirmation) return null;
-
-                        return (
-                          <div className="pl-6">
-                            <ConfirmationButtons
-                              onConfirm={() => {
-                                // Send "yes" as user response - include config in body
-                                const effectiveSoulConfig = lockedSoulConfig || soulConfig;
-                                sendMessage(
-                                  { text: "Yes, proceed with the changes." },
-                                  { body: { soulConfig: effectiveSoulConfig, toolsConfig, modelConfig } }
-                                );
-                              }}
-                              onReject={() => {
-                                // Send "no" as user response
-                                const effectiveSoulConfig = lockedSoulConfig || soulConfig;
-                                sendMessage(
-                                  { text: "No, cancel. Do not make the changes." },
-                                  { body: { soulConfig: effectiveSoulConfig, toolsConfig, modelConfig } }
-                                );
-                              }}
-                              proposedChanges={proposedChanges}
-                              disabled={status !== "ready"}
-                            />
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-                </div>
-
-                {message.parts
-                  ?.filter((part) => part.type.startsWith("tool-"))
-                  .map((part: any) => {
-                    const toolName = part.type.replace("tool-", "");
-                    const toolCallId = part.toolCallId;
-                    const state = toolStates[toolCallId];
-                    const isExpanded = expandedTools.has(toolCallId);
-
-                    return (
-                      <div
-                        key={toolCallId}
-                        className={cn(
-                          "tool-invocation ml-12 p-3 mt-2",
-                          state?.completed && "success"
-                        )}
-                      >
-                        <button
-                          onClick={() => toggleToolExpanded(toolCallId)}
-                          className="flex w-full items-center gap-2 text-left"
-                        >
-                          {state?.pendingConfirmation ? (
-                            <AlertCircle className="h-4 w-4 text-[var(--kronus-gold)] animate-pulse" />
-                          ) : state?.isLoading ? (
-                            <Loader2 className="text-primary h-4 w-4 animate-spin" />
-                          ) : state?.error ? (
-                            <AlertCircle className="text-destructive h-4 w-4" />
-                          ) : state?.completed ? (
-                            <CheckCircle2 className="h-4 w-4 text-[var(--tartarus-success)]" />
-                          ) : (
-                            <Wrench className="text-muted-foreground h-4 w-4" />
-                          )}
-                          <span className="flex-1 font-mono text-sm">{toolName}</span>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs",
-                              state?.pendingConfirmation
-                                ? "bg-[var(--kronus-gold)]/10 border-[var(--kronus-gold)] text-[var(--kronus-gold)]"
-                                : "bg-[var(--kronus-surface)] border-[var(--kronus-border)] text-[var(--kronus-ivory-muted)]"
-                            )}
-                          >
-                            {state?.pendingConfirmation
-                              ? "Awaiting confirmation..."
-                              : state?.isLoading
-                                ? "Running..."
-                                : state?.error
-                                  ? "Error"
-                                  : state?.completed
-                                    ? "Done"
-                                    : "Pending"}
-                          </Badge>
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </button>
-
-                        {isExpanded && (
-                          <div className="mt-3 space-y-2">
-                            <div>
-                              <p className="text-muted-foreground mb-1 text-xs">Input:</p>
-                              <pre className="bg-background max-h-32 overflow-auto rounded p-2 text-xs">
-                                {JSON.stringify(part.input, null, 2)}
-                              </pre>
-                            </div>
-                            {/* Display images if available */}
-                            {state?.images && state.images.length > 0 && (
-                              <div>
-                                <p className="text-muted-foreground mb-2 text-xs">Generated Images:</p>
-                                <div className="grid grid-cols-1 gap-2">
-                                  {state.images.map((imageUrl: string, idx: number) => (
-                                    <div key={idx} className="relative rounded-lg border overflow-hidden group">
-                                      <img
-                                        src={imageUrl}
-                                        alt={`Generated image ${idx + 1}`}
-                                        className="w-full h-auto max-h-96 object-contain"
-                                        onError={(e) => {
-                                          (e.target as HTMLImageElement).style.display = "none";
-                                        }}
-                                      />
-                                      <div className="absolute top-2 right-2 flex gap-1">
-                                        <a
-                                          href={imageUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="bg-black/50 hover:bg-black/70 text-white text-xs px-2 py-1 rounded"
-                                        >
-                                          Open
-                                        </a>
-                                        <button
-                                          onClick={async (e) => {
-                                            e.stopPropagation();
-                                            const filename = `generated-${Date.now()}-${idx + 1}.png`;
-                                            try {
-                                              const res = await fetch("/api/media", {
-                                                method: "POST",
-                                                headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({
-                                                  url: imageUrl,
-                                                  filename,
-                                                  description: state.prompt ? `Generated: ${state.prompt}` : "AI Generated Image",
-                                                  prompt: state.prompt,
-                                                  model: state.model,
-                                                  destination: "media",
-                                                }),
-                                              });
-                                              const data = await res.json();
-                                              if (res.ok) {
-                                                alert(`✅ Saved to media library (ID: ${data.id})`);
-                                              } else {
-                                                alert(`❌ Failed: ${data.error}`);
-                                              }
-                                            } catch (err: any) {
-                                              alert(`❌ Error: ${err.message}`);
-                                            }
-                                          }}
-                                          className="bg-[var(--tartarus-success)] hover:bg-[var(--tartarus-success)]/80 text-white text-xs px-2 py-1 rounded"
-                                        >
-                                          💾 Save
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                                {state.prompt && (
-                                  <p className="text-muted-foreground mt-2 text-xs italic">
-                                    Prompt: "{state.prompt}"
-                                  </p>
-                                )}
-                                {state.model && (
-                                  <p className="text-muted-foreground text-xs">
-                                    Model: {state.model}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                            {(part.output || state?.result || state?.error) && (
-                              <div>
-                                <p className="text-muted-foreground mb-1 text-xs">
-                                  {state?.error ? "Error:" : "Result:"}
-                                </p>
-                                <pre
-                                  className={cn(
-                                    "max-h-48 overflow-auto rounded p-2 text-xs border",
-                                    state?.error
-                                      ? "bg-[var(--tartarus-error-soft)] border-[var(--tartarus-error)]/50 text-[var(--tartarus-error)]"
-                                      : "bg-[var(--kronus-void)] border-[var(--kronus-border)] text-[var(--kronus-ivory-dim)]"
-                                  )}
+                        <div className="overflow-wrap-anywhere min-w-0 flex-1 break-words">
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <p className="text-xs font-semibold text-[var(--kronus-gold)]">You</p>
+                            {/* Edit button - visible on hover, hidden during streaming or when editing */}
+                            {editingMessageId !== message.id &&
+                              status !== "streaming" &&
+                              status !== "submitted" && (
+                                <button
+                                  onClick={() => handleEditMessage(message.id)}
+                                  className="rounded p-1 text-[var(--kronus-ivory-muted)] opacity-0 transition-opacity group-hover/user-msg:opacity-100 hover:bg-[var(--kronus-surface)] hover:text-[var(--kronus-gold)]"
+                                  title="Edit message"
                                 >
-                                  {state?.error || part.output || state?.result}
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                          </div>
+                          {/* Edit mode UI */}
+                          {editingMessageId === message.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editingMessageContent}
+                                onChange={(e) => setEditingMessageContent(e.target.value)}
+                                className="min-h-[80px] resize-y border-[var(--kronus-border)] bg-[var(--kronus-deep)] text-[var(--kronus-ivory)]"
+                                autoFocus
+                              />
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={handleSubmitEdit}
+                                  disabled={!editingMessageContent.trim()}
+                                  className="bg-[var(--kronus-gold)] text-[var(--kronus-deep)] hover:bg-[var(--kronus-gold)]/80"
+                                >
+                                  <Send className="mr-1 h-3 w-3" />
+                                  Send
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={handleCancelEdit}
+                                  className="text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-ivory)]"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="overflow-wrap-anywhere max-w-none break-words">
+                              {message.parts?.map((part, i) => {
+                                if (
+                                  part.type === "file" &&
+                                  (part as any).mediaType?.startsWith("image/")
+                                ) {
+                                  return (
+                                    <div key={i} className="mb-3">
+                                      <img
+                                        src={(part as any).url}
+                                        alt={(part as any).filename || "Attached image"}
+                                        className="max-h-96 max-w-full rounded-lg border border-[var(--kronus-border)] object-contain"
+                                      />
+                                    </div>
+                                  );
+                                }
+                                if (part.type === "text") {
+                                  return <MemoizedMarkdown key={i} text={part.text} />;
+                                }
+                                return null;
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Kronus message: avatar + name on one row, content below */
+                      <div className="group/kronus-msg flex flex-col">
+                        {/* Header row: avatar centered with name */}
+                        <div className="mb-3 flex items-center gap-3">
+                          <div className="kronus-avatar flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full p-0">
+                            <img
+                              src="/chronus-logo.png"
+                              alt={agentName}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <p
+                            className="text-base font-bold tracking-[0.3em] text-[var(--kronus-teal)] uppercase"
+                            style={{ fontFamily: "var(--font-cinzel), serif" }}
+                          >
+                            {agentName}
+                          </p>
+                        </div>
+                        {/* Content below header - indented for visual hierarchy */}
+                        <div className="overflow-wrap-anywhere max-w-none pr-2 pl-6 break-words">
+                          {/* Reasoning/Thinking display - shown above the response */}
+                          {(() => {
+                            const reasoningParts =
+                              message.parts?.filter((p: any) => p.type === "reasoning") || [];
+                            const reasoningText = reasoningParts.map((p: any) => p.text).join("\n");
+                            const isLastMessage = message.id === messages[messages.length - 1]?.id;
+                            const isCurrentlyStreaming =
+                              status === "streaming" &&
+                              message.role === "assistant" &&
+                              isLastMessage;
+
+                            if (reasoningText) {
+                              return (
+                                <ThinkingDisplay
+                                  reasoning={reasoningText}
+                                  isStreaming={isCurrentlyStreaming}
+                                />
+                              );
+                            }
+                            return null;
+                          })()}
+                          {message.parts?.map((part, i) => {
+                            // Render image/file parts
+                            if (
+                              part.type === "file" &&
+                              (part as any).mediaType?.startsWith("image/")
+                            ) {
+                              return (
+                                <div key={i} className="mb-3">
+                                  <img
+                                    src={(part as any).url}
+                                    alt={(part as any).filename || "Attached image"}
+                                    className="max-h-96 max-w-full rounded-lg border border-[var(--kronus-border)] object-contain"
+                                  />
+                                </div>
+                              );
+                            }
+                            // Skip reasoning parts - already displayed above
+                            if (part.type === "reasoning") {
+                              return null;
+                            }
+                            if (part.type === "text") {
+                              // Check if this is the last message and still streaming
+                              const isLastMessage =
+                                message.id === messages[messages.length - 1]?.id;
+                              const isStreaming =
+                                status === "streaming" &&
+                                message.role === "assistant" &&
+                                isLastMessage;
+
+                              // Use simple text during streaming, full markdown when complete
+                              if (isStreaming) {
+                                return <StreamingText key={i} text={part.text} />;
+                              }
+                              return <MemoizedMarkdown key={i} text={part.text} />;
+                            }
+                            return null;
+                          })}
+                        </div>
+                        {/* Regenerate button - only on last assistant message when not streaming */}
+                        {(() => {
+                          const isLastAssistantMessage = (() => {
+                            for (let j = messages.length - 1; j >= 0; j--) {
+                              if (messages[j].role === "assistant") {
+                                return messages[j].id === message.id;
+                              }
+                            }
+                            return false;
+                          })();
+                          const canRegenerate =
+                            isLastAssistantMessage &&
+                            status !== "streaming" &&
+                            status !== "submitted";
+
+                          if (!canRegenerate) return null;
+
+                          return (
+                            <div className="mt-2 pl-6 opacity-0 transition-opacity group-hover/kronus-msg:opacity-100">
+                              <button
+                                onClick={handleRegenerateResponse}
+                                className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-[var(--kronus-ivory-muted)] transition-colors hover:bg-[var(--kronus-surface)] hover:text-[var(--kronus-teal)]"
+                                title="Regenerate response"
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                                Regenerate
+                              </button>
+                            </div>
+                          );
+                        })()}
+                        {/* Confirmation buttons for write operations */}
+                        {(() => {
+                          // Only show on last assistant message when not streaming
+                          const isLastAssistantMessage = (() => {
+                            for (let j = messages.length - 1; j >= 0; j--) {
+                              if (messages[j].role === "assistant") {
+                                return messages[j].id === message.id;
+                              }
+                            }
+                            return false;
+                          })();
+                          if (
+                            !isLastAssistantMessage ||
+                            status === "streaming" ||
+                            status === "submitted"
+                          )
+                            return null;
+
+                          // Get text content from message
+                          const textContent =
+                            message.parts
+                              ?.filter((p: any) => p.type === "text")
+                              .map((p: any) => p.text)
+                              .join("\n") || "";
+
+                          const { isConfirmation, proposedChanges } =
+                            detectConfirmationRequest(textContent);
+                          if (!isConfirmation) return null;
+
+                          return (
+                            <div className="pl-6">
+                              <ConfirmationButtons
+                                onConfirm={() => {
+                                  // Send "yes" as user response - include config in body
+                                  const effectiveSoulConfig = lockedSoulConfig || soulConfig;
+                                  sendMessage(
+                                    { text: "Yes, proceed with the changes." },
+                                    {
+                                      body: {
+                                        soulConfig: effectiveSoulConfig,
+                                        toolsConfig,
+                                        modelConfig,
+                                      },
+                                    }
+                                  );
+                                }}
+                                onReject={() => {
+                                  // Send "no" as user response
+                                  const effectiveSoulConfig = lockedSoulConfig || soulConfig;
+                                  sendMessage(
+                                    { text: "No, cancel. Do not make the changes." },
+                                    {
+                                      body: {
+                                        soulConfig: effectiveSoulConfig,
+                                        toolsConfig,
+                                        modelConfig,
+                                      },
+                                    }
+                                  );
+                                }}
+                                proposedChanges={proposedChanges}
+                                disabled={status !== "ready"}
+                              />
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {message.parts
+                    ?.filter((part) => part.type.startsWith("tool-"))
+                    .map((part: any) => {
+                      const toolName = part.type.replace("tool-", "");
+                      const toolCallId = part.toolCallId;
+                      const state = toolStates[toolCallId];
+                      const isExpanded = expandedTools.has(toolCallId);
+
+                      return (
+                        <div
+                          key={toolCallId}
+                          className={cn(
+                            "tool-invocation mt-2 ml-12 p-3",
+                            state?.completed && "success"
+                          )}
+                        >
+                          <button
+                            onClick={() => toggleToolExpanded(toolCallId)}
+                            className="flex w-full items-center gap-2 text-left"
+                          >
+                            {state?.pendingConfirmation ? (
+                              <AlertCircle className="h-4 w-4 animate-pulse text-[var(--kronus-gold)]" />
+                            ) : state?.isLoading ? (
+                              <Loader2 className="text-primary h-4 w-4 animate-spin" />
+                            ) : state?.error ? (
+                              <AlertCircle className="text-destructive h-4 w-4" />
+                            ) : state?.completed ? (
+                              <CheckCircle2 className="h-4 w-4 text-[var(--tartarus-success)]" />
+                            ) : (
+                              <Wrench className="text-muted-foreground h-4 w-4" />
+                            )}
+                            <span className="flex-1 font-mono text-sm">{toolName}</span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-xs",
+                                state?.pendingConfirmation
+                                  ? "border-[var(--kronus-gold)] bg-[var(--kronus-gold)]/10 text-[var(--kronus-gold)]"
+                                  : "border-[var(--kronus-border)] bg-[var(--kronus-surface)] text-[var(--kronus-ivory-muted)]"
+                              )}
+                            >
+                              {state?.pendingConfirmation
+                                ? "Awaiting confirmation..."
+                                : state?.isLoading
+                                  ? "Running..."
+                                  : state?.error
+                                    ? "Error"
+                                    : state?.completed
+                                      ? "Done"
+                                      : "Pending"}
+                            </Badge>
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </button>
+
+                          {isExpanded && (
+                            <div className="mt-3 space-y-2">
+                              <div>
+                                <p className="text-muted-foreground mb-1 text-xs">Input:</p>
+                                <pre className="bg-background max-h-32 overflow-auto rounded p-2 text-xs">
+                                  {JSON.stringify(part.input, null, 2)}
                                 </pre>
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-            );
+                              {/* Display images if available */}
+                              {state?.images && state.images.length > 0 && (
+                                <div>
+                                  <p className="text-muted-foreground mb-2 text-xs">
+                                    Generated Images:
+                                  </p>
+                                  <div className="grid grid-cols-1 gap-2">
+                                    {state.images.map((imageUrl: string, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="group relative overflow-hidden rounded-lg border"
+                                      >
+                                        <img
+                                          src={imageUrl}
+                                          alt={`Generated image ${idx + 1}`}
+                                          className="h-auto max-h-96 w-full object-contain"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = "none";
+                                          }}
+                                        />
+                                        <div className="absolute top-2 right-2 flex gap-1">
+                                          <a
+                                            href={imageUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="rounded bg-black/50 px-2 py-1 text-xs text-white hover:bg-black/70"
+                                          >
+                                            Open
+                                          </a>
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              const filename = `generated-${Date.now()}-${idx + 1}.png`;
+                                              try {
+                                                const res = await fetch("/api/media", {
+                                                  method: "POST",
+                                                  headers: { "Content-Type": "application/json" },
+                                                  body: JSON.stringify({
+                                                    url: imageUrl,
+                                                    filename,
+                                                    description: state.prompt
+                                                      ? `Generated: ${state.prompt}`
+                                                      : "AI Generated Image",
+                                                    prompt: state.prompt,
+                                                    model: state.model,
+                                                    destination: "media",
+                                                  }),
+                                                });
+                                                const data = await res.json();
+                                                if (res.ok) {
+                                                  alert(
+                                                    `✅ Saved to media library (ID: ${data.id})`
+                                                  );
+                                                } else {
+                                                  alert(`❌ Failed: ${data.error}`);
+                                                }
+                                              } catch (err: any) {
+                                                alert(`❌ Error: ${err.message}`);
+                                              }
+                                            }}
+                                            className="rounded bg-[var(--tartarus-success)] px-2 py-1 text-xs text-white hover:bg-[var(--tartarus-success)]/80"
+                                          >
+                                            💾 Save
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {state.prompt && (
+                                    <p className="text-muted-foreground mt-2 text-xs italic">
+                                      Prompt: "{state.prompt}"
+                                    </p>
+                                  )}
+                                  {state.model && (
+                                    <p className="text-muted-foreground text-xs">
+                                      Model: {state.model}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {(part.output || state?.result || state?.error) && (
+                                <div>
+                                  <p className="text-muted-foreground mb-1 text-xs">
+                                    {state?.error ? "Error:" : "Result:"}
+                                  </p>
+                                  <pre
+                                    className={cn(
+                                      "max-h-48 overflow-auto rounded border p-2 text-xs",
+                                      state?.error
+                                        ? "border-[var(--tartarus-error)]/50 bg-[var(--tartarus-error-soft)] text-[var(--tartarus-error)]"
+                                        : "border-[var(--kronus-border)] bg-[var(--kronus-void)] text-[var(--kronus-ivory-dim)]"
+                                    )}
+                                  >
+                                    {state?.error || part.output || state?.result}
+                                  </pre>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              );
             })}
 
             {(status === "submitted" || status === "streaming") && (
@@ -2868,7 +3508,7 @@ Details: ${data.details}` : "";
                   {/* Ouroboros loading animation */}
                   <div className="relative">
                     {/* Outer glow ring */}
-                    <div className="absolute inset-[-8px] rounded-full bg-gradient-to-r from-[var(--kronus-teal)]/20 via-[var(--kronus-gold)]/10 to-[var(--kronus-teal)]/20 blur-md animate-pulse" />
+                    <div className="absolute inset-[-8px] animate-pulse rounded-full bg-gradient-to-r from-[var(--kronus-teal)]/20 via-[var(--kronus-gold)]/10 to-[var(--kronus-teal)]/20 blur-md" />
                     {/* Rotating ouroboros */}
                     <div className="relative h-16 w-16 animate-[spin_8s_linear_infinite]">
                       <img
@@ -2878,7 +3518,7 @@ Details: ${data.details}` : "";
                       />
                     </div>
                   </div>
-                  <span className="text-[var(--kronus-ivory-muted)] text-sm italic tracking-wide">
+                  <span className="text-sm tracking-wide text-[var(--kronus-ivory-muted)] italic">
                     {status === "submitted" ? "Consulting the oracle..." : "Weaving wisdom..."}
                   </span>
                 </div>
@@ -2888,33 +3528,28 @@ Details: ${data.details}` : "";
         </ScrollArea>
 
         {/* Input Area */}
-        <div
-          className="kronus-input-area p-4 z-10"
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-        >
+        <div className="kronus-input-area z-10 p-4" onDrop={handleDrop} onDragOver={handleDragOver}>
           <form onSubmit={handleSubmit} className="mx-auto max-w-3xl">
             {/* Error Banner */}
             {error && (
-              <div className="mb-3 p-3 rounded-lg bg-[var(--kronus-error)]/10 border border-[var(--kronus-error)]/30 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-[var(--kronus-error)] shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[var(--kronus-error)]">
-                    Request Failed
-                  </p>
-                  <p className="text-xs text-[var(--kronus-ivory-muted)] mt-1 break-words">
+              <div className="mb-3 flex items-start gap-3 rounded-lg border border-[var(--kronus-error)]/30 bg-[var(--kronus-error)]/10 p-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--kronus-error)]" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-[var(--kronus-error)]">Request Failed</p>
+                  <p className="mt-1 text-xs break-words text-[var(--kronus-ivory-muted)]">
                     {error.message || "An unknown error occurred"}
                   </p>
                   {error.message?.includes("too long") && (
-                    <p className="text-xs text-[var(--kronus-gold)] mt-2">
-                      Tip: Try disabling some Soul Config sections or compress the conversation history.
+                    <p className="mt-2 text-xs text-[var(--kronus-gold)]">
+                      Tip: Try disabling some Soul Config sections or compress the conversation
+                      history.
                     </p>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => window.location.reload()}
-                  className="text-xs text-[var(--kronus-teal)] hover:underline shrink-0"
+                  className="shrink-0 text-xs text-[var(--kronus-teal)] hover:underline"
                 >
                   Retry
                 </button>
@@ -2925,7 +3560,7 @@ Details: ${data.details}` : "";
             {(imagePreviews.length > 0 || isCompressing) && (
               <div className="mb-3">
                 {isCompressing && (
-                  <div className="flex items-center gap-2 text-[var(--kronus-ivory-muted)] text-sm mb-2">
+                  <div className="mb-2 flex items-center gap-2 text-sm text-[var(--kronus-ivory-muted)]">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Optimizing images...</span>
                   </div>
@@ -2938,12 +3573,12 @@ Details: ${data.details}` : "";
                     const showCompressionBadge = info?.wasCompressed;
 
                     return (
-                      <div key={index} className="relative group">
+                      <div key={index} className="group relative">
                         {isPdf ? (
                           /* PDF preview */
-                          <div className="h-16 px-3 flex items-center gap-2 rounded-lg border-2 border-[var(--kronus-border)] bg-[var(--kronus-surface)]">
+                          <div className="flex h-16 items-center gap-2 rounded-lg border-2 border-[var(--kronus-border)] bg-[var(--kronus-surface)] px-3">
                             <FileText className="h-5 w-5 text-[var(--kronus-gold)]" />
-                            <span className="text-xs text-[var(--kronus-ivory-muted)] max-w-[100px] truncate">
+                            <span className="max-w-[100px] truncate text-xs text-[var(--kronus-ivory-muted)]">
                               {pdfName}
                             </span>
                           </div>
@@ -2952,20 +3587,20 @@ Details: ${data.details}` : "";
                           <img
                             src={preview}
                             alt={`Preview ${index + 1}`}
-                            className="h-16 w-16 object-cover rounded-lg border-2 border-[var(--kronus-border)]"
+                            className="h-16 w-16 rounded-lg border-2 border-[var(--kronus-border)] object-cover"
                           />
                         )}
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-[var(--tartarus-error)] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--tartarus-error)] text-white opacity-0 transition-opacity group-hover:opacity-100"
                         >
                           <X className="h-3 w-3" />
                         </button>
                         {/* Compression badge (images only) */}
                         {showCompressionBadge && !isPdf && (
                           <div
-                            className="absolute bottom-0 left-0 right-0 bg-black/70 text-[var(--kronus-teal)] text-[9px] px-1 py-0.5 rounded-b-lg text-center"
+                            className="absolute right-0 bottom-0 left-0 rounded-b-lg bg-black/70 px-1 py-0.5 text-center text-[9px] text-[var(--kronus-teal)]"
                             title={`Compressed: ${formatBytes(info.originalSize)} → ${formatBytes(info.compressedSize)} (${info.method})`}
                           >
                             {formatBytes(info.compressedSize)}
@@ -2978,7 +3613,7 @@ Details: ${data.details}` : "";
               </div>
             )}
 
-            <div className="flex gap-3 items-center">
+            <div className="flex items-center gap-3">
               {/* Hidden file input */}
               <input
                 type="file"
@@ -2994,8 +3629,12 @@ Details: ${data.details}` : "";
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={imagePreviews.length > 0 ? "Ask about the files..." : "Speak your query to the oracle..."}
-                  className="kronus-input max-h-[200px] min-h-[52px] resize-y overflow-y-auto pl-11 pr-4 py-3"
+                  placeholder={
+                    imagePreviews.length > 0
+                      ? "Ask about the files..."
+                      : "Speak your query to the oracle..."
+                  }
+                  className="kronus-input max-h-[200px] min-h-[52px] resize-y overflow-y-auto py-3 pr-4 pl-11"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -3008,7 +3647,7 @@ Details: ${data.details}` : "";
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-md text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-teal)] transition-colors disabled:opacity-40"
+                  className="absolute top-1/2 left-2.5 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[var(--kronus-ivory-muted)] transition-colors hover:text-[var(--kronus-teal)] disabled:opacity-40"
                   disabled={status === "submitted" || status === "streaming"}
                   title="Attach files (images, PDFs)"
                 >
@@ -3017,11 +3656,11 @@ Details: ${data.details}` : "";
               </div>
 
               {/* Send / Stop button (centered to textarea) */}
-              {(status === "submitted" || status === "streaming") ? (
+              {status === "submitted" || status === "streaming" ? (
                 <button
                   type="button"
                   onClick={() => stop()}
-                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-[var(--kronus-error)]/20 text-[var(--kronus-error)] hover:bg-[var(--kronus-error)]/30 border border-[var(--kronus-error)]/30 transition-all shadow-lg shadow-[var(--kronus-error)]/10"
+                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl border border-[var(--kronus-error)]/30 bg-[var(--kronus-error)]/20 text-[var(--kronus-error)] shadow-[var(--kronus-error)]/10 shadow-lg transition-all hover:bg-[var(--kronus-error)]/30"
                   title="Stop generating"
                 >
                   <Square className="h-5 w-5 fill-current" />
@@ -3029,7 +3668,7 @@ Details: ${data.details}` : "";
               ) : (
                 <button
                   type="submit"
-                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-[var(--kronus-teal)] text-[var(--kronus-deep)] hover:bg-[var(--kronus-teal)]/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-[var(--kronus-teal)]/20 hover:shadow-[var(--kronus-teal)]/40"
+                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-[var(--kronus-teal)] text-[var(--kronus-deep)] shadow-[var(--kronus-teal)]/20 shadow-lg transition-all hover:bg-[var(--kronus-teal)]/90 hover:shadow-[var(--kronus-teal)]/40 disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={(!input.trim() && !selectedFiles) || isCompressing}
                   title="Send message"
                 >
@@ -3053,10 +3692,12 @@ Details: ${data.details}` : "";
           }
         }}
       >
-        <DialogContent className={cn(
-          "bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] transition-all duration-200",
-          showDiffView ? "max-w-4xl" : "max-w-2xl"
-        )}>
+        <DialogContent
+          className={cn(
+            "border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] transition-all duration-200",
+            showDiffView ? "max-w-4xl" : "max-w-2xl"
+          )}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-[var(--kronus-gold)]">
@@ -3069,28 +3710,35 @@ Details: ${data.details}` : "";
                 size="sm"
                 onClick={() => setShowDiffView(!showDiffView)}
                 className={cn(
-                  "h-8 px-3 gap-2 text-xs",
+                  "h-8 gap-2 px-3 text-xs",
                   showDiffView
-                    ? "bg-[var(--kronus-teal)]/20 text-[var(--kronus-teal)] border border-[var(--kronus-teal)]/30"
-                    : "text-[var(--kronus-ivory-muted)] hover:text-[var(--kronus-ivory)] hover:bg-[var(--tartarus-bg)]"
+                    ? "border border-[var(--kronus-teal)]/30 bg-[var(--kronus-teal)]/20 text-[var(--kronus-teal)]"
+                    : "text-[var(--kronus-ivory-muted)] hover:bg-[var(--tartarus-bg)] hover:text-[var(--kronus-ivory)]"
                 )}
               >
                 <GitCompare className="h-3.5 w-3.5" />
                 {showDiffView ? "Hide Diff" : "Show Diff"}
-                {showDiffView ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                {showDiffView ? (
+                  <Minimize2 className="h-3 w-3" />
+                ) : (
+                  <Maximize2 className="h-3 w-3" />
+                )}
               </Button>
             </DialogTitle>
           </DialogHeader>
 
           {pendingToolAction && (
-            <div className="py-4 space-y-4">
+            <div className="space-y-4 py-4">
               {/* Action description */}
-              <div className="p-3 rounded-lg bg-[var(--tartarus-bg)] border border-[var(--tartarus-border)]">
+              <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-bg)] p-3">
                 <p className="text-sm font-medium text-[var(--kronus-ivory)]">
                   {pendingToolAction.action.description}
                 </p>
-                <p className="text-xs text-[var(--kronus-ivory-muted)] mt-1">
-                  Tool: <code className="text-[var(--kronus-teal)]">{pendingToolAction.action.toolName}</code>
+                <p className="mt-1 text-xs text-[var(--kronus-ivory-muted)]">
+                  Tool:{" "}
+                  <code className="text-[var(--kronus-teal)]">
+                    {pendingToolAction.action.toolName}
+                  </code>
                 </p>
               </div>
 
@@ -3098,49 +3746,59 @@ Details: ${data.details}` : "";
               {isLinearTool(pendingToolAction.action.toolName) ? (
                 /* Linear-style rich preview */
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-[var(--kronus-ivory-muted)] uppercase tracking-wide flex items-center gap-2">
+                  <p className="flex items-center gap-2 text-xs font-medium tracking-wide text-[var(--kronus-ivory-muted)] uppercase">
                     <FileText className="h-3 w-3" />
                     Preview
                   </p>
                   <div className="max-h-[450px] overflow-y-auto">
-                    {getLinearPreview(pendingToolAction.action.toolName, pendingToolAction.action.args)}
+                    {getLinearPreview(
+                      pendingToolAction.action.toolName,
+                      pendingToolAction.action.args
+                    )}
                   </div>
                 </div>
               ) : showDiffView ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-[var(--kronus-ivory-muted)] uppercase tracking-wide flex items-center gap-2">
+                  <p className="flex items-center gap-2 text-xs font-medium tracking-wide text-[var(--kronus-ivory-muted)] uppercase">
                     <GitCompare className="h-3 w-3" />
                     Changes Preview
                   </p>
-                  <div className="max-h-[400px] overflow-y-auto rounded-lg bg-[var(--tartarus-bg)] border border-[var(--tartarus-border)]">
-                    <pre className="p-4 text-xs font-mono text-[var(--kronus-ivory)] whitespace-pre-wrap leading-relaxed">
-                      {formatArgsForDiffView(pendingToolAction.action.toolName, pendingToolAction.action.args)}
+                  <div className="max-h-[400px] overflow-y-auto rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-bg)]">
+                    <pre className="p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-[var(--kronus-ivory)]">
+                      {formatArgsForDiffView(
+                        pendingToolAction.action.toolName,
+                        pendingToolAction.action.args
+                      )}
                     </pre>
                   </div>
                 </div>
               ) : (
                 /* Compact parameters view */
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-[var(--kronus-ivory-muted)] uppercase tracking-wide">
+                  <p className="text-xs font-medium tracking-wide text-[var(--kronus-ivory-muted)] uppercase">
                     Parameters
                   </p>
-                  <div className="max-h-[200px] overflow-y-auto rounded-lg bg-[var(--tartarus-bg)] border border-[var(--tartarus-border)] p-3">
+                  <div className="max-h-[200px] overflow-y-auto rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-bg)] p-3">
                     <dl className="space-y-2 text-sm">
-                      {Object.entries(pendingToolAction.action.formattedArgs).map(([key, value]) => (
-                        <div key={key} className="grid grid-cols-[120px_1fr] gap-2">
-                          <dt className="text-[var(--kronus-ivory-muted)] font-mono text-xs">{key}:</dt>
-                          <dd className="text-[var(--kronus-ivory)] break-words whitespace-pre-wrap font-mono text-xs">
-                            {value}
-                          </dd>
-                        </div>
-                      ))}
+                      {Object.entries(pendingToolAction.action.formattedArgs).map(
+                        ([key, value]) => (
+                          <div key={key} className="grid grid-cols-[120px_1fr] gap-2">
+                            <dt className="font-mono text-xs text-[var(--kronus-ivory-muted)]">
+                              {key}:
+                            </dt>
+                            <dd className="font-mono text-xs break-words whitespace-pre-wrap text-[var(--kronus-ivory)]">
+                              {value}
+                            </dd>
+                          </div>
+                        )
+                      )}
                     </dl>
                   </div>
                 </div>
               )}
 
               {/* Warning */}
-              <p className="text-xs text-[var(--kronus-gold)] flex items-center gap-1">
+              <p className="flex items-center gap-1 text-xs text-[var(--kronus-gold)]">
                 <AlertCircle className="h-3 w-3" />
                 This action will modify your data. Please review before confirming.
               </p>
@@ -3170,7 +3828,7 @@ Details: ${data.details}` : "";
                   setShowDiffView(false);
                 }
               }}
-              className="bg-[var(--kronus-teal)] hover:bg-[var(--kronus-teal)]/90 text-white"
+              className="bg-[var(--kronus-teal)] text-white hover:bg-[var(--kronus-teal)]/90"
             >
               <Check className="mr-2 h-4 w-4" />
               Confirm

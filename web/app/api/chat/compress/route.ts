@@ -32,15 +32,17 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   // Load conversation
   const conversation = db
     .prepare("SELECT * FROM chat_conversations WHERE id = ?")
-    .get(conversationId) as {
-      id: number;
-      title: string;
-      messages: string;
-      soul_config: string | null;
-      is_compressed: number;
-      message_count: number;
-      estimated_tokens: number;
-    } | undefined;
+    .get(conversationId) as
+    | {
+        id: number;
+        title: string;
+        messages: string;
+        soul_config: string | null;
+        is_compressed: number;
+        message_count: number;
+        estimated_tokens: number;
+      }
+    | undefined;
 
   if (!conversation) {
     throw new NotFoundError("Conversation not found");
@@ -113,14 +115,16 @@ Be concise but thorough. Focus on information that would be useful for continuin
   };
 
   // Update conversation with compression summary
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE chat_conversations
     SET
       is_compressed = 1,
       compression_summary = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(JSON.stringify(compressionSummary), conversationId);
+  `
+  ).run(JSON.stringify(compressionSummary), conversationId);
 
   return NextResponse.json({
     success: true,
@@ -139,25 +143,21 @@ export async function GET(request: NextRequest) {
   const conversationId = searchParams.get("conversationId");
 
   if (!conversationId) {
-    return NextResponse.json(
-      { error: "conversationId is required" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "conversationId is required" }, { status: 400 });
   }
 
   const db = getDatabase();
   const conversation = db
     .prepare("SELECT compression_summary, is_compressed FROM chat_conversations WHERE id = ?")
-    .get(parseInt(conversationId)) as {
-      compression_summary: string | null;
-      is_compressed: number;
-    } | undefined;
+    .get(parseInt(conversationId)) as
+    | {
+        compression_summary: string | null;
+        is_compressed: number;
+      }
+    | undefined;
 
   if (!conversation) {
-    return NextResponse.json(
-      { error: "Conversation not found" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
   }
 
   if (!conversation.is_compressed || !conversation.compression_summary) {

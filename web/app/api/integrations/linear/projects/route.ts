@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         .from(linearProjects)
         .where(inArray(linearProjects.id, projectIds));
 
-      const summaryMap = new Map(localProjects.map(p => [p.id, p.summary]));
+      const summaryMap = new Map(localProjects.map((p) => [p.id, p.summary]));
 
       // Add summaries to projects
       result.projects = result.projects.map((project: any) => ({
@@ -33,7 +33,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("Linear list projects error:", error);
-    return NextResponse.json({ error: error.message || "Failed to list projects" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Failed to list projects" },
+      { status: 500 }
+    );
   }
 }
 

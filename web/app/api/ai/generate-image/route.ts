@@ -55,7 +55,9 @@ export async function POST(request: NextRequest) {
     // Resolve model alias to actual model ID
     const modelId = GEMINI_IMAGE_MODELS[model as ModelAlias] || model;
 
-    console.log(`[AI Image] Generating with model ${modelId}, prompt: ${prompt.substring(0, 50)}...`);
+    console.log(
+      `[AI Image] Generating with model ${modelId}, prompt: ${prompt.substring(0, 50)}...`
+    );
 
     // AI SDK 6.0 pattern: generateText with multimodal Gemini model
     // Images are returned in result.files array
@@ -93,7 +95,10 @@ export async function POST(request: NextRequest) {
     if (imageUrls.length === 0) {
       // Check if there's text response (model might have refused or given text instead)
       const textResponse = result.text;
-      console.error("[AI Image] No images generated. Text response:", textResponse?.substring(0, 500));
+      console.error(
+        "[AI Image] No images generated. Text response:",
+        textResponse?.substring(0, 500)
+      );
 
       return NextResponse.json(
         {
@@ -135,7 +140,8 @@ export async function GET() {
       {
         id: "gemini-3-pro-image",
         name: "Gemini 3 Pro Image (Nano Banana Pro)",
-        description: "State-of-the-art image generation with 4K support and advanced text rendering",
+        description:
+          "State-of-the-art image generation with 4K support and advanced text rendering",
         maxResolution: "4096x4096",
         aspectRatios: ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"],
       },

@@ -12,9 +12,6 @@ export async function GET() {
     return NextResponse.json(config);
   } catch (error) {
     console.error("Failed to get agent config:", error);
-    return NextResponse.json(
-      { name: "Kronus", soulPath: "Soul.xml" },
-      { status: 500 }
-    );
+    return NextResponse.json({ name: "Kronus", soulPath: "Soul.xml" }, { status: 500 });
   }
 }

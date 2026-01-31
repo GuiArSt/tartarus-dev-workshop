@@ -88,13 +88,12 @@ export function initDatabase(): Database.Database {
   return getDatabase();
 }
 
-
 /**
  * Migrate journal_entries table to add code_author and team_members fields
  */
 export function migrateJournalEntriesSchema(): void {
   const database = getDatabase();
-  
+
   try {
     // Add code_author column (author of the code being reviewed)
     database.exec(`
@@ -102,11 +101,11 @@ export function migrateJournalEntriesSchema(): void {
     `);
     console.log("Added code_author column to journal_entries");
   } catch (error: any) {
-    if (!error.message?.includes('duplicate column')) {
+    if (!error.message?.includes("duplicate column")) {
       console.warn("Could not add code_author column (may already exist):", error.message);
     }
   }
-  
+
   try {
     // Add team_members column (JSON array of team member names)
     database.exec(`
@@ -114,11 +113,11 @@ export function migrateJournalEntriesSchema(): void {
     `);
     console.log("Added team_members column to journal_entries");
   } catch (error: any) {
-    if (!error.message?.includes('duplicate column')) {
+    if (!error.message?.includes("duplicate column")) {
       console.warn("Could not add team_members column (may already exist):", error.message);
     }
   }
-  
+
   // Set default code_author to author for existing entries
   try {
     database.exec(`
@@ -136,7 +135,7 @@ export function migrateJournalEntriesSchema(): void {
  */
 export function migrateLinearCacheSchema(): void {
   const database = getDatabase();
-  
+
   try {
     // Run migration SQL
     const migrationSQL = `
@@ -195,7 +194,7 @@ export function migrateLinearCacheSchema(): void {
       CREATE INDEX IF NOT EXISTS idx_linear_issues_deleted ON linear_issues(is_deleted);
       CREATE INDEX IF NOT EXISTS idx_linear_issues_synced ON linear_issues(synced_at DESC);
     `;
-    
+
     database.exec(migrationSQL);
     console.log("✅ Linear cache tables migrated");
   } catch (error: any) {
@@ -329,13 +328,3 @@ export interface Attachment {
   file_size: number;
   uploaded_at: string;
 }
-
-
-
-
-
-
-
-
-
-

@@ -9,7 +9,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Edit, Save, X, GraduationCap, MapPin, Calendar, BookOpen, Award, Plus, Target, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  Save,
+  X,
+  GraduationCap,
+  MapPin,
+  Calendar,
+  BookOpen,
+  Award,
+  Plus,
+  Target,
+  Upload,
+} from "lucide-react";
 
 interface Education {
   id: string;
@@ -101,7 +114,10 @@ export default function EducationDetailPage() {
   };
 
   const removeFocusArea = (areaToRemove: string) => {
-    setEditedEdu({ ...editedEdu, focusAreas: editedEdu.focusAreas?.filter(a => a !== areaToRemove) || [] });
+    setEditedEdu({
+      ...editedEdu,
+      focusAreas: editedEdu.focusAreas?.filter((a) => a !== areaToRemove) || [],
+    });
   };
 
   const addAchievement = () => {
@@ -113,7 +129,10 @@ export default function EducationDetailPage() {
   };
 
   const removeAchievement = (achToRemove: string) => {
-    setEditedEdu({ ...editedEdu, achievements: editedEdu.achievements?.filter(a => a !== achToRemove) || [] });
+    setEditedEdu({
+      ...editedEdu,
+      achievements: editedEdu.achievements?.filter((a) => a !== achToRemove) || [],
+    });
   };
 
   const editWithKronus = () => {
@@ -143,7 +162,7 @@ What would you like to change?`;
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col p-6 bg-[var(--tartarus-void)]">
+      <div className="flex h-full flex-col bg-[var(--tartarus-void)] p-6">
         <Skeleton className="mb-4 h-8 w-1/3 bg-[var(--tartarus-elevated)]" />
         <Skeleton className="h-96 w-full bg-[var(--tartarus-elevated)]" />
       </div>
@@ -161,13 +180,13 @@ What would you like to change?`;
   return (
     <div className="flex h-full flex-col bg-[var(--tartarus-void)]">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between px-6 border-b border-[var(--tartarus-border)]">
+      <header className="flex h-14 items-center justify-between border-b border-[var(--tartarus-border)] px-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/repository?tab=cv")}
-            className="text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-ivory)] hover:bg-[var(--tartarus-elevated)]"
+            className="text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)] hover:text-[var(--tartarus-ivory)]"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -183,7 +202,10 @@ What would you like to change?`;
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setIsEditing(false); setEditedEdu(education); }}
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditedEdu(education);
+                }}
                 className="border-[var(--tartarus-border)] text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)]"
               >
                 <X className="mr-2 h-4 w-4" />
@@ -215,7 +237,11 @@ What would you like to change?`;
                 onClick={editWithKronus}
                 className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
               >
-                <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                <img
+                  src="/chronus-logo.png"
+                  alt="Kronus"
+                  className="mr-2 h-4 w-4 rounded-full object-cover"
+                />
                 Edit with Kronus
               </Button>
             </>
@@ -225,17 +251,17 @@ What would you like to change?`;
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="mx-auto max-w-4xl">
           {/* Hero Card */}
-          <Card className="overflow-hidden border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-lg mb-6">
+          <Card className="mb-6 overflow-hidden border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-lg">
             {/* Header with gradient */}
-            <div className="h-40 bg-gradient-to-r from-[var(--tartarus-teal-dim)] to-[var(--tartarus-surface)] relative border-b border-[var(--tartarus-border)]">
-              <div className="absolute bottom-4 left-6 right-6">
+            <div className="relative h-40 border-b border-[var(--tartarus-border)] bg-gradient-to-r from-[var(--tartarus-teal-dim)] to-[var(--tartarus-surface)]">
+              <div className="absolute right-6 bottom-4 left-6">
                 <div className="flex items-end justify-between">
                   <div className="flex items-center gap-4">
                     {/* Logo Container - Clickable when editing */}
                     <div
-                      className={`h-20 w-20 rounded-xl bg-[var(--tartarus-elevated)] border border-[var(--tartarus-border)] shadow-lg flex items-center justify-center relative group ${isEditing ? "cursor-pointer" : ""}`}
+                      className={`group relative flex h-20 w-20 items-center justify-center rounded-xl border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] shadow-lg ${isEditing ? "cursor-pointer" : ""}`}
                       onClick={() => isEditing && fileInputRef.current?.click()}
                     >
                       {displayLogo ? (
@@ -250,7 +276,7 @@ What would you like to change?`;
 
                       {/* Upload overlay when editing */}
                       {isEditing && (
-                        <div className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
                           <Upload className="h-6 w-6 text-white" />
                         </div>
                       )}
@@ -269,20 +295,22 @@ What would you like to change?`;
                           <Input
                             value={editedEdu.degree || ""}
                             onChange={(e) => setEditedEdu({ ...editedEdu, degree: e.target.value })}
-                            className="text-xl font-bold bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                            className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-xl font-bold text-[var(--tartarus-ivory)]"
                             placeholder="Degree"
                           />
                           <Input
                             value={editedEdu.field || ""}
                             onChange={(e) => setEditedEdu({ ...editedEdu, field: e.target.value })}
-                            className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] h-7 text-sm"
+                            className="h-7 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)]"
                             placeholder="Field of Study"
                           />
                         </div>
                       ) : (
                         <>
-                          <h2 className="text-2xl font-bold text-[var(--tartarus-ivory)]">{education.degree}</h2>
-                          <p className="text-[var(--tartarus-teal)] text-lg">{education.field}</p>
+                          <h2 className="text-2xl font-bold text-[var(--tartarus-ivory)]">
+                            {education.degree}
+                          </h2>
+                          <p className="text-lg text-[var(--tartarus-teal)]">{education.field}</p>
                         </>
                       )}
                     </div>
@@ -295,50 +323,54 @@ What would you like to change?`;
               {/* Logo URL (when editing) */}
               {isEditing && (
                 <div className="mb-6">
-                  <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">
+                  <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
                     Institution Logo URL (or click image above to upload)
                   </Label>
                   <Input
                     value={editedEdu.logo || ""}
                     onChange={(e) => setEditedEdu({ ...editedEdu, logo: e.target.value })}
                     placeholder="https://... or upload above"
-                    className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                    className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                   />
                 </div>
               )}
 
               {/* Institution & Meta Info */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pb-6 border-b border-[var(--tartarus-border)]">
+              <div className="mb-6 grid grid-cols-1 gap-4 border-b border-[var(--tartarus-border)] pb-6 md:grid-cols-3">
                 <div className="md:col-span-1">
-                  <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1 block flex items-center gap-1">
+                  <Label className="mb-1 block flex items-center gap-1 text-xs text-[var(--tartarus-ivory-muted)]">
                     <BookOpen className="h-3 w-3" /> Institution
                   </Label>
                   {isEditing ? (
                     <Input
                       value={editedEdu.institution || ""}
                       onChange={(e) => setEditedEdu({ ...editedEdu, institution: e.target.value })}
-                      className="h-8 text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                      className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)]"
                     />
                   ) : (
-                    <p className="text-sm font-semibold text-[var(--tartarus-teal)]">{education.institution}</p>
+                    <p className="text-sm font-semibold text-[var(--tartarus-teal)]">
+                      {education.institution}
+                    </p>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1 block flex items-center gap-1">
+                  <Label className="mb-1 block flex items-center gap-1 text-xs text-[var(--tartarus-ivory-muted)]">
                     <MapPin className="h-3 w-3" /> Location
                   </Label>
                   {isEditing ? (
                     <Input
                       value={editedEdu.location || ""}
                       onChange={(e) => setEditedEdu({ ...editedEdu, location: e.target.value })}
-                      className="h-8 text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                      className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)]"
                     />
                   ) : (
-                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">{education.location}</p>
+                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">
+                      {education.location}
+                    </p>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1 block flex items-center gap-1">
+                  <Label className="mb-1 block flex items-center gap-1 text-xs text-[var(--tartarus-ivory-muted)]">
                     <Calendar className="h-3 w-3" /> Period
                   </Label>
                   {isEditing ? (
@@ -347,32 +379,36 @@ What would you like to change?`;
                         value={editedEdu.dateStart || ""}
                         onChange={(e) => setEditedEdu({ ...editedEdu, dateStart: e.target.value })}
                         placeholder="Start"
-                        className="h-8 text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                        className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                       />
                       <Input
                         value={editedEdu.dateEnd || ""}
                         onChange={(e) => setEditedEdu({ ...editedEdu, dateEnd: e.target.value })}
                         placeholder="End"
-                        className="h-8 text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                        className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                       />
                     </div>
                   ) : (
-                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">{education.dateStart} - {education.dateEnd}</p>
+                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">
+                      {education.dateStart} - {education.dateEnd}
+                    </p>
                   )}
                 </div>
               </div>
 
               {/* Tagline */}
               <div className="mb-6">
-                <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">Tagline</Label>
+                <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                  Tagline
+                </Label>
                 {isEditing ? (
                   <Input
                     value={editedEdu.tagline || ""}
                     onChange={(e) => setEditedEdu({ ...editedEdu, tagline: e.target.value })}
-                    className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                    className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]"
                   />
                 ) : (
-                  <p className="text-lg italic text-[var(--tartarus-teal)]">
+                  <p className="text-lg text-[var(--tartarus-teal)] italic">
                     "{education.tagline}"
                   </p>
                 )}
@@ -381,16 +417,18 @@ What would you like to change?`;
               {/* Note */}
               {(education.note || isEditing) && (
                 <div className="mb-6">
-                  <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">Note</Label>
+                  <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                    Note
+                  </Label>
                   {isEditing ? (
                     <Textarea
                       value={editedEdu.note || ""}
                       onChange={(e) => setEditedEdu({ ...editedEdu, note: e.target.value })}
                       placeholder="Additional context..."
-                      className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                   ) : education.note ? (
-                    <div className="p-4 rounded-lg border bg-[var(--tartarus-teal-soft)] border-[var(--tartarus-teal-dim)]">
+                    <div className="rounded-lg border border-[var(--tartarus-teal-dim)] bg-[var(--tartarus-teal-soft)] p-4">
                       <p className="text-sm text-[var(--tartarus-ivory)]">{education.note}</p>
                     </div>
                   ) : null}
@@ -401,12 +439,15 @@ What would you like to change?`;
 
           {/* Focus Areas */}
           {(education.focusAreas?.length > 0 || isEditing) && (
-            <Card className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-sm mb-6">
+            <Card className="mb-6 border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg text-[var(--tartarus-ivory)]">
                   <Target className="h-5 w-5 text-[var(--tartarus-teal)]" />
                   Focus Areas
-                  <Badge variant="secondary" className="ml-2 bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
+                  <Badge
+                    variant="secondary"
+                    className="ml-2 bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]"
+                  >
                     {education.focusAreas?.length || 0}
                   </Badge>
                 </CardTitle>
@@ -416,9 +457,16 @@ What would you like to change?`;
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-2">
                       {editedEdu.focusAreas?.map((area, i) => (
-                        <Badge key={i} variant="secondary" className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)] pr-1">
+                        <Badge
+                          key={i}
+                          variant="secondary"
+                          className="bg-[var(--tartarus-teal-soft)] pr-1 text-[var(--tartarus-teal)]"
+                        >
                           {area}
-                          <button onClick={() => removeFocusArea(area)} className="ml-1 hover:text-[var(--tartarus-error)]">
+                          <button
+                            onClick={() => removeFocusArea(area)}
+                            className="ml-1 hover:text-[var(--tartarus-error)]"
+                          >
                             <X className="h-3 w-3" />
                           </button>
                         </Badge>
@@ -429,8 +477,13 @@ What would you like to change?`;
                         value={newFocusArea}
                         onChange={(e) => setNewFocusArea(e.target.value)}
                         placeholder="Add focus area..."
-                        className="max-w-md bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFocusArea(); } }}
+                        className="max-w-md border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addFocusArea();
+                          }
+                        }}
                       />
                       <Button
                         variant="outline"
@@ -438,7 +491,7 @@ What would you like to change?`;
                         onClick={addFocusArea}
                         className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]"
                       >
-                        <Plus className="h-4 w-4 mr-1" />
+                        <Plus className="mr-1 h-4 w-4" />
                         Add
                       </Button>
                     </div>
@@ -446,9 +499,14 @@ What would you like to change?`;
                 ) : (
                   <div className="space-y-2">
                     {education.focusAreas?.map((area, i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-[var(--tartarus-elevated)] border border-[var(--tartarus-border)]">
-                        <div className="h-6 w-6 rounded-full bg-[var(--tartarus-teal-soft)] flex items-center justify-center shrink-0 mt-0.5">
-                          <span className="text-xs font-semibold text-[var(--tartarus-teal)]">{i + 1}</span>
+                      <div
+                        key={i}
+                        className="flex items-start gap-3 rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] p-3"
+                      >
+                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--tartarus-teal-soft)]">
+                          <span className="text-xs font-semibold text-[var(--tartarus-teal)]">
+                            {i + 1}
+                          </span>
                         </div>
                         <p className="text-sm text-[var(--tartarus-ivory)]">{area}</p>
                       </div>
@@ -466,7 +524,10 @@ What would you like to change?`;
                 <CardTitle className="flex items-center gap-2 text-lg text-[var(--tartarus-ivory)]">
                   <Award className="h-5 w-5 text-[var(--tartarus-gold)]" />
                   Achievements & Honors
-                  <Badge variant="secondary" className="ml-2 bg-[var(--tartarus-gold-soft)] text-[var(--tartarus-gold)]">
+                  <Badge
+                    variant="secondary"
+                    className="ml-2 bg-[var(--tartarus-gold-soft)] text-[var(--tartarus-gold)]"
+                  >
                     {education.achievements?.length || 0}
                   </Badge>
                 </CardTitle>
@@ -476,9 +537,15 @@ What would you like to change?`;
                   <div className="space-y-3">
                     <div className="space-y-2">
                       {editedEdu.achievements?.map((ach, i) => (
-                        <div key={i} className="flex items-center gap-2 p-2 rounded bg-[var(--tartarus-gold-soft)] border border-[var(--tartarus-gold-dim)]">
+                        <div
+                          key={i}
+                          className="flex items-center gap-2 rounded border border-[var(--tartarus-gold-dim)] bg-[var(--tartarus-gold-soft)] p-2"
+                        >
                           <span className="flex-1 text-sm text-[var(--tartarus-ivory)]">{ach}</span>
-                          <button onClick={() => removeAchievement(ach)} className="text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-error)]">
+                          <button
+                            onClick={() => removeAchievement(ach)}
+                            className="text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-error)]"
+                          >
                             <X className="h-4 w-4" />
                           </button>
                         </div>
@@ -489,8 +556,13 @@ What would you like to change?`;
                         value={newAchievement}
                         onChange={(e) => setNewAchievement(e.target.value)}
                         placeholder="Add achievement..."
-                        className="max-w-md min-h-[60px] bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
-                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addAchievement(); } }}
+                        className="min-h-[60px] max-w-md border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            addAchievement();
+                          }
+                        }}
                       />
                       <Button
                         variant="outline"
@@ -498,7 +570,7 @@ What would you like to change?`;
                         onClick={addAchievement}
                         className="self-start border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)]"
                       >
-                        <Plus className="h-4 w-4 mr-1" />
+                        <Plus className="mr-1 h-4 w-4" />
                         Add
                       </Button>
                     </div>
@@ -506,8 +578,11 @@ What would you like to change?`;
                 ) : (
                   <div className="space-y-3">
                     {education.achievements?.map((ach, i) => (
-                      <div key={i} className="flex items-start gap-3 p-4 rounded-lg bg-[var(--tartarus-gold-soft)] border border-[var(--tartarus-gold-dim)]">
-                        <Award className="h-5 w-5 text-[var(--tartarus-gold)] shrink-0 mt-0.5" />
+                      <div
+                        key={i}
+                        className="flex items-start gap-3 rounded-lg border border-[var(--tartarus-gold-dim)] bg-[var(--tartarus-gold-soft)] p-4"
+                      >
+                        <Award className="mt-0.5 h-5 w-5 shrink-0 text-[var(--tartarus-gold)]" />
                         <p className="text-sm text-[var(--tartarus-ivory)]">{ach}</p>
                       </div>
                     ))}

@@ -11,30 +11,30 @@
 
 export const TARTARUS = {
   // Backgrounds
-  void: "#050508",        // Deepest black - the void
-  abyss: "#0a0a0f",       // Primary background
-  surface: "#12121a",     // Elevated surface
-  elevated: "#1a1a24",    // Cards, items
+  void: "#050508", // Deepest black - the void
+  abyss: "#0a0a0f", // Primary background
+  surface: "#12121a", // Elevated surface
+  elevated: "#1a1a24", // Cards, items
 
   // Borders & Lines
-  border: "#2a2a3a",      // Standard border
+  border: "#2a2a3a", // Standard border
   borderSubtle: "#1f1f2a", // Subtle dividers
   borderAccent: "#3a3a4a", // Hover borders
 
   // Text
-  text: "#e8e6e3",        // Primary text
-  textMuted: "#888899",   // Secondary text
-  textDim: "#666677",     // Tertiary text
+  text: "#e8e6e3", // Primary text
+  textMuted: "#888899", // Secondary text
+  textDim: "#666677", // Tertiary text
 
   // Accent Colors
-  teal: "#00CED1",        // Primary accent - cyan glow
-  tealDim: "#008B8B",     // Muted teal
+  teal: "#00CED1", // Primary accent - cyan glow
+  tealDim: "#008B8B", // Muted teal
   tealGlow: "rgba(0, 206, 209, 0.15)", // Teal background glow
 
-  gold: "#D4AF37",        // Warning, premium
+  gold: "#D4AF37", // Warning, premium
   goldGlow: "rgba(212, 175, 55, 0.15)",
 
-  purple: "#9B59B6",      // Special features
+  purple: "#9B59B6", // Special features
   purpleGlow: "rgba(155, 89, 182, 0.15)",
 
   // Provider Colors
@@ -255,5 +255,7 @@ export function getAccentColor(enabled: boolean, accentColor: string = TARTARUS.
  * Generate glow effect CSS
  */
 export function glowEffect(color: string, intensity: number = 0.15): string {
-  return `0 0 20px ${color}${Math.round(intensity * 255).toString(16).padStart(2, '0')}`;
+  return `0 0 20px ${color}${Math.round(intensity * 255)
+    .toString(16)
+    .padStart(2, "0")}`;
 }

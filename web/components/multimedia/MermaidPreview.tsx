@@ -46,16 +46,11 @@ export function MermaidPreview({ code, className = "" }: MermaidPreviewProps) {
 
   if (error) {
     return (
-      <div className={`p-4 text-sm text-red-400 bg-red-950/30 rounded ${className}`}>
+      <div className={`rounded bg-red-950/30 p-4 text-sm text-red-400 ${className}`}>
         Mermaid error: {error}
       </div>
     );
   }
 
-  return (
-    <div
-      ref={previewRef}
-      className={`mermaid-preview overflow-auto ${className}`}
-    />
-  );
+  return <div ref={previewRef} className={`mermaid-preview overflow-auto ${className}`} />;
 }

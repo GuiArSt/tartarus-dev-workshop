@@ -47,7 +47,9 @@ interface HermesStatsRow {
 function loadHermesMemory(db: ReturnType<typeof getDatabase>, userId: string): HermesMemory {
   // Get memories
   const memories = db
-    .prepare("SELECT content, source_language, target_language, tags FROM hermes_memories WHERE user_id = ? ORDER BY frequency DESC, updated_at DESC")
+    .prepare(
+      "SELECT content, source_language, target_language, tags FROM hermes_memories WHERE user_id = ? ORDER BY frequency DESC, updated_at DESC"
+    )
     .all(userId) as HermesMemoryItem[];
 
   // Get dictionary terms
@@ -96,7 +98,17 @@ function saveTranslation(
   db.prepare(
     `INSERT INTO hermes_translations (user_id, original_text, translated_text, source_language, target_language, tone, had_changes, clarification_questions, source_context)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(userId, originalText, translatedText, sourceLanguage, targetLanguage, tone, hadChanges ? 1 : 0, JSON.stringify(clarificationQuestions), sourceContext || null);
+  ).run(
+    userId,
+    originalText,
+    translatedText,
+    sourceLanguage,
+    targetLanguage,
+    tone,
+    hadChanges ? 1 : 0,
+    JSON.stringify(clarificationQuestions),
+    sourceContext || null
+  );
 }
 
 /**
@@ -138,7 +150,14 @@ function updateStats(
  * Translate text using Hermes with structured output
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  const { text, sourceLanguage, targetLanguage, tone = "neutral", answers, sourceContext } = await request.json();
+  const {
+    text,
+    sourceLanguage,
+    targetLanguage,
+    tone = "neutral",
+    answers,
+    sourceContext,
+  } = await request.json();
 
   if (!text || typeof text !== "string") {
     throw new ValidationError("Text is required");
@@ -179,7 +198,13 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   // Build prompts
   const systemPrompt = getHermesSystemPrompt(memory);
-  const userPrompt = buildTranslationUserPrompt(text, sourceLanguage, targetLanguage, tone as TranslationTone, answers);
+  const userPrompt = buildTranslationUserPrompt(
+    text,
+    sourceLanguage,
+    targetLanguage,
+    tone as TranslationTone,
+    answers
+  );
 
   // AI SDK 6.0 pattern: generateText with Output.object() (generateObject is deprecated)
   const result = await generateText({
@@ -206,7 +231,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       targetLanguage,
       tone as TranslationTone,
       response.hadChanges,
-      response.clarificationQuestions?.map(q => q.question) || [],
+      response.clarificationQuestions?.map((q) => q.question) || [],
       sourceContext
     );
   } catch (e) {

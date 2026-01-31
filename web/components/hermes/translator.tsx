@@ -14,11 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  LanguageSelectorCompact,
-  type LanguageCode,
-  ALL_LANGUAGES,
-} from "./language-selector";
+import { LanguageSelectorCompact, type LanguageCode, ALL_LANGUAGES } from "./language-selector";
 import { ToneSelector, type TranslationTone } from "./tone-selector";
 import {
   ArrowRightLeft,
@@ -387,9 +383,9 @@ export function HermesTranslator() {
   }, [stats]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Main content area */}
-      <div className="flex-1 p-6 space-y-6 overflow-auto">
+      <div className="flex-1 space-y-6 overflow-auto p-6">
         {/* Language and Tone Selection */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-end gap-2">
@@ -441,17 +437,17 @@ export function HermesTranslator() {
             placeholder="Enter text to translate..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            className="min-h-[140px] resize-y bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-teal)] focus:ring-[var(--tartarus-teal)]"
+            className="min-h-[140px] resize-y border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-teal)] focus:ring-[var(--tartarus-teal)]"
           />
           <div className="flex justify-end">
             <Button
               onClick={() => handleTranslate(false)}
               disabled={isTranslating || !inputText.trim()}
-              className="bg-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-bright)] text-[var(--tartarus-deep)]"
+              className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal-bright)]"
             >
               {isTranslating ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Translating...
                 </>
               ) : (
@@ -466,7 +462,7 @@ export function HermesTranslator() {
 
         {/* Error display */}
         {error && (
-          <div className="p-4 rounded-lg bg-[var(--tartarus-error)]/10 border border-[var(--tartarus-error)]/30 text-[var(--tartarus-error)]">
+          <div className="rounded-lg border border-[var(--tartarus-error)]/30 bg-[var(--tartarus-error)]/10 p-4 text-[var(--tartarus-error)]">
             {error}
           </div>
         )}
@@ -482,7 +478,7 @@ export function HermesTranslator() {
                 size="sm"
                 variant="ghost"
                 onClick={copyToClipboard}
-                className="h-7 px-2 text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)] hover:bg-[var(--tartarus-surface)]"
+                className="h-7 px-2 text-[var(--tartarus-ivory-dim)] hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)]"
               >
                 {copied ? (
                   <Check className="h-3.5 w-3.5 text-[var(--tartarus-teal)]" />
@@ -494,21 +490,21 @@ export function HermesTranslator() {
             <Textarea
               value={translatedText}
               readOnly
-              className="min-h-[140px] resize-y bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+              className="min-h-[140px] resize-y border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]"
             />
           </div>
         )}
 
         {/* Translator's Notes */}
         {notes && (
-          <div className="p-3 rounded-lg bg-[var(--tartarus-gold)]/10 border border-[var(--tartarus-gold)]/30 text-sm text-[var(--tartarus-gold)]">
+          <div className="rounded-lg border border-[var(--tartarus-gold)]/30 bg-[var(--tartarus-gold)]/10 p-3 text-sm text-[var(--tartarus-gold)]">
             <strong>Translator&apos;s note:</strong> {notes}
           </div>
         )}
 
         {/* Clarification Questions */}
         {clarificationQuestions.length > 0 && (
-          <div className="p-4 rounded-lg bg-[var(--tartarus-teal)]/10 border border-[var(--tartarus-teal)]/30 space-y-4">
+          <div className="space-y-4 rounded-lg border border-[var(--tartarus-teal)]/30 bg-[var(--tartarus-teal)]/10 p-4">
             <div className="flex items-center gap-2 text-[var(--tartarus-teal)]">
               <MessageCircleQuestion className="h-5 w-5" />
               <span className="font-medium">Hermes seeks clarity:</span>
@@ -516,9 +512,7 @@ export function HermesTranslator() {
             {clarificationQuestions.map((q, idx) => (
               <div key={idx} className="space-y-2">
                 <p className="text-[var(--tartarus-ivory)]">&ldquo;{q.question}&rdquo;</p>
-                <p className="text-xs text-[var(--tartarus-ivory-faded)] italic">
-                  {q.context}
-                </p>
+                <p className="text-xs text-[var(--tartarus-ivory-faded)] italic">{q.context}</p>
                 <div className="flex flex-wrap gap-2">
                   {q.options.map((option, optIdx) => (
                     <Button
@@ -529,7 +523,7 @@ export function HermesTranslator() {
                       className={cn(
                         "border-[var(--tartarus-border)]",
                         selectedOptions[q.question] === option
-                          ? "bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] border-[var(--tartarus-teal)]"
+                          ? "border-[var(--tartarus-teal)] bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)]"
                           : "text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)]"
                       )}
                     >
@@ -541,14 +535,14 @@ export function HermesTranslator() {
                   placeholder="Or type your own answer..."
                   value={selectedOptions[q.question] ? "" : answers[q.question] || ""}
                   onChange={(e) => setFreeTextAnswer(q.question, e.target.value)}
-                  className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                  className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                 />
               </div>
             ))}
             <Button
               onClick={submitAnswers}
               disabled={isTranslating || clarificationQuestions.some((q) => !answers[q.question])}
-              className="bg-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-bright)] text-[var(--tartarus-deep)]"
+              className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal-bright)]"
             >
               Submit Answers
             </Button>
@@ -557,10 +551,10 @@ export function HermesTranslator() {
 
         {/* Final Version & Save to Memory */}
         {translatedText && clarificationQuestions.length === 0 && (
-          <div className="border-t border-[var(--tartarus-border)] pt-6 space-y-2">
+          <div className="space-y-2 border-t border-[var(--tartarus-border)] pt-6">
             <label className="text-sm font-medium text-[var(--tartarus-ivory)]">
               Your Final Version{" "}
-              <span className="text-[var(--tartarus-ivory-faded)] font-normal">
+              <span className="font-normal text-[var(--tartarus-ivory-faded)]">
                 (optional - paste to teach Hermes)
               </span>
             </label>
@@ -568,7 +562,7 @@ export function HermesTranslator() {
               placeholder="Paste your edited final version here to help Hermes learn your preferences..."
               value={finalVersion}
               onChange={(e) => setFinalVersion(e.target.value)}
-              className="min-h-[100px] resize-y bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-gold)] focus:ring-[var(--tartarus-gold)]"
+              className="min-h-[100px] resize-y border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-gold)] focus:ring-[var(--tartarus-gold)]"
             />
             <div className="flex justify-end">
               <Button
@@ -579,12 +573,12 @@ export function HermesTranslator() {
               >
                 {isExtracting ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Extracting...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="mr-2 h-4 w-4" />
                     Save to Memory
                   </>
                 )}
@@ -596,35 +590,33 @@ export function HermesTranslator() {
 
       {/* Save Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
+        <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
           <DialogHeader className="flex-shrink-0">
-            <DialogTitle className="text-[var(--tartarus-ivory)] flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-[var(--tartarus-ivory)]">
               <Sparkles className="h-5 w-5 text-[var(--tartarus-gold)]" />
               Extracted Learnings
             </DialogTitle>
           </DialogHeader>
           {extractedLearnings && (
-            <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-2">
+            <div className="flex-1 space-y-4 overflow-y-auto py-2 pr-2">
               {/* Label */}
               <div className="space-y-1">
-                <label className="text-xs text-[var(--tartarus-ivory-faded)]">
-                  Content Type
-                </label>
+                <label className="text-xs text-[var(--tartarus-ivory-faded)]">Content Type</label>
                 <Input
                   value={editedLabel}
                   onChange={(e) => setEditedLabel(e.target.value)}
-                  className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                  className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]"
                 />
               </div>
 
               {/* Main Changes */}
               {extractedLearnings.mainChanges.length > 0 && (
                 <details className="group" open>
-                  <summary className="flex items-center gap-2 cursor-pointer text-xs text-[var(--tartarus-ivory-faded)] hover:text-[var(--tartarus-ivory)] transition-colors">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs text-[var(--tartarus-ivory-faded)] transition-colors hover:text-[var(--tartarus-ivory)]">
                     <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                     Changes you made ({extractedLearnings.mainChanges.length})
                   </summary>
-                  <ul className="text-sm text-[var(--tartarus-ivory-dim)] space-y-1 mt-2 ml-5">
+                  <ul className="mt-2 ml-5 space-y-1 text-sm text-[var(--tartarus-ivory-dim)]">
                     {extractedLearnings.mainChanges.map((change, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-[var(--tartarus-teal)]">•</span>
@@ -638,15 +630,15 @@ export function HermesTranslator() {
               {/* New Patterns */}
               {extractedLearnings.newPatterns.length > 0 && (
                 <details className="group" open>
-                  <summary className="flex items-center gap-2 cursor-pointer text-xs text-[var(--tartarus-ivory-faded)] hover:text-[var(--tartarus-ivory)] transition-colors">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs text-[var(--tartarus-ivory-faded)] transition-colors hover:text-[var(--tartarus-ivory)]">
                     <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                     New patterns to remember ({extractedLearnings.newPatterns.length})
                   </summary>
-                  <div className="space-y-1.5 mt-2 ml-5">
+                  <div className="mt-2 ml-5 space-y-1.5">
                     {extractedLearnings.newPatterns.map((pattern) => (
                       <label
                         key={pattern}
-                        className="flex items-start gap-2 text-sm text-[var(--tartarus-ivory-dim)] cursor-pointer hover:text-[var(--tartarus-ivory)] transition-colors"
+                        className="flex cursor-pointer items-start gap-2 text-sm text-[var(--tartarus-ivory-dim)] transition-colors hover:text-[var(--tartarus-ivory)]"
                       >
                         <input
                           type="checkbox"
@@ -660,7 +652,7 @@ export function HermesTranslator() {
                             }
                             setSelectedPatterns(newSet);
                           }}
-                          className="accent-[var(--tartarus-teal)] mt-0.5 flex-shrink-0"
+                          className="mt-0.5 flex-shrink-0 accent-[var(--tartarus-teal)]"
                         />
                         <span>{pattern}</span>
                       </label>
@@ -672,13 +664,13 @@ export function HermesTranslator() {
               {/* Protected Terms */}
               {extractedLearnings.protectedTerms.length > 0 && (
                 <details className="group" open>
-                  <summary className="flex items-center gap-2 cursor-pointer text-xs text-[var(--tartarus-ivory-faded)] hover:text-[var(--tartarus-ivory)] transition-colors">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs text-[var(--tartarus-ivory-faded)] transition-colors hover:text-[var(--tartarus-ivory)]">
                     <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                     Protected terms ({extractedLearnings.protectedTerms.length})
                   </summary>
-                  <div className="flex flex-wrap gap-2 mt-2 ml-5">
+                  <div className="mt-2 ml-5 flex flex-wrap gap-2">
                     {extractedLearnings.protectedTerms.map((term) => (
-                      <label key={term} className="flex items-center gap-1 text-sm cursor-pointer">
+                      <label key={term} className="flex cursor-pointer items-center gap-1 text-sm">
                         <input
                           type="checkbox"
                           checked={selectedTerms.has(term)}
@@ -706,7 +698,7 @@ export function HermesTranslator() {
               )}
             </div>
           )}
-          <DialogFooter className="flex-shrink-0 border-t border-[var(--tartarus-border)] pt-4 mt-2">
+          <DialogFooter className="mt-2 flex-shrink-0 border-t border-[var(--tartarus-border)] pt-4">
             <Button
               variant="ghost"
               onClick={() => setShowSaveDialog(false)}
@@ -717,13 +709,13 @@ export function HermesTranslator() {
             <Button
               onClick={saveToMemory}
               disabled={isSaving}
-              className="bg-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-bright)] text-[var(--tartarus-deep)]"
+              className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal-bright)]"
             >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="mr-2 h-4 w-4" />
                   Confirm & Save
                 </>
               )}
@@ -741,7 +733,7 @@ export function HermesTranslator() {
               loadMemory();
             }
           }}
-          className="w-full px-6 py-3 flex items-center justify-between text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)] hover:bg-[var(--tartarus-surface)] transition-colors"
+          className="flex w-full items-center justify-between px-6 py-3 text-[var(--tartarus-ivory-dim)] transition-colors hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)]"
         >
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
@@ -753,15 +745,11 @@ export function HermesTranslator() {
               </span>
             )}
           </div>
-          {showMemory ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronUp className="h-4 w-4" />
-          )}
+          {showMemory ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
         </button>
 
         {showMemory && (
-          <div className="px-6 pb-4 space-y-4 bg-[var(--tartarus-deep)]/50">
+          <div className="space-y-4 bg-[var(--tartarus-deep)]/50 px-6 pb-4">
             {isLoadingMemory ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-[var(--tartarus-teal)]" />
@@ -770,43 +758,35 @@ export function HermesTranslator() {
               <>
                 {/* Stats Row */}
                 <div className="grid grid-cols-4 gap-4">
-                  <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)]">
+                  <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3">
                     <p className="text-2xl font-bold text-[var(--tartarus-teal)]">
                       {stats?.totalTranslations || 0}
                     </p>
-                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">
-                      Translations
-                    </p>
+                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">Translations</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)]">
+                  <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3">
                     <p className="text-2xl font-bold text-[var(--tartarus-gold)]">
                       {memory.memories.length}
                     </p>
-                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">
-                      Memories
-                    </p>
+                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">Memories</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)]">
+                  <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3">
                     <p className="text-2xl font-bold text-[var(--tartarus-ivory)]">
                       {memory.protectedTerms.length}
                     </p>
-                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">
-                      Protected Terms
-                    </p>
+                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">Protected Terms</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)]">
+                  <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3">
                     <p className="text-lg font-bold text-[var(--tartarus-ivory)]">
                       {topLanguagePairs.length > 0 ? topLanguagePairs[0][0] : "—"}
                     </p>
-                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">
-                      Top Pair
-                    </p>
+                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">Top Pair</p>
                   </div>
                 </div>
 
                 {/* Add New Memory */}
-                <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-teal)]/30">
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="rounded-lg border border-[var(--tartarus-teal)]/30 bg-[var(--tartarus-surface)] p-3">
+                  <div className="mb-2 flex items-center gap-2">
                     <Plus className="h-4 w-4 text-[var(--tartarus-teal)]" />
                     <span className="text-sm font-medium text-[var(--tartarus-teal)]">
                       Add new preference
@@ -818,13 +798,13 @@ export function HermesTranslator() {
                       value={newMemoryInput}
                       onChange={(e) => setNewMemoryInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && !isAddingMemory && handleAddMemory()}
-                      className="text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                     <Button
                       size="sm"
                       onClick={handleAddMemory}
                       disabled={isAddingMemory || !newMemoryInput.trim()}
-                      className="bg-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-bright)] text-[var(--tartarus-deep)]"
+                      className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal-bright)]"
                     >
                       {isAddingMemory ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -841,22 +821,23 @@ export function HermesTranslator() {
                     <h4 className="text-sm font-medium text-[var(--tartarus-ivory)]">
                       Learned Preferences ({memory.memories.length})
                     </h4>
-                    <div className="space-y-2 max-h-48 overflow-auto">
-                      {memory.memories.slice().reverse().map((m, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2.5 rounded bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)] group"
-                        >
-                          <p className="text-sm text-[var(--tartarus-ivory-dim)]">
-                            {m.content}
-                          </p>
-                          {(m.sourceLanguage || m.targetLanguage) && (
-                            <span className="text-[10px] text-[var(--tartarus-teal)]">
-                              {m.sourceLanguage}→{m.targetLanguage}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                    <div className="max-h-48 space-y-2 overflow-auto">
+                      {memory.memories
+                        .slice()
+                        .reverse()
+                        .map((m, idx) => (
+                          <div
+                            key={idx}
+                            className="group rounded border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-2.5"
+                          >
+                            <p className="text-sm text-[var(--tartarus-ivory-dim)]">{m.content}</p>
+                            {(m.sourceLanguage || m.targetLanguage) && (
+                              <span className="text-[10px] text-[var(--tartarus-teal)]">
+                                {m.sourceLanguage}→{m.targetLanguage}
+                              </span>
+                            )}
+                          </div>
+                        ))}
                     </div>
                   </div>
                 )}
@@ -866,31 +847,36 @@ export function HermesTranslator() {
                   <h4 className="text-sm font-medium text-[var(--tartarus-ivory)]">
                     Protected Terms (don&apos;t translate)
                   </h4>
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-auto">
+                  <div className="flex max-h-32 flex-wrap gap-2 overflow-auto">
                     {memory.protectedTerms.map((item) => (
                       <Badge
                         key={item.term}
                         variant="outline"
-                        className="text-xs border-[var(--tartarus-gold)]/30 text-[var(--tartarus-gold)] bg-[var(--tartarus-gold)]/10 group"
+                        className="group border-[var(--tartarus-gold)]/30 bg-[var(--tartarus-gold)]/10 text-xs text-[var(--tartarus-gold)]"
                       >
                         {item.term}
-                        {item.preserveAs && <span className="text-[var(--tartarus-ivory-faded)]"> → {item.preserveAs}</span>}
+                        {item.preserveAs && (
+                          <span className="text-[var(--tartarus-ivory-faded)]">
+                            {" "}
+                            → {item.preserveAs}
+                          </span>
+                        )}
                         <button
                           onClick={() => removeProtectedTerm(item.term)}
-                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="ml-1 opacity-0 transition-opacity group-hover:opacity-100"
                         >
                           <X className="h-3 w-3" />
                         </button>
                       </Badge>
                     ))}
                   </div>
-                  <div className="flex gap-2 mt-2">
+                  <div className="mt-2 flex gap-2">
                     <Input
                       placeholder="Add term..."
                       value={newTerm}
                       onChange={(e) => setNewTerm(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addProtectedTerm()}
-                      className="h-8 text-sm bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                     <Button
                       size="sm"
@@ -904,29 +890,29 @@ export function HermesTranslator() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-between items-center pt-2">
+                <div className="flex items-center justify-between pt-2">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={loadMemory}
                     className="text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)]"
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className="mr-2 h-4 w-4" />
                     Refresh
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={resetMemory}
-                    className="text-[var(--tartarus-error)] hover:text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error)]/10"
+                    className="text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error)]/10 hover:text-[var(--tartarus-error)]"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="mr-2 h-4 w-4" />
                     Clear Memory
                   </Button>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-[var(--tartarus-ivory-faded)] py-4">
+              <p className="py-4 text-sm text-[var(--tartarus-ivory-faded)]">
                 No memory data available yet. Start translating to build your preferences.
               </p>
             )}

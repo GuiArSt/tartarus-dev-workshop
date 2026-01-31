@@ -3,12 +3,7 @@
 import { useState } from "react";
 import { Sparkles, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type SummaryType =
   | "journal_entry"
@@ -93,13 +88,7 @@ export function SummaryButton({
             size={size}
             onClick={handleGenerate}
             disabled={isLoading}
-            className={
-              isSuccess
-                ? "text-green-500"
-                : hasSummary
-                  ? "text-muted-foreground"
-                  : ""
-            }
+            className={isSuccess ? "text-green-500" : hasSummary ? "text-muted-foreground" : ""}
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

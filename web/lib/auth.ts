@@ -35,13 +35,3 @@ export function verifyToken(token: string): AuthUser | null {
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
 }
-
-
-
-
-
-
-
-
-
-

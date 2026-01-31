@@ -41,7 +41,9 @@ interface AtroposStatsRow {
 function loadAtroposMemory(db: ReturnType<typeof getDatabase>, userId: string): AtroposMemory {
   // Get memories
   const memories = db
-    .prepare("SELECT content, tags FROM atropos_memories WHERE user_id = ? ORDER BY frequency DESC, updated_at DESC")
+    .prepare(
+      "SELECT content, tags FROM atropos_memories WHERE user_id = ? ORDER BY frequency DESC, updated_at DESC"
+    )
     .all(userId) as AtroposMemoryItem[];
 
   // Get dictionary terms
@@ -80,13 +82,25 @@ function saveCorrection(
   db.prepare(
     `INSERT INTO atropos_corrections (user_id, original_text, corrected_text, had_changes, intent_questions, source_context)
      VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(userId, originalText, correctedText, hadChanges ? 1 : 0, JSON.stringify(intentQuestions), sourceContext || null);
+  ).run(
+    userId,
+    originalText,
+    correctedText,
+    hadChanges ? 1 : 0,
+    JSON.stringify(intentQuestions),
+    sourceContext || null
+  );
 }
 
 /**
  * Update stats in normalized table
  */
-function updateStats(db: ReturnType<typeof getDatabase>, userId: string, hadChanges: boolean, charsDiff: number) {
+function updateStats(
+  db: ReturnType<typeof getDatabase>,
+  userId: string,
+  hadChanges: boolean,
+  charsDiff: number
+) {
   db.prepare(
     `INSERT INTO atropos_stats (user_id, total_checks, total_corrections, total_characters_corrected)
      VALUES (?, 1, ?, ?)
@@ -154,7 +168,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       text,
       response.correctedText,
       response.hadChanges,
-      (response.intentQuestions || []).map(q => q.question),
+      (response.intentQuestions || []).map((q) => q.question),
       sourceContext
     );
   } catch (e) {

@@ -10,23 +10,25 @@ import { getKronusSystemPrompt, SoulConfig, DEFAULT_SOUL_CONFIG } from "@/lib/ai
  */
 export interface ToolsConfig {
   // Core tools (always conceptually available, but can be toggled)
-  journal: boolean;      // Journal entries, project summaries
-  repository: boolean;   // Documents, skills, experience, education
-  linear: boolean;       // Linear issue tracking
-  media: boolean;        // Media library, attachments
+  journal: boolean; // Journal entries, project summaries
+  repository: boolean; // Documents, skills, experience, education
+  linear: boolean; // Linear issue tracking
+  git: boolean; // Git repository access (GitHub/GitLab)
+  media: boolean; // Media library, attachments
 
   // Heavy/optional tools
-  imageGeneration: boolean;  // FLUX, Gemini image generation
-  webSearch: boolean;        // Perplexity web search/research
+  imageGeneration: boolean; // FLUX, Gemini image generation
+  webSearch: boolean; // Perplexity web search/research
 }
 
 export const DEFAULT_TOOLS_CONFIG: ToolsConfig = {
   journal: true,
   repository: true,
   linear: true,
+  git: false, // Off by default - requires GitHub/GitLab token
   media: true,
-  imageGeneration: false,  // Off by default - heavy
-  webSearch: false,        // Off by default - requires API key
+  imageGeneration: false, // Off by default - heavy
+  webSearch: false, // Off by default - requires API key
 };
 
 /**
@@ -34,20 +36,23 @@ export const DEFAULT_TOOLS_CONFIG: ToolsConfig = {
  * Models with reasoning support will have thinking enabled automatically
  */
 export type ModelSelection =
-  | "gemini-3-flash"      // Google - fast, has thinking
-  | "gemini-3-pro"        // Google - most capable, deep reasoning
-  | "claude-opus-4.5"     // Anthropic - powerful, has extended thinking
-  | "claude-haiku-4.5"    // Anthropic - fast, no thinking
-  | "gpt-5.2";            // OpenAI - latest, has reasoning
+  | "gemini-3-flash" // Google - fast, has thinking
+  | "gemini-3-pro" // Google - most capable, deep reasoning
+  | "claude-opus-4.5" // Anthropic - powerful, has extended thinking
+  | "claude-haiku-4.5" // Anthropic - fast, no thinking
+  | "gpt-5.2"; // OpenAI - latest, has reasoning
 
 /**
  * Model configuration - maps selection to provider and model ID
  */
-const MODEL_CONFIG: Record<ModelSelection, {
-  provider: "google" | "anthropic" | "openai";
-  modelId: string;
-  hasThinking: boolean;
-}> = {
+const MODEL_CONFIG: Record<
+  ModelSelection,
+  {
+    provider: "google" | "anthropic" | "openai";
+    modelId: string;
+    hasThinking: boolean;
+  }
+> = {
   "gemini-3-flash": {
     provider: "google",
     modelId: "gemini-3-flash-preview",
@@ -135,17 +140,29 @@ function getModel(selectedModel?: ModelSelection) {
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY) {
     const fallback = MODEL_CONFIG["gemini-3-flash"];
     console.log(`Falling back to Google: ${fallback.modelId}`);
-    return { model: google(fallback.modelId), provider: "google" as const, hasThinking: fallback.hasThinking };
+    return {
+      model: google(fallback.modelId),
+      provider: "google" as const,
+      hasThinking: fallback.hasThinking,
+    };
   }
   if (process.env.ANTHROPIC_API_KEY) {
     const fallback = MODEL_CONFIG["claude-haiku-4.5"];
     console.log(`Falling back to Anthropic: ${fallback.modelId}`);
-    return { model: anthropic(fallback.modelId), provider: "anthropic" as const, hasThinking: fallback.hasThinking };
+    return {
+      model: anthropic(fallback.modelId),
+      provider: "anthropic" as const,
+      hasThinking: fallback.hasThinking,
+    };
   }
   if (process.env.OPENAI_API_KEY) {
     const fallback = MODEL_CONFIG["gpt-5.2"];
     console.log(`Falling back to OpenAI: ${fallback.modelId}`);
-    return { model: openai(fallback.modelId), provider: "openai" as const, hasThinking: fallback.hasThinking };
+    return {
+      model: openai(fallback.modelId),
+      provider: "openai" as const,
+      hasThinking: fallback.hasThinking,
+    };
   }
 
   throw new Error(
@@ -298,10 +315,14 @@ const tools = {
     }),
   },
   linear_create_project: {
-    description: "Create a new project in Linear. Projects help organize related issues and track progress toward goals.",
+    description:
+      "Create a new project in Linear. Projects help organize related issues and track progress toward goals.",
     inputSchema: z.object({
       name: z.string().min(1).describe("Project name"),
-      teamIds: z.array(z.string()).min(1).describe("Array of team IDs to associate with the project"),
+      teamIds: z
+        .array(z.string())
+        .min(1)
+        .describe("Array of team IDs to associate with the project"),
       description: z.string().optional().describe("Project description (plain text)"),
       content: z.string().optional().describe("Project content (rich text markdown)"),
       leadId: z.string().optional().describe("User ID for the project lead"),
@@ -321,6 +342,21 @@ const tools = {
       startDate: z.string().optional(),
     }),
   },
+  // ===== Linear Cache Tools (read from local DB, not API) =====
+  linear_get_issue: {
+    description:
+      "Get full issue details from local cache by identifier (e.g., 'ENG-1234') or ID. Use this to read complete issue descriptions. Does NOT hit Linear API - reads from synced local database.",
+    inputSchema: z.object({
+      identifier: z.string().describe("Issue identifier (e.g., 'ENG-1234') or Linear issue ID"),
+    }),
+  },
+  linear_get_project: {
+    description:
+      "Get full project details from local cache by ID. Use this to read complete project descriptions and content. Does NOT hit Linear API - reads from synced local database.",
+    inputSchema: z.object({
+      projectId: z.string().describe("Linear project ID"),
+    }),
+  },
   // ===== Image Generation Tool =====
   replicate_generate_image: {
     description:
@@ -331,7 +367,9 @@ const tools = {
         .string()
         .optional()
         .default("gemini-3-pro-image-preview")
-        .describe("Model identifier. Options: 'gemini-3-pro-image-preview' or 'nano-banana-pro' (default, 4K, best text rendering), 'gemini-2.5-flash-image-preview' (fast), 'black-forest-labs/flux-2-pro' (FLUX best quality), 'black-forest-labs/flux-schnell' (FLUX fast), 'imagen-3.0-generate-002' (Google Imagen)"),
+        .describe(
+          "Model identifier. Options: 'gemini-3-pro-image-preview' or 'nano-banana-pro' (default, 4K, best text rendering), 'gemini-2.5-flash-image-preview' (fast), 'black-forest-labs/flux-2-pro' (FLUX best quality), 'black-forest-labs/flux-schnell' (FLUX fast), 'imagen-3.0-generate-002' (Google Imagen)"
+        ),
       width: z.number().optional().default(1024).describe("Image width in pixels"),
       height: z.number().optional().default(1024).describe("Image height in pixels"),
       num_outputs: z.number().optional().default(1).describe("Number of images to generate"),
@@ -343,10 +381,19 @@ const tools = {
       "Save an image to the Media library. Images are stored centrally and can be linked to Journal entries and/or Repository documents. Use this after generating an image to permanently store it.",
     inputSchema: z.object({
       url: z.string().url().describe("URL of the image to download and save"),
-      filename: z.string().min(1).describe("Filename for the saved image (e.g., 'architecture-diagram.png')"),
+      filename: z
+        .string()
+        .min(1)
+        .describe("Filename for the saved image (e.g., 'architecture-diagram.png')"),
       description: z.string().optional().describe("Description of what the image shows"),
-      prompt: z.string().optional().describe("The prompt used to generate the image (if AI-generated)"),
-      model: z.string().optional().describe("The model used to generate the image (if AI-generated)"),
+      prompt: z
+        .string()
+        .optional()
+        .describe("The prompt used to generate the image (if AI-generated)"),
+      model: z
+        .string()
+        .optional()
+        .describe("The model used to generate the image (if AI-generated)"),
       tags: z.array(z.string()).optional().default([]).describe("Tags for categorizing the image"),
       commit_hash: z.string().optional().describe("Link to a journal entry by commit hash"),
       document_id: z.number().optional().describe("Link to a repository document by ID"),
@@ -354,7 +401,8 @@ const tools = {
   },
   // ===== Media Listing Tool =====
   list_media: {
-    description: "List saved media assets from the Media library. Can filter by linked journal entry or document.",
+    description:
+      "List saved media assets from the Media library. Can filter by linked journal entry or document.",
     inputSchema: z.object({
       commit_hash: z.string().optional().describe("Filter by linked journal entry commit hash"),
       document_id: z.number().optional().describe("Filter by linked repository document ID"),
@@ -363,14 +411,16 @@ const tools = {
   },
   // ===== Media Get Tool =====
   get_media: {
-    description: "Get a specific media asset by ID and display it inline. Use this to show an image in the chat.",
+    description:
+      "Get a specific media asset by ID and display it inline. Use this to show an image in the chat.",
     inputSchema: z.object({
       id: z.number().describe("Media asset ID to fetch and display"),
     }),
   },
   // ===== Media Update Tool =====
   update_media: {
-    description: "Update metadata for a saved media asset. Use this to add descriptions, tags, or link images to journal entries or documents.",
+    description:
+      "Update metadata for a saved media asset. Use this to add descriptions, tags, or link images to journal entries or documents.",
     inputSchema: z.object({
       id: z.number().describe("Media asset ID to update"),
       filename: z.string().optional().describe("New filename"),
@@ -383,7 +433,8 @@ const tools = {
 
   // ===== Repository Tools =====
   repository_search_documents: {
-    description: "Search and query documents from the Repository. Can filter by type (writing, prompt, note), search by keywords, and control pagination.",
+    description:
+      "Search and query documents from the Repository. Can filter by type (writing, prompt, note), search by keywords, and control pagination.",
     inputSchema: z.object({
       type: z.enum(["writing", "prompt", "note"]).optional().describe("Filter by document type"),
       search: z.string().optional().describe("Search in title and content"),
@@ -405,7 +456,10 @@ const tools = {
       content: z.string().min(1).describe("Document content (markdown supported)"),
       type: z.enum(["writing", "prompt", "note"]).default("writing").describe("Document type"),
       tags: z.array(z.string()).optional().describe("Tags for categorization"),
-      metadata: z.record(z.string(), z.any()).optional().describe("Additional metadata (year, language, etc.)"),
+      metadata: z
+        .record(z.string(), z.any())
+        .optional()
+        .describe("Additional metadata (year, language, etc.)"),
     }),
   },
   repository_update_document: {
@@ -436,11 +490,16 @@ const tools = {
     }),
   },
   repository_create_skill: {
-    description: "Create a new skill entry in the CV. Categories: 'AI & Development', 'Languages & Frameworks', 'Data & Analytics', 'Infrastructure & DevOps', 'Design & UX', 'Leadership & Collaboration'. Magnitude is 1-5 (5=expert).",
+    description:
+      "Create a new skill entry in the CV. Categories: 'AI & Development', 'Languages & Frameworks', 'Data & Analytics', 'Infrastructure & DevOps', 'Design & UX', 'Leadership & Collaboration'. Magnitude is 1-5 (5=expert).",
     inputSchema: z.object({
       id: z.string().describe("Unique skill ID (lowercase, no spaces, e.g. 'react-native')"),
       name: z.string().describe("Display name (e.g. 'React Native')"),
-      category: z.string().describe("One of: 'AI & Development', 'Languages & Frameworks', 'Data & Analytics', 'Infrastructure & DevOps', 'Design & UX', 'Leadership & Collaboration'"),
+      category: z
+        .string()
+        .describe(
+          "One of: 'AI & Development', 'Languages & Frameworks', 'Data & Analytics', 'Infrastructure & DevOps', 'Design & UX', 'Leadership & Collaboration'"
+        ),
       magnitude: z.number().min(1).max(5).describe("Proficiency level 1-5 (5=expert)"),
       description: z.string().describe("Brief description of expertise"),
       icon: z.string().optional().describe("Icon identifier (optional)"),
@@ -499,7 +558,11 @@ const tools = {
       tagline: z.string().optional().describe("Updated tagline"),
       achievements: z.array(z.string()).optional().describe("Updated achievements"),
       dateStart: z.string().optional().describe("Updated start date (YYYY-MM)"),
-      dateEnd: z.string().nullable().optional().describe("Updated end date (YYYY-MM or null for current)"),
+      dateEnd: z
+        .string()
+        .nullable()
+        .optional()
+        .describe("Updated end date (YYYY-MM or null for current)"),
     }),
   },
   repository_update_education: {
@@ -561,32 +624,82 @@ const tools = {
   },
 };
 
+// ===== Git Tools (GitHub/GitLab) =====
+const gitTools = {
+  git_parse_repo_url: {
+    description:
+      "Parse a GitHub or GitLab repository URL to extract platform, owner, and repo name",
+    inputSchema: z.object({
+      url: z.string().url().describe("Repository URL (e.g., https://github.com/user/repo)"),
+    }),
+  },
+  git_read_file: {
+    description: "Read raw file contents from a GitHub or GitLab repository",
+    inputSchema: z.object({
+      platform: z.enum(["github", "gitlab"]).describe("Git platform (github or gitlab)"),
+      owner: z.string().min(1).describe("Repository owner/organization"),
+      repo: z.string().min(1).describe("Repository name"),
+      path: z.string().min(1).describe("File path within repository"),
+      ref: z
+        .string()
+        .optional()
+        .default("main")
+        .describe("Branch, tag, or commit SHA (default: main)"),
+    }),
+  },
+  git_get_file_tree: {
+    description: "Get complete file tree/structure of a GitHub or GitLab repository",
+    inputSchema: z.object({
+      platform: z.enum(["github", "gitlab"]).describe("Git platform (github or gitlab)"),
+      owner: z.string().min(1).describe("Repository owner/organization"),
+      repo: z.string().min(1).describe("Repository name"),
+      ref: z
+        .string()
+        .optional()
+        .default("main")
+        .describe("Branch, tag, or commit SHA (default: main)"),
+    }),
+  },
+};
+
 // ===== Web Search Tools (Perplexity) =====
 const webSearchTools = {
   perplexity_search: {
-    description: "Search the web using Perplexity. Returns ranked search results with metadata. Best for finding current information, news, documentation.",
+    description:
+      "Search the web using Perplexity. Returns ranked search results with metadata. Best for finding current information, news, documentation.",
     inputSchema: z.object({
       query: z.string().min(1).describe("Search query"),
     }),
   },
   perplexity_ask: {
-    description: "Ask a question with real-time web search using Perplexity sonar-pro model. Great for quick questions, factual lookups, and conversational research.",
+    description:
+      "Ask a question with real-time web search using Perplexity sonar-pro model. Great for quick questions, factual lookups, and conversational research.",
     inputSchema: z.object({
       question: z.string().min(1).describe("Question to ask"),
     }),
   },
   perplexity_research: {
-    description: "Deep, comprehensive research using Perplexity sonar-deep-research model. Use for thorough analysis, detailed reports, complex topics. Takes longer but provides exhaustive results.",
+    description:
+      "Deep, comprehensive research using Perplexity sonar-deep-research model. Use for thorough analysis, detailed reports, complex topics. Takes longer but provides exhaustive results.",
     inputSchema: z.object({
       topic: z.string().min(1).describe("Topic to research in depth"),
-      strip_thinking: z.boolean().optional().default(true).describe("Remove thinking tags to save tokens"),
+      strip_thinking: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe("Remove thinking tags to save tokens"),
     }),
   },
   perplexity_reason: {
-    description: "Advanced reasoning and problem-solving using Perplexity sonar-reasoning-pro model. Perfect for complex analytical tasks, multi-step problems, logical analysis.",
+    description:
+      "Advanced reasoning and problem-solving using Perplexity sonar-reasoning-pro model. Perfect for complex analytical tasks, multi-step problems, logical analysis.",
     inputSchema: z.object({
       problem: z.string().min(1).describe("Problem or question requiring reasoning"),
-      strip_thinking: z.boolean().optional().default(true).describe("Remove thinking tags to save tokens"),
+      strip_thinking: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe("Remove thinking tags to save tokens"),
     }),
   },
 };
@@ -626,6 +739,9 @@ function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
       linear_list_projects: tools.linear_list_projects,
       linear_create_project: tools.linear_create_project,
       linear_update_project: tools.linear_update_project,
+      // Cache tools (read from local DB)
+      linear_get_issue: tools.linear_get_issue,
+      linear_get_project: tools.linear_get_project,
     });
   }
 
@@ -655,6 +771,11 @@ function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
       repository_create_portfolio_project: tools.repository_create_portfolio_project,
       repository_update_portfolio_project: tools.repository_update_portfolio_project,
     });
+  }
+
+  // Git tools (GitHub/GitLab repository access)
+  if (toolsConfig.git) {
+    Object.assign(enabledTools, gitTools);
   }
 
   // Media tools
@@ -687,44 +808,56 @@ export async function POST(req: Request) {
     const { messages, soulConfig, toolsConfig, modelConfig } = await req.json();
 
     // Parse soul config from request, default to all sections enabled
-    const config: SoulConfig = soulConfig ? {
-      writings: soulConfig.writings ?? true,
-      portfolioProjects: soulConfig.portfolioProjects ?? true,
-      skills: soulConfig.skills ?? true,
-      workExperience: soulConfig.workExperience ?? true,
-      education: soulConfig.education ?? true,
-      journalEntries: soulConfig.journalEntries ?? true,
-      // Linear context
-      linearProjects: soulConfig.linearProjects ?? true,
-      linearIssues: soulConfig.linearIssues ?? true,
-      linearIncludeCompleted: soulConfig.linearIncludeCompleted ?? false,
-    } : DEFAULT_SOUL_CONFIG;
+    const config: SoulConfig = soulConfig
+      ? {
+          writings: soulConfig.writings ?? true,
+          portfolioProjects: soulConfig.portfolioProjects ?? true,
+          skills: soulConfig.skills ?? true,
+          workExperience: soulConfig.workExperience ?? true,
+          education: soulConfig.education ?? true,
+          journalEntries: soulConfig.journalEntries ?? true,
+          // Linear context
+          linearProjects: soulConfig.linearProjects ?? true,
+          linearIssues: soulConfig.linearIssues ?? true,
+          linearIncludeCompleted: soulConfig.linearIncludeCompleted ?? false,
+        }
+      : DEFAULT_SOUL_CONFIG;
 
     // Parse tools config from request
-    const enabledToolsConfig: ToolsConfig = toolsConfig ? {
-      journal: toolsConfig.journal ?? true,
-      repository: toolsConfig.repository ?? true,
-      linear: toolsConfig.linear ?? true,
-      media: toolsConfig.media ?? true,
-      imageGeneration: toolsConfig.imageGeneration ?? false,
-      webSearch: toolsConfig.webSearch ?? false,
-    } : DEFAULT_TOOLS_CONFIG;
+    const enabledToolsConfig: ToolsConfig = toolsConfig
+      ? {
+          journal: toolsConfig.journal ?? true,
+          repository: toolsConfig.repository ?? true,
+          linear: toolsConfig.linear ?? true,
+          git: toolsConfig.git ?? false,
+          media: toolsConfig.media ?? true,
+          imageGeneration: toolsConfig.imageGeneration ?? false,
+          webSearch: toolsConfig.webSearch ?? false,
+        }
+      : DEFAULT_TOOLS_CONFIG;
 
     // Get model based on selected model (default: gemini-3-flash)
     const selectedModel = modelConfig?.model as ModelSelection | undefined;
-    const { model, provider: actualProvider, hasThinking } = getModel(selectedModel);
+    const {
+      model,
+      provider: actualProvider,
+      hasThinking: modelSupportsThinking,
+    } = getModel(selectedModel);
+    // Reasoning is enabled if model supports it AND user hasn't disabled it
+    const reasoningEnabled = modelConfig?.reasoningEnabled ?? true;
+    const hasThinking = modelSupportsThinking && reasoningEnabled;
     const systemPrompt = await getKronusSystemPrompt(config);
     const enabledTools = buildTools(enabledToolsConfig);
 
     // Sanitize messages - remove control characters that can cause issues
     // (e.g., <ctrl46> from Delete key, other non-printable characters)
     const sanitizedMessages = messages.map((msg: any) => {
-      if (typeof msg.content === 'string') {
+      if (typeof msg.content === "string") {
         // Remove control character tags like <ctrl46>, <ctrl0>, etc.
         // and actual control characters (ASCII 0-31 except newline/tab)
         const sanitized = msg.content
-          .replace(/<ctrl\d+>/gi, '') // Remove <ctrlNN> tags
-          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control chars except \n \t \r
+          .replace(/<ctrl\d+>/gi, "") // Remove <ctrlNN> tags
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""); // Remove control chars except \n \t \r
         return { ...msg, content: sanitized };
       }
       return msg;
@@ -736,8 +869,9 @@ export async function POST(req: Request) {
     // Gemini 3 Pro requires thoughtSignature for multi-turn tool calling
     // When signatures aren't preserved in message conversion, inject dummy signature
     // See: https://ai.google.dev/gemini-api/docs/thought-signatures
-    const isGemini3 = actualProvider === "google" &&
-                      (process.env.GOOGLE_MODEL?.includes("gemini-3") || !process.env.GOOGLE_MODEL);
+    const isGemini3 =
+      actualProvider === "google" &&
+      (process.env.GOOGLE_MODEL?.includes("gemini-3") || !process.env.GOOGLE_MODEL);
     if (isGemini3) {
       modelMessages = modelMessages.map((msg: any) => {
         if (msg.role === "assistant" && msg.content) {
@@ -779,8 +913,9 @@ export async function POST(req: Request) {
           },
         } satisfies GoogleGenerativeAIProviderOptions;
       } else if (actualProvider === "openai") {
-        // Enable reasoning summaries for GPT-5.2
+        // Enable reasoning for GPT-5.2 with medium effort budget
         providerOptions.openai = {
+          reasoningEffort: "medium",
           reasoningSummary: "detailed",
         };
       }
@@ -812,9 +947,13 @@ export async function POST(req: Request) {
           // Log response content for debugging empty responses
           textLength: event.text?.length || 0,
           textPreview: event.text?.slice(0, 200) || "(empty)",
-          toolCallsCount: event.response?.messages?.filter((m: any) => m.role === "assistant" && m.toolCalls)?.length || 0,
+          toolCallsCount:
+            event.response?.messages?.filter((m: any) => m.role === "assistant" && m.toolCalls)
+              ?.length || 0,
           // Raw provider response for debugging
-          rawResponse: (event.response as any)?.rawResponse ? JSON.stringify((event.response as any).rawResponse).slice(0, 500) : "(no raw response)",
+          rawResponse: (event.response as any)?.rawResponse
+            ? JSON.stringify((event.response as any).rawResponse).slice(0, 500)
+            : "(no raw response)",
         });
 
         // Specifically flag zero-output issues
@@ -844,14 +983,17 @@ export async function POST(req: Request) {
       stack: error.stack,
     });
 
-    return new Response(JSON.stringify({
-      error: error.message || "Chat failed",
-      type: errorType,
-      code: error.code,
-    }), {
-      status: error.status || 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: error.message || "Chat failed",
+        type: errorType,
+        code: error.code,
+      }),
+      {
+        status: error.status || 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
 

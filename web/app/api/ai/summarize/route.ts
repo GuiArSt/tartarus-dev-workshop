@@ -14,18 +14,27 @@ import { NextResponse } from "next/server";
  * Input schema for summary generation
  */
 const SummarizeInputSchema = z.object({
-  type: z.enum([
-    "journal_entry",
-    "project_summary",
-    "document",
-    "linear_issue",
-    "linear_project",
-    "attachment",
-    "media",
-  ]).describe("Type of content being summarized"),
+  type: z
+    .enum([
+      "journal_entry",
+      "project_summary",
+      "document",
+      "linear_issue",
+      "linear_project",
+      "attachment",
+      "media",
+      "skill",
+      "work_experience",
+      "education",
+      "portfolio_project",
+    ])
+    .describe("Type of content being summarized"),
   content: z.string().min(1).describe("The full content to summarize"),
   title: z.string().optional().describe("Optional title for context"),
-  metadata: z.record(z.string(), z.any()).optional().describe("Additional context (file type, mime, etc.)"),
+  metadata: z
+    .record(z.string(), z.any())
+    .optional()
+    .describe("Additional context (file type, mime, etc.)"),
 });
 
 /**
@@ -86,12 +95,16 @@ Your task is to generate dense, information-rich 3-sentence summaries for AI ret
   - **For prompts**: Include purpose, role (system/user/assistant/chat), and if schemas/config are present
 - linear_issue: Focus on problem, status, and assignee/priority
 - linear_project: Focus on goals, progress, and timeline
-- attachment/media: Focus on what it shows/contains and its context`,
+- attachment/media: Focus on what it shows/contains and its context
+- skill: Focus on expertise level, key applications, and relevance
+- work_experience: Focus on role, key achievements, and impact
+- education: Focus on degree, field of study, and key learnings
+- portfolio_project: Focus on what was built, technologies used, and outcomes`,
       prompt: `Generate a 3-sentence summary for this ${input.type}:
 
 ${input.title ? `Title: ${input.title}` : ""}${metadataContext}
 
-${input.type === 'document' && input.metadata?.purpose ? `Purpose: ${input.metadata.purpose}\n` : ''}${input.type === 'document' && input.metadata?.role ? `Role: ${input.metadata.role}\n` : ''}
+${input.type === "document" && input.metadata?.purpose ? `Purpose: ${input.metadata.purpose}\n` : ""}${input.type === "document" && input.metadata?.role ? `Role: ${input.metadata.role}\n` : ""}
 
 Content:
 ${input.content}`,
@@ -112,10 +125,7 @@ ${input.content}`,
 
     // Handle Zod validation errors
     if (error.name === "ZodError") {
-      return NextResponse.json(
-        { error: "Invalid input", details: error.errors },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid input", details: error.errors }, { status: 400 });
     }
 
     return NextResponse.json(

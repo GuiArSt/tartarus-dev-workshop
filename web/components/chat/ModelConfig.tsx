@@ -3,14 +3,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { Cpu, Check, Brain, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  TARTARUS,
-  popoverStyles,
-  headerStyles,
-  sectionStyles,
-} from "./config-styles";
+import { TARTARUS, popoverStyles, headerStyles } from "./config-styles";
 
 // Model selection type - matches route.ts ModelSelection
 export type ModelSelection =
@@ -23,6 +19,7 @@ export type ModelSelection =
 // ModelConfigState - controls which model is used
 export interface ModelConfigState {
   model: ModelSelection;
+  reasoningEnabled: boolean; // Toggle for reasoning/thinking budget
 }
 
 interface ModelConfigProps {
@@ -31,19 +28,32 @@ interface ModelConfigProps {
 }
 
 const DEFAULT_CONFIG: ModelConfigState = {
-  model: "gemini-3-flash", // Default
+  model: "gemini-3-pro", // Default: Gemini 3 Pro for best reasoning
+  reasoningEnabled: true, // Reasoning on by default
+};
+
+// Context limits per model
+export const MODEL_CONTEXT_LIMITS: Record<ModelSelection, number> = {
+  "gemini-3-flash": 1000000,
+  "gemini-3-pro": 1000000,
+  "claude-opus-4.5": 200000,
+  "claude-haiku-4.5": 200000,
+  "gpt-5.2": 400000,
 };
 
 // Model metadata with provider grouping
-const MODELS: Record<ModelSelection, {
-  name: string;
-  shortName: string;
-  description: string;
-  context: string;
-  color: string;
-  hasThinking: boolean;
-  provider: string;
-}> = {
+const MODELS: Record<
+  ModelSelection,
+  {
+    name: string;
+    shortName: string;
+    description: string;
+    context: string;
+    color: string;
+    hasThinking: boolean;
+    provider: string;
+  }
+> = {
   "gemini-3-flash": {
     name: "Gemini 3 Flash",
     shortName: "Gemini 3 Flash",
@@ -95,11 +105,16 @@ export function ModelConfig({ config, onChange }: ModelConfigProps) {
   const [open, setOpen] = useState(false);
 
   const selectModel = (model: ModelSelection) => {
-    onChange({ model });
+    onChange({ ...config, model });
     setOpen(false);
   };
 
+  const toggleReasoning = () => {
+    onChange({ ...config, reasoningEnabled: !config.reasoningEnabled });
+  };
+
   const currentModel = MODELS[config.model];
+  const supportsReasoning = currentModel.hasThinking;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -112,29 +127,26 @@ export function ModelConfig({ config, onChange }: ModelConfigProps) {
         >
           <Cpu className="h-4 w-4" />
           <span className="hidden sm:inline">{currentModel.shortName}</span>
-          {currentModel.hasThinking && (
-            <Brain className="h-3 w-3 opacity-60" />
+          {supportsReasoning && config.reasoningEnabled && (
+            <Brain className="h-3 w-3" style={{ color: TARTARUS.purple }} />
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[320px] z-[100] shadow-2xl rounded-xl p-0 overflow-hidden"
+        className="z-[100] w-[320px] overflow-hidden rounded-xl p-0 shadow-2xl"
         align="start"
         sideOffset={8}
         style={popoverStyles.container}
       >
         <div style={popoverStyles.inner}>
           {/* Header */}
-          <div
-            className="px-4 py-3"
-            style={{ borderBottom: `1px solid ${TARTARUS.borderSubtle}` }}
-          >
+          <div className="px-4 py-3" style={{ borderBottom: `1px solid ${TARTARUS.borderSubtle}` }}>
             <h4 style={headerStyles.title}>AI Model</h4>
             <p style={headerStyles.subtitle}>Select model for Kronus</p>
           </div>
 
           {/* Model List */}
-          <div className="px-4 py-3 space-y-1.5">
+          <div className="space-y-1.5 px-4 py-3">
             {(Object.keys(MODELS) as ModelSelection[]).map((key) => {
               const model = MODELS[key];
               const isSelected = config.model === key;
@@ -144,7 +156,7 @@ export function ModelConfig({ config, onChange }: ModelConfigProps) {
                   key={key}
                   onClick={() => selectModel(key)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all",
                     "hover:bg-white/[0.03]"
                   )}
                   style={{
@@ -155,14 +167,14 @@ export function ModelConfig({ config, onChange }: ModelConfigProps) {
                 >
                   {/* Provider Icon */}
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
                     style={{ backgroundColor: `${model.color}15` }}
                   >
                     <Cpu className="h-4 w-4" style={{ color: model.color }} />
                   </div>
 
                   {/* Model Info */}
-                  <div className="flex-1 text-left min-w-0">
+                  <div className="min-w-0 flex-1 text-left">
                     <div className="flex items-center gap-2">
                       <span
                         className="text-[13px] font-medium"
@@ -172,26 +184,20 @@ export function ModelConfig({ config, onChange }: ModelConfigProps) {
                       </span>
                       {model.hasThinking ? (
                         <span title="Thinking/Reasoning">
-                          <Brain
-                            className="h-3.5 w-3.5"
-                            style={{ color: TARTARUS.purple }}
-                          />
+                          <Brain className="h-3.5 w-3.5" style={{ color: TARTARUS.purple }} />
                         </span>
                       ) : (
                         <span title="Optimized for speed">
-                          <Zap
-                            className="h-3.5 w-3.5"
-                            style={{ color: TARTARUS.teal }}
-                          />
+                          <Zap className="h-3.5 w-3.5" style={{ color: TARTARUS.teal }} />
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="mt-0.5 flex items-center gap-2">
                       <span className="text-[11px]" style={{ color: TARTARUS.textMuted }}>
                         {model.description}
                       </span>
                       <span
-                        className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                        className="rounded px-1.5 py-0.5 font-mono text-[10px]"
                         style={{
                           color: TARTARUS.textDim,
                           backgroundColor: TARTARUS.surface,
@@ -211,19 +217,57 @@ export function ModelConfig({ config, onChange }: ModelConfigProps) {
             })}
           </div>
 
+          {/* Reasoning Toggle */}
+          {supportsReasoning && (
+            <div className="px-4 py-3" style={{ borderTop: `1px solid ${TARTARUS.borderSubtle}` }}>
+              <div
+                className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
+                onClick={toggleReasoning}
+              >
+                <Switch
+                  checked={config.reasoningEnabled}
+                  onCheckedChange={toggleReasoning}
+                  className="data-[state=checked]:bg-[#9B59B6] data-[state=unchecked]:bg-[#12121a]"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <Brain
+                  className="h-4 w-4 transition-colors"
+                  style={{ color: config.reasoningEnabled ? TARTARUS.purple : TARTARUS.textDim }}
+                />
+                <div className="flex-1">
+                  <span
+                    className="text-[13px] font-medium transition-colors"
+                    style={{ color: config.reasoningEnabled ? TARTARUS.text : TARTARUS.textMuted }}
+                  >
+                    Reasoning
+                  </span>
+                  <p className="text-[11px]" style={{ color: TARTARUS.textDim }}>
+                    Enable thinking budget for complex tasks
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Footer Legend */}
           <div
-            className="px-4 py-3 flex items-center gap-4"
+            className="flex items-center gap-4 px-4 py-3"
             style={{
               borderTop: `1px solid ${TARTARUS.borderSubtle}`,
               backgroundColor: TARTARUS.surface,
             }}
           >
-            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: TARTARUS.textMuted }}>
+            <span
+              className="flex items-center gap-1.5 text-[11px]"
+              style={{ color: TARTARUS.textMuted }}
+            >
               <Brain className="h-3 w-3" style={{ color: TARTARUS.purple }} />
               Thinking
             </span>
-            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: TARTARUS.textMuted }}>
+            <span
+              className="flex items-center gap-1.5 text-[11px]"
+              style={{ color: TARTARUS.textMuted }}
+            >
               <Zap className="h-3 w-3" style={{ color: TARTARUS.teal }} />
               Fast
             </span>

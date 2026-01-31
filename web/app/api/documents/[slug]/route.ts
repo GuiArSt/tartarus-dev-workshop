@@ -3,6 +3,7 @@ import { desc, eq, sql, type SQL } from "drizzle-orm";
 import { getDrizzleDb, documents, mediaAssets } from "@/lib/db/drizzle";
 import { withErrorHandler } from "@/lib/api-handler";
 import { NotFoundError, ConflictError, DatabaseError } from "@/lib/errors";
+import { normalizePromptContent, detectPromptRole } from "@/lib/prompts/chat-format";
 
 type DocumentRow = typeof documents.$inferSelect;
 type MediaAssetRow = typeof mediaAssets.$inferSelect;
@@ -16,16 +17,18 @@ function slugify(text: string): string {
     .trim();
 }
 
-function parseDocumentMetadata(doc: DocumentRow): Omit<DocumentRow, "metadata"> & { metadata: Record<string, unknown> } {
+function parseDocumentMetadata(
+  doc: DocumentRow
+): Omit<DocumentRow, "metadata"> & { metadata: Record<string, unknown> } {
   try {
     const metadata = JSON.parse(doc.metadata || "{}") as Record<string, unknown>;
-    
+
     // Normalize: migrate legacy 'year' field to 'writtenDate' if needed
     if (metadata.year && !metadata.writtenDate) {
       metadata.writtenDate = metadata.year;
       delete metadata.year;
     }
-    
+
     return {
       ...doc,
       metadata,
@@ -53,7 +56,10 @@ function toApiDocument(doc: ReturnType<typeof parseDocumentMetadata>) {
   };
 }
 
-async function getDocumentBySlugOrId(db: ReturnType<typeof getDrizzleDb>, slug: string): Promise<DocumentRow | undefined> {
+async function getDocumentBySlugOrId(
+  db: ReturnType<typeof getDrizzleDb>,
+  slug: string
+): Promise<DocumentRow | undefined> {
   if (/^\d+$/.test(slug)) {
     const [document] = await db
       .select()
@@ -62,11 +68,7 @@ async function getDocumentBySlugOrId(db: ReturnType<typeof getDrizzleDb>, slug: 
       .limit(1);
     return document;
   }
-  const [document] = await db
-    .select()
-    .from(documents)
-    .where(eq(documents.slug, slug))
-    .limit(1);
+  const [document] = await db.select().from(documents).where(eq(documents.slug, slug)).limit(1);
   return document;
 }
 
@@ -74,10 +76,7 @@ async function getDocumentBySlugOrId(db: ReturnType<typeof getDrizzleDb>, slug: 
  * GET /api/documents/[slug]
  * Get a single document by slug or ID
  */
-export const GET = withErrorHandler<{ slug: string }>(async (
-  request: NextRequest,
-  context
-) => {
+export const GET = withErrorHandler<{ slug: string }>(async (request: NextRequest, context) => {
   const { params } = context!;
   const { slug } = await params;
   console.log(`[Documents API] Fetching document with slug/id: ${slug}`);
@@ -109,7 +108,7 @@ export const GET = withErrorHandler<{ slug: string }>(async (
   return NextResponse.json({
     ...toApiDocument(parsedDoc),
     media_count: mediaAssetsRows.length,
-    media_assets: mediaAssetsRows.map(m => ({
+    media_assets: mediaAssetsRows.map((m) => ({
       id: m.id,
       filename: m.filename,
       mime_type: m.mime_type,
@@ -124,10 +123,7 @@ export const GET = withErrorHandler<{ slug: string }>(async (
  * PUT /api/documents/[slug]
  * Update a document by slug or ID
  */
-export const PUT = withErrorHandler<{ slug: string }>(async (
-  request: NextRequest,
-  context
-) => {
+export const PUT = withErrorHandler<{ slug: string }>(async (request: NextRequest, context) => {
   const { params } = context!;
   const { slug } = await params;
   const db = getDrizzleDb();
@@ -146,7 +142,8 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
     throw new NotFoundError("Document not found");
   }
 
-  const updates: Partial<typeof documents.$inferInsert> & { updatedAt?: SQL } = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updates: Record<string, any> = {};
 
   if (title !== undefined) {
     updates.title = title;
@@ -166,8 +163,16 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
     }
   }
 
+  // Determine the effective type (updated or existing)
+  const effectiveType = type !== undefined ? type : existing.type;
+
   if (content !== undefined) {
-    updates.content = content;
+    // For prompts: normalize content to chat format
+    if (effectiveType === "prompt") {
+      updates.content = normalizePromptContent(content);
+    } else {
+      updates.content = content;
+    }
   }
 
   if (type !== undefined && ["writing", "prompt", "note"].includes(type)) {
@@ -176,7 +181,7 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
 
   if (metadata !== undefined) {
     // Normalize: migrate legacy 'year' field to 'writtenDate' if needed
-    const normalizedMetadata = { ...metadata };
+    const normalizedMetadata: Record<string, unknown> = { ...metadata };
     if (normalizedMetadata.year && !normalizedMetadata.writtenDate) {
       normalizedMetadata.writtenDate = normalizedMetadata.year;
       delete normalizedMetadata.year;
@@ -184,7 +189,13 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
       // If both exist, prefer writtenDate and remove year
       delete normalizedMetadata.year;
     }
-    
+
+    // For prompts: auto-detect role from content if not provided
+    if (effectiveType === "prompt" && !normalizedMetadata.role) {
+      const contentToCheck = updates.content || existing.content;
+      normalizedMetadata.role = detectPromptRole(contentToCheck);
+    }
+
     updates.metadata = JSON.stringify(normalizedMetadata);
   }
 
@@ -199,7 +210,11 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
 
   try {
     if (isNumericId) {
-      await db.update(documents).set(updates).where(eq(documents.id, parseInt(slug, 10))).run();
+      await db
+        .update(documents)
+        .set(updates)
+        .where(eq(documents.id, parseInt(slug, 10)))
+        .run();
     } else {
       await db.update(documents).set(updates).where(eq(documents.slug, slug)).run();
     }
@@ -258,7 +273,11 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
 
     return NextResponse.json(toApiDocument(parsedDoc));
   } catch (error) {
-    if (error instanceof NotFoundError || error instanceof ConflictError || error instanceof DatabaseError) {
+    if (
+      error instanceof NotFoundError ||
+      error instanceof ConflictError ||
+      error instanceof DatabaseError
+    ) {
       throw error;
     }
     if (error instanceof Error && error.message?.includes("UNIQUE constraint")) {
@@ -272,10 +291,7 @@ export const PUT = withErrorHandler<{ slug: string }>(async (
  * DELETE /api/documents/[slug]
  * Delete a document by slug or ID
  */
-export const DELETE = withErrorHandler<{ slug: string }>(async (
-  request: NextRequest,
-  context
-) => {
+export const DELETE = withErrorHandler<{ slug: string }>(async (request: NextRequest, context) => {
   const { params } = context!;
   const { slug } = await params;
   const db = getDrizzleDb();
@@ -283,7 +299,10 @@ export const DELETE = withErrorHandler<{ slug: string }>(async (
   // Support both slug and numeric ID
   let result: { changes?: number } | undefined;
   if (/^\d+$/.test(slug)) {
-    result = await db.delete(documents).where(eq(documents.id, parseInt(slug, 10))).run();
+    result = await db
+      .delete(documents)
+      .where(eq(documents.id, parseInt(slug, 10)))
+      .run();
   } else {
     result = await db.delete(documents).where(eq(documents.slug, slug)).run();
   }

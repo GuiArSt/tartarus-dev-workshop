@@ -10,7 +10,9 @@ export function cn(...inputs: ClassValue[]) {
  * Also handles: yyyy, mm/yyyy, ISO dates
  * Returns { day?, month?, year } or null if unparseable
  */
-export function parseEuropeanDate(input: string | null | undefined): { day?: number; month?: number; year: number } | null {
+export function parseEuropeanDate(
+  input: string | null | undefined
+): { day?: number; month?: number; year: number } | null {
   if (!input) return null;
   const s = input.trim();
 

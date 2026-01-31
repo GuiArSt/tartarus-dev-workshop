@@ -17,14 +17,21 @@
  * ❌ UNSAFE: db.exec(`SELECT * FROM entries WHERE id = ${userId}`)
  */
 
-import Database from 'better-sqlite3';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import Database from "better-sqlite3";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { logger } from '../../../shared/logger.js';
-import type { JournalEntry, JournalEntryInsert, ProjectSummary, ProjectSummaryInsert, Attachment, AttachmentInsert } from '../types.js';
+import { logger } from "../../../shared/logger.js";
+import type {
+  JournalEntry,
+  JournalEntryInsert,
+  ProjectSummary,
+  ProjectSummaryInsert,
+  Attachment,
+  AttachmentInsert,
+} from "../types.js";
 
 let db: Database.Database | null = null;
 
@@ -36,33 +43,37 @@ function getMCPInstallationRoot(): string {
   // Use import.meta.url to find where this module is located
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  
+
   // Walk up from dist/modules/journal/db/database.js to find project root
   let currentDir = __dirname;
   for (let i = 0; i < 5; i++) {
     // Look for Developer Journal Workspace directory with package.json or Soul.xml
-    if (path.basename(currentDir) === 'Developer Journal Workspace' && 
-        (fs.existsSync(path.join(currentDir, 'package.json')) || 
-         fs.existsSync(path.join(currentDir, 'Soul.xml')))) {
+    if (
+      path.basename(currentDir) === "Developer Journal Workspace" &&
+      (fs.existsSync(path.join(currentDir, "package.json")) ||
+        fs.existsSync(path.join(currentDir, "Soul.xml")))
+    ) {
       return currentDir;
     }
     const parent = path.dirname(currentDir);
     if (parent === currentDir) break; // Reached filesystem root
     currentDir = parent;
   }
-  
+
   // Fallback: if we can't find it, use __dirname and walk up to find package.json
   currentDir = __dirname;
   for (let i = 0; i < 10; i++) {
-    if (fs.existsSync(path.join(currentDir, 'package.json')) || 
-        fs.existsSync(path.join(currentDir, 'Soul.xml'))) {
+    if (
+      fs.existsSync(path.join(currentDir, "package.json")) ||
+      fs.existsSync(path.join(currentDir, "Soul.xml"))
+    ) {
       return currentDir;
     }
     const parent = path.dirname(currentDir);
     if (parent === currentDir) break;
     currentDir = parent;
   }
-  
+
   // Last resort: return __dirname (shouldn't happen)
   return currentDir;
 }
@@ -123,16 +134,18 @@ const createSchema = (handle: Database.Database) => {
       FOREIGN KEY (commit_hash) REFERENCES journal_entries(commit_hash) ON DELETE CASCADE
     );
   `);
-  
+
   // Migration: Fix project_summaries NOT NULL constraints on existing databases
   // SQLite doesn't support ALTER COLUMN, so we need to recreate the table
   try {
     // Check if we need to migrate (check if git_url has NOT NULL constraint)
-    const tableInfo = handle.prepare("PRAGMA table_info(project_summaries)").all() as Array<{ name: string; notnull: number }>;
-    const gitUrlColumn = tableInfo.find(col => col.name === 'git_url');
+    const tableInfo = handle
+      .prepare("PRAGMA table_info(project_summaries)")
+      .all() as Array<{ name: string; notnull: number }>;
+    const gitUrlColumn = tableInfo.find((col) => col.name === "git_url");
 
     if (gitUrlColumn && gitUrlColumn.notnull === 1) {
-      logger.info('Migrating project_summaries to make columns nullable...');
+      logger.info("Migrating project_summaries to make columns nullable...");
 
       // Create new table with nullable columns
       handle.exec(`
@@ -161,12 +174,17 @@ const createSchema = (handle: Database.Database) => {
 
       // Drop old table and rename new one
       handle.exec(`DROP TABLE project_summaries;`);
-      handle.exec(`ALTER TABLE project_summaries_new RENAME TO project_summaries;`);
+      handle.exec(
+        `ALTER TABLE project_summaries_new RENAME TO project_summaries;`,
+      );
 
-      logger.success('Successfully migrated project_summaries table');
+      logger.success("Successfully migrated project_summaries table");
     }
   } catch (error: any) {
-    logger.warn('Could not migrate project_summaries (may already be correct):', error.message);
+    logger.warn(
+      "Could not migrate project_summaries (may already be correct):",
+      error.message,
+    );
   }
 
   // Migrate existing tables: add description column if it doesn't exist
@@ -174,25 +192,38 @@ const createSchema = (handle: Database.Database) => {
     handle.exec(`ALTER TABLE entry_attachments ADD COLUMN description TEXT;`);
   } catch (error: any) {
     // Column already exists, ignore error
-    if (!error.message?.includes('duplicate column')) {
-      logger.warn('Could not add description column (may already exist):', error.message);
+    if (!error.message?.includes("duplicate column")) {
+      logger.warn(
+        "Could not add description column (may already exist):",
+        error.message,
+      );
     }
   }
 
   // Migrate existing tables: add Linear integration columns if they don't exist
   try {
-    handle.exec(`ALTER TABLE project_summaries ADD COLUMN linear_project_id TEXT;`);
+    handle.exec(
+      `ALTER TABLE project_summaries ADD COLUMN linear_project_id TEXT;`,
+    );
   } catch (error: any) {
-    if (!error.message?.includes('duplicate column')) {
-      logger.warn('Could not add linear_project_id column (may already exist):', error.message);
+    if (!error.message?.includes("duplicate column")) {
+      logger.warn(
+        "Could not add linear_project_id column (may already exist):",
+        error.message,
+      );
     }
   }
 
   try {
-    handle.exec(`ALTER TABLE project_summaries ADD COLUMN linear_issue_id TEXT;`);
+    handle.exec(
+      `ALTER TABLE project_summaries ADD COLUMN linear_issue_id TEXT;`,
+    );
   } catch (error: any) {
-    if (!error.message?.includes('duplicate column')) {
-      logger.warn('Could not add linear_issue_id column (may already exist):', error.message);
+    if (!error.message?.includes("duplicate column")) {
+      logger.warn(
+        "Could not add linear_issue_id column (may already exist):",
+        error.message,
+      );
     }
   }
 
@@ -254,36 +285,39 @@ const createSchema = (handle: Database.Database) => {
       CREATE INDEX IF NOT EXISTS idx_linear_issues_deleted ON linear_issues(is_deleted);
       CREATE INDEX IF NOT EXISTS idx_linear_issues_synced ON linear_issues(synced_at DESC);
     `);
-    logger.info('Linear cache tables migrated');
+    logger.info("Linear cache tables migrated");
   } catch (error: any) {
-    logger.warn('Could not migrate Linear cache tables:', error.message);
+    logger.warn("Could not migrate Linear cache tables:", error.message);
   }
 
   // Migration: Living Project Summary (Entry 0) - Enhanced fields for project_summaries
   const entry0Columns = [
-    'file_structure TEXT',      // Git-style file tree (agent-provided)
-    'tech_stack TEXT',          // Frameworks, libraries, versions (indicative)
-    'frontend TEXT',            // FE patterns, components, state management
-    'backend TEXT',             // BE routes, middleware, auth patterns
-    'database_info TEXT',       // Schema, ORM patterns, migrations
-    'services TEXT',            // External APIs, integrations
-    'custom_tooling TEXT',      // Project-specific utilities
-    'data_flow TEXT',           // How data is processed
-    'patterns TEXT',            // Naming conventions, code style
-    'commands TEXT',            // Dev, deploy, make commands
-    'extended_notes TEXT',      // Gotchas, TODOs, historical context
-    'last_synced_entry TEXT',   // Last journal entry hash used for update
-    'entries_synced INTEGER',   // Count of entries analyzed
+    "file_structure TEXT", // Git-style file tree (agent-provided)
+    "tech_stack TEXT", // Frameworks, libraries, versions (indicative)
+    "frontend TEXT", // FE patterns, components, state management
+    "backend TEXT", // BE routes, middleware, auth patterns
+    "database_info TEXT", // Schema, ORM patterns, migrations
+    "services TEXT", // External APIs, integrations
+    "custom_tooling TEXT", // Project-specific utilities
+    "data_flow TEXT", // How data is processed
+    "patterns TEXT", // Naming conventions, code style
+    "commands TEXT", // Dev, deploy, make commands
+    "extended_notes TEXT", // Gotchas, TODOs, historical context
+    "last_synced_entry TEXT", // Last journal entry hash used for update
+    "entries_synced INTEGER", // Count of entries analyzed
   ];
 
   for (const column of entry0Columns) {
-    const [columnName] = column.split(' ');
+    const [columnName] = column.split(" ");
     try {
       handle.exec(`ALTER TABLE project_summaries ADD COLUMN ${column};`);
       logger.debug(`Added column ${columnName} to project_summaries`);
     } catch (error: any) {
-      if (!error.message?.includes('duplicate column')) {
-        logger.warn(`Could not add ${columnName} column (may already exist):`, error.message);
+      if (!error.message?.includes("duplicate column")) {
+        logger.warn(
+          `Could not add ${columnName} column (may already exist):`,
+          error.message,
+        );
       }
     }
   }
@@ -291,19 +325,22 @@ const createSchema = (handle: Database.Database) => {
   // Migration: Add files_changed column to journal_entries for tracking file changes
   try {
     handle.exec(`ALTER TABLE journal_entries ADD COLUMN files_changed TEXT;`);
-    logger.debug('Added column files_changed to journal_entries');
+    logger.debug("Added column files_changed to journal_entries");
   } catch (error: any) {
-    if (!error.message?.includes('duplicate column')) {
-      logger.warn('Could not add files_changed column (may already exist):', error.message);
+    if (!error.message?.includes("duplicate column")) {
+      logger.warn(
+        "Could not add files_changed column (may already exist):",
+        error.message,
+      );
     }
   }
 
   // Migration: Add summary columns to all tables for Kronus indexing
   const summaryMigrations = [
-    { table: 'journal_entries', column: 'summary TEXT' },
-    { table: 'linear_projects', column: 'summary TEXT' },
-    { table: 'linear_issues', column: 'summary TEXT' },
-    { table: 'entry_attachments', column: 'summary TEXT' },
+    { table: "journal_entries", column: "summary TEXT" },
+    { table: "linear_projects", column: "summary TEXT" },
+    { table: "linear_issues", column: "summary TEXT" },
+    { table: "entry_attachments", column: "summary TEXT" },
   ];
 
   for (const { table, column } of summaryMigrations) {
@@ -311,17 +348,30 @@ const createSchema = (handle: Database.Database) => {
       handle.exec(`ALTER TABLE ${table} ADD COLUMN ${column};`);
       logger.debug(`Added summary column to ${table}`);
     } catch (error: any) {
-      if (!error.message?.includes('duplicate column')) {
-        logger.warn(`Could not add summary to ${table} (may already exist):`, error.message);
+      if (!error.message?.includes("duplicate column")) {
+        logger.warn(
+          `Could not add summary to ${table} (may already exist):`,
+          error.message,
+        );
       }
     }
   }
 
-  handle.exec(`CREATE INDEX IF NOT EXISTS idx_repository ON journal_entries(repository);`);
-  handle.exec(`CREATE INDEX IF NOT EXISTS idx_branch ON journal_entries(repository, branch);`);
-  handle.exec(`CREATE INDEX IF NOT EXISTS idx_commit ON journal_entries(commit_hash);`);
-  handle.exec(`CREATE INDEX IF NOT EXISTS idx_project_repo ON project_summaries(repository);`);
-  handle.exec(`CREATE INDEX IF NOT EXISTS idx_attachments_commit ON entry_attachments(commit_hash);`);
+  handle.exec(
+    `CREATE INDEX IF NOT EXISTS idx_repository ON journal_entries(repository);`,
+  );
+  handle.exec(
+    `CREATE INDEX IF NOT EXISTS idx_branch ON journal_entries(repository, branch);`,
+  );
+  handle.exec(
+    `CREATE INDEX IF NOT EXISTS idx_commit ON journal_entries(commit_hash);`,
+  );
+  handle.exec(
+    `CREATE INDEX IF NOT EXISTS idx_project_repo ON project_summaries(repository);`,
+  );
+  handle.exec(
+    `CREATE INDEX IF NOT EXISTS idx_attachments_commit ON entry_attachments(commit_hash);`,
+  );
 };
 
 export const initDatabase = (dbPath?: string): Database.Database => {
@@ -335,7 +385,7 @@ export const initDatabase = (dbPath?: string): Database.Database => {
 
   const finalPath = dbPath
     ? path.resolve(dbPath.replace(/^~/, os.homedir()))
-    : path.join(mcpRoot, 'data', 'journal.db');
+    : path.join(mcpRoot, "data", "journal.db");
 
   ensureDirectoryExists(finalPath);
 
@@ -346,9 +396,9 @@ export const initDatabase = (dbPath?: string): Database.Database => {
   while (retries > 0) {
     try {
       db = new Database(finalPath);
-      db.pragma('journal_mode = WAL');
-      db.pragma('foreign_keys = ON');
-      db.pragma('busy_timeout = 5000'); // Wait 5 seconds for locks
+      db.pragma("journal_mode = WAL");
+      db.pragma("foreign_keys = ON");
+      db.pragma("busy_timeout = 5000"); // Wait 5 seconds for locks
       createSchema(db);
       logger.success(`Journal database ready at ${finalPath}`);
       return db;
@@ -367,7 +417,9 @@ export const initDatabase = (dbPath?: string): Database.Database => {
     }
   }
 
-  throw new Error(`Failed to initialize database after retries: ${lastError?.message}`);
+  throw new Error(
+    `Failed to initialize database after retries: ${lastError?.message}`,
+  );
 };
 
 const mapRow = (row: any): JournalEntry => ({
@@ -392,7 +444,7 @@ const mapRow = (row: any): JournalEntry => ({
 
 export const insertJournalEntry = (entry: JournalEntryInsert): number => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   const params = {
@@ -407,7 +459,9 @@ export const insertJournalEntry = (entry: JournalEntryInsert): number => {
     technologies: entry.technologies,
     kronus_wisdom: entry.kronus_wisdom ?? null,
     raw_agent_report: entry.raw_agent_report,
-    files_changed: entry.files_changed ? JSON.stringify(entry.files_changed) : null,
+    files_changed: entry.files_changed
+      ? JSON.stringify(entry.files_changed)
+      : null,
     summary: entry.summary ?? null,
   };
 
@@ -424,17 +478,17 @@ export const insertJournalEntry = (entry: JournalEntryInsert): number => {
   try {
     const result = insertStmt.run(params);
     logger.success(
-      `Created journal entry for ${entry.repository}/${entry.branch} (${entry.commit_hash})`
+      `Created journal entry for ${entry.repository}/${entry.branch} (${entry.commit_hash})`,
     );
     return Number(result.lastInsertRowid);
   } catch (error) {
     if (
       error instanceof Error &&
-      'code' in error &&
-      error.code == 'SQLITE_CONSTRAINT'
+      "code" in error &&
+      error.code == "SQLITE_CONSTRAINT"
     ) {
       throw new Error(
-        `Entry already exists for commit ${entry.commit_hash}. Each commit can only have one journal entry.`
+        `Entry already exists for commit ${entry.commit_hash}. Each commit can only have one journal entry.`,
       );
     }
     throw error;
@@ -443,7 +497,7 @@ export const insertJournalEntry = (entry: JournalEntryInsert): number => {
 
 export const getEntriesByRepository = (repository: string): JournalEntry[] => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const rows = db
     .prepare(
@@ -451,7 +505,7 @@ export const getEntriesByRepository = (repository: string): JournalEntry[] => {
     SELECT * FROM journal_entries
     WHERE repository = ?
     ORDER BY created_at DESC
-  `
+  `,
     )
     .all(repository);
   return rows.map(mapRow);
@@ -460,10 +514,10 @@ export const getEntriesByRepository = (repository: string): JournalEntry[] => {
 export const getEntriesByRepositoryPaginated = (
   repository: string,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
 ): { entries: JournalEntry[]; total: number } => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const rows = db
     .prepare(
@@ -472,14 +526,16 @@ export const getEntriesByRepositoryPaginated = (
     WHERE repository = ?
     ORDER BY created_at DESC
     LIMIT ? OFFSET ?
-  `
+  `,
     )
     .all(repository, limit, offset);
-  
+
   const totalRow = db
-    .prepare('SELECT COUNT(*) as count FROM journal_entries WHERE repository = ?')
+    .prepare(
+      "SELECT COUNT(*) as count FROM journal_entries WHERE repository = ?",
+    )
     .get(repository) as { count: number };
-  
+
   return {
     entries: rows.map(mapRow),
     total: totalRow.count,
@@ -488,10 +544,10 @@ export const getEntriesByRepositoryPaginated = (
 
 export const getEntriesByBranch = (
   repository: string,
-  branch: string
+  branch: string,
 ): JournalEntry[] => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const rows = db
     .prepare(
@@ -499,7 +555,7 @@ export const getEntriesByBranch = (
     SELECT * FROM journal_entries
     WHERE repository = ? AND branch = ?
     ORDER BY created_at DESC
-  `
+  `,
     )
     .all(repository, branch);
   return rows.map(mapRow);
@@ -509,10 +565,10 @@ export const getEntriesByBranchPaginated = (
   repository: string,
   branch: string,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
 ): { entries: JournalEntry[]; total: number } => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const rows = db
     .prepare(
@@ -521,14 +577,16 @@ export const getEntriesByBranchPaginated = (
     WHERE repository = ? AND branch = ?
     ORDER BY created_at DESC
     LIMIT ? OFFSET ?
-  `
+  `,
     )
     .all(repository, branch, limit, offset);
-  
+
   const totalRow = db
-    .prepare('SELECT COUNT(*) as count FROM journal_entries WHERE repository = ? AND branch = ?')
+    .prepare(
+      "SELECT COUNT(*) as count FROM journal_entries WHERE repository = ? AND branch = ?",
+    )
     .get(repository, branch) as { count: number };
-  
+
   return {
     entries: rows.map(mapRow),
     total: totalRow.count,
@@ -537,7 +595,7 @@ export const getEntriesByBranchPaginated = (
 
 export const getEntryByCommit = (commitHash: string): JournalEntry | null => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const row = db
     .prepare(
@@ -545,7 +603,7 @@ export const getEntryByCommit = (commitHash: string): JournalEntry | null => {
     SELECT * FROM journal_entries
     WHERE commit_hash = ?
     LIMIT 1
-  `
+  `,
     )
     .get(commitHash);
   return row ? mapRow(row) : null;
@@ -553,7 +611,7 @@ export const getEntryByCommit = (commitHash: string): JournalEntry | null => {
 
 export const listRepositories = (): string[] => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   // Include repositories from both journal entries and project summaries
   // This ensures repositories with project summaries but no entries yet are still listed
@@ -561,29 +619,29 @@ export const listRepositories = (): string[] => {
     .prepare(
       `
     SELECT DISTINCT repository FROM journal_entries
-  `
+  `,
     )
     .all() as Array<{ repository: string }>;
-  
+
   const summaryRows = db
     .prepare(
       `
     SELECT DISTINCT repository FROM project_summaries
-  `
+  `,
     )
     .all() as Array<{ repository: string }>;
-  
+
   // Combine and deduplicate
   const allRepos = new Set<string>();
-  entryRows.forEach(row => allRepos.add(row.repository));
-  summaryRows.forEach(row => allRepos.add(row.repository));
-  
+  entryRows.forEach((row) => allRepos.add(row.repository));
+  summaryRows.forEach((row) => allRepos.add(row.repository));
+
   return Array.from(allRepos).sort();
 };
 
 export const listBranches = (repository: string): string[] => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const rows = db
     .prepare(
@@ -591,7 +649,7 @@ export const listBranches = (repository: string): string[] => {
     SELECT DISTINCT branch FROM journal_entries
     WHERE repository = ?
     ORDER BY branch ASC
-  `
+  `,
     )
     .all(repository);
   return rows.map((row: any) => row.branch as string);
@@ -601,24 +659,30 @@ export const listBranches = (repository: string): string[] => {
  * Get journal entry statistics for a repository
  * Returns count and date of last entry
  */
-export const getRepositoryEntryStats = (repository: string): { count: number; lastEntryDate: string | null } => {
+export const getRepositoryEntryStats = (
+  repository: string,
+): { count: number; lastEntryDate: string | null } => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
-  
+
   const countRow = db
-    .prepare('SELECT COUNT(*) as count FROM journal_entries WHERE repository = ?')
+    .prepare(
+      "SELECT COUNT(*) as count FROM journal_entries WHERE repository = ?",
+    )
     .get(repository) as { count: number };
-  
+
   const lastEntryRow = db
-    .prepare(`
+    .prepare(
+      `
       SELECT date FROM journal_entries 
       WHERE repository = ? 
       ORDER BY created_at DESC 
       LIMIT 1
-    `)
+    `,
+    )
     .get(repository) as { date: string } | undefined;
-  
+
   return {
     count: countRow.count,
     lastEntryDate: lastEntryRow?.date || null,
@@ -629,7 +693,7 @@ export const closeDatabase = () => {
   if (db) {
     db.close();
     db = null;
-    logger.info('Journal database closed');
+    logger.info("Journal database closed");
   }
 };
 
@@ -638,10 +702,10 @@ export const closeDatabase = () => {
  */
 export const commitHasEntry = (commitHash: string): boolean => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const row = db
-    .prepare('SELECT 1 FROM journal_entries WHERE commit_hash = ? LIMIT 1')
+    .prepare("SELECT 1 FROM journal_entries WHERE commit_hash = ? LIMIT 1")
     .get(commitHash);
   return row !== undefined;
 };
@@ -651,43 +715,43 @@ export const commitHasEntry = (commitHash: string): boolean => {
  */
 export const updateJournalEntry = (
   commitHash: string,
-  updates: Partial<Omit<JournalEntryInsert, 'commit_hash'>>
+  updates: Partial<Omit<JournalEntryInsert, "commit_hash">>,
 ): void => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   const fields: string[] = [];
   const params: Record<string, any> = { commit_hash: commitHash };
 
   if (updates.why !== undefined) {
-    fields.push('why = @why');
+    fields.push("why = @why");
     params.why = updates.why;
   }
   if (updates.what_changed !== undefined) {
-    fields.push('what_changed = @what_changed');
+    fields.push("what_changed = @what_changed");
     params.what_changed = updates.what_changed;
   }
   if (updates.decisions !== undefined) {
-    fields.push('decisions = @decisions');
+    fields.push("decisions = @decisions");
     params.decisions = updates.decisions;
   }
   if (updates.technologies !== undefined) {
-    fields.push('technologies = @technologies');
+    fields.push("technologies = @technologies");
     params.technologies = updates.technologies;
   }
   if (updates.kronus_wisdom !== undefined) {
-    fields.push('kronus_wisdom = @kronus_wisdom');
+    fields.push("kronus_wisdom = @kronus_wisdom");
     params.kronus_wisdom = updates.kronus_wisdom;
   }
 
   if (fields.length === 0) {
-    throw new Error('No fields to update');
+    throw new Error("No fields to update");
   }
 
   const updateStmt = db.prepare(`
     UPDATE journal_entries
-    SET ${fields.join(', ')}
+    SET ${fields.join(", ")}
     WHERE commit_hash = @commit_hash
   `);
 
@@ -703,9 +767,12 @@ export const updateJournalEntry = (
 /**
  * Update repository name for entries (useful for fixing misnamed repositories)
  */
-export const updateRepositoryName = (oldRepository: string, newRepository: string): number => {
+export const updateRepositoryName = (
+  oldRepository: string,
+  newRepository: string,
+): number => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   const updateStmt = db.prepare(`
@@ -714,9 +781,14 @@ export const updateRepositoryName = (oldRepository: string, newRepository: strin
     WHERE repository = @old_repository
   `);
 
-  const result = updateStmt.run({ old_repository: oldRepository, new_repository: newRepository });
+  const result = updateStmt.run({
+    old_repository: oldRepository,
+    new_repository: newRepository,
+  });
 
-  logger.success(`Updated ${result.changes} entries from repository "${oldRepository}" to "${newRepository}"`);
+  logger.success(
+    `Updated ${result.changes} entries from repository "${oldRepository}" to "${newRepository}"`,
+  );
   return result.changes;
 };
 
@@ -769,7 +841,7 @@ const mapProjectSummaryRow = (row: any): ProjectSummary => {
 
 export const upsertProjectSummary = (summary: ProjectSummaryInsert): number => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   const params = {
@@ -844,41 +916,45 @@ export const upsertProjectSummary = (summary: ProjectSummaryInsert): number => {
   return Number(result.lastInsertRowid);
 };
 
-export const getProjectSummary = (repository: string): ProjectSummary | null => {
+export const getProjectSummary = (
+  repository: string,
+): ProjectSummary | null => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const row = db
-    .prepare('SELECT * FROM project_summaries WHERE repository = ? LIMIT 1')
+    .prepare("SELECT * FROM project_summaries WHERE repository = ? LIMIT 1")
     .get(repository);
   return row ? mapProjectSummaryRow(row) : null;
 };
 
 export const listAllProjectSummaries = (): ProjectSummary[] => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const rows = db
-    .prepare('SELECT * FROM project_summaries ORDER BY repository ASC')
+    .prepare("SELECT * FROM project_summaries ORDER BY repository ASC")
     .all();
   return rows.map(mapProjectSummaryRow);
 };
 
 export const listAllProjectSummariesPaginated = (
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
 ): { summaries: ProjectSummary[]; total: number } => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const rows = db
-    .prepare('SELECT * FROM project_summaries ORDER BY repository ASC LIMIT ? OFFSET ?')
+    .prepare(
+      "SELECT * FROM project_summaries ORDER BY repository ASC LIMIT ? OFFSET ?",
+    )
     .all(limit, offset);
-  
+
   const totalRow = db
-    .prepare('SELECT COUNT(*) as count FROM project_summaries')
+    .prepare("SELECT COUNT(*) as count FROM project_summaries")
     .get() as { count: number };
-  
+
   return {
     summaries: rows.map(mapProjectSummaryRow),
     total: totalRow.count,
@@ -905,12 +981,14 @@ const mapAttachmentRow = (row: any): Attachment => ({
  */
 export const insertAttachment = (attachment: AttachmentInsert): number => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   // Verify that the commit hash exists
   if (!commitHasEntry(attachment.commit_hash)) {
-    throw new Error(`No journal entry found for commit ${attachment.commit_hash}. Create an entry first.`);
+    throw new Error(
+      `No journal entry found for commit ${attachment.commit_hash}. Create an entry first.`,
+    );
   }
 
   const params = {
@@ -932,7 +1010,7 @@ export const insertAttachment = (attachment: AttachmentInsert): number => {
 
   const result = insertStmt.run(params);
   logger.success(
-    `Attached file "${attachment.filename}" (${attachment.file_size} bytes) to commit ${attachment.commit_hash}`
+    `Attached file "${attachment.filename}" (${attachment.file_size} bytes) to commit ${attachment.commit_hash}`,
   );
   return Number(result.lastInsertRowid);
 };
@@ -942,7 +1020,7 @@ export const insertAttachment = (attachment: AttachmentInsert): number => {
  */
 export const getAttachmentsByCommit = (commitHash: string): Attachment[] => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const rows = db
     .prepare(
@@ -950,7 +1028,7 @@ export const getAttachmentsByCommit = (commitHash: string): Attachment[] => {
     SELECT * FROM entry_attachments
     WHERE commit_hash = ?
     ORDER BY uploaded_at ASC
-  `
+  `,
     )
     .all(commitHash);
   return rows.map(mapAttachmentRow);
@@ -959,7 +1037,9 @@ export const getAttachmentsByCommit = (commitHash: string): Attachment[] => {
 /**
  * Get attachment metadata only (without binary data) for a commit
  */
-export const getAttachmentMetadataByCommit = (commitHash: string): Array<{
+export const getAttachmentMetadataByCommit = (
+  commitHash: string,
+): Array<{
   id: number;
   commit_hash: string;
   filename: string;
@@ -969,7 +1049,7 @@ export const getAttachmentMetadataByCommit = (commitHash: string): Array<{
   uploaded_at: string;
 }> => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const rows = db
     .prepare(
@@ -978,7 +1058,7 @@ export const getAttachmentMetadataByCommit = (commitHash: string): Array<{
     FROM entry_attachments
     WHERE commit_hash = ?
     ORDER BY uploaded_at ASC
-  `
+  `,
     )
     .all(commitHash);
   return rows as Array<{
@@ -997,7 +1077,7 @@ export const getAttachmentMetadataByCommit = (commitHash: string): Array<{
  */
 export const getAttachmentById = (id: number): Attachment | null => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const row = db
     .prepare(
@@ -1005,7 +1085,7 @@ export const getAttachmentById = (id: number): Attachment | null => {
     SELECT * FROM entry_attachments
     WHERE id = ?
     LIMIT 1
-  `
+  `,
     )
     .get(id);
   return row ? mapAttachmentRow(row) : null;
@@ -1016,7 +1096,7 @@ export const getAttachmentById = (id: number): Attachment | null => {
  */
 export const deleteAttachment = (id: number): void => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   const deleteStmt = db.prepare(`
@@ -1036,9 +1116,11 @@ export const deleteAttachment = (id: number): void => {
 /**
  * Get attachment count and total size for a commit
  */
-export const getAttachmentStats = (commitHash: string): { count: number; total_size: number } => {
+export const getAttachmentStats = (
+  commitHash: string,
+): { count: number; total_size: number } => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   const row = db
     .prepare(
@@ -1046,7 +1128,7 @@ export const getAttachmentStats = (commitHash: string): { count: number; total_s
     SELECT COUNT(*) as count, COALESCE(SUM(file_size), 0) as total_size
     FROM entry_attachments
     WHERE commit_hash = ?
-  `
+  `,
     )
     .get(commitHash) as any;
   return {
@@ -1058,16 +1140,18 @@ export const getAttachmentStats = (commitHash: string): { count: number; total_s
 /**
  * Get attachment counts for multiple commits (for batch operations)
  */
-export const getAttachmentCountsForCommits = (commitHashes: string[]): Map<string, number> => {
+export const getAttachmentCountsForCommits = (
+  commitHashes: string[],
+): Map<string, number> => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
   if (commitHashes.length === 0) {
     return new Map();
   }
-  
+
   // Create placeholders for IN clause
-  const placeholders = commitHashes.map(() => '?').join(',');
+  const placeholders = commitHashes.map(() => "?").join(",");
   const rows = db
     .prepare(
       `
@@ -1075,25 +1159,28 @@ export const getAttachmentCountsForCommits = (commitHashes: string[]): Map<strin
     FROM entry_attachments
     WHERE commit_hash IN (${placeholders})
     GROUP BY commit_hash
-  `
+  `,
     )
     .all(...commitHashes) as Array<{ commit_hash: string; count: number }>;
-  
+
   const result = new Map<string, number>();
   // Initialize all commits with 0
-  commitHashes.forEach(hash => result.set(hash, 0));
+  commitHashes.forEach((hash) => result.set(hash, 0));
   // Update with actual counts
-  rows.forEach(row => result.set(row.commit_hash, row.count));
-  
+  rows.forEach((row) => result.set(row.commit_hash, row.count));
+
   return result;
 };
 
 /**
  * Update an attachment's description
  */
-export const updateAttachmentDescription = (attachmentId: number, description: string | null): void => {
+export const updateAttachmentDescription = (
+  attachmentId: number,
+  description: string | null,
+): void => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   const updateStmt = db.prepare(`
@@ -1116,17 +1203,33 @@ export const updateAttachmentDescription = (attachmentId: number, description: s
  */
 export const exportToSQL = (outputPath: string): void => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
-  const entries = db.prepare('SELECT * FROM journal_entries ORDER BY created_at ASC').all() as JournalEntry[];
-  const summaries = db.prepare('SELECT * FROM project_summaries ORDER BY repository ASC').all() as ProjectSummary[];
+  const entries = db
+    .prepare("SELECT * FROM journal_entries ORDER BY created_at ASC")
+    .all() as JournalEntry[];
+  const summaries = db
+    .prepare("SELECT * FROM project_summaries ORDER BY repository ASC")
+    .all() as ProjectSummary[];
 
   // Get attachment metadata (not binary data) for the backup
-  const attachmentMetadata = db.prepare(`
+  const attachmentMetadata = db
+    .prepare(
+      `
     SELECT id, commit_hash, filename, mime_type, description, file_size, uploaded_at
     FROM entry_attachments ORDER BY uploaded_at ASC
-  `).all() as Array<{id: number; commit_hash: string; filename: string; mime_type: string; description: string | null; file_size: number; uploaded_at: string}>;
+  `,
+    )
+    .all() as Array<{
+    id: number;
+    commit_hash: string;
+    filename: string;
+    mime_type: string;
+    description: string | null;
+    file_size: number;
+    uploaded_at: string;
+  }>;
 
   let sql = `-- Journal Entries and Project Summaries SQL Backup
 -- Generated: ${new Date().toISOString()}
@@ -1150,18 +1253,18 @@ export const exportToSQL = (outputPath: string): void => {
       (summary as any).linear_project_id || null,
       (summary as any).linear_issue_id || null,
       summary.updated_at,
-    ].map(v => {
-      if (v === null) return 'NULL';
-      if (typeof v === 'string') {
+    ].map((v) => {
+      if (v === null) return "NULL";
+      if (typeof v === "string") {
         return `'${v.replace(/'/g, "''")}'`;
       }
       return String(v);
     });
 
-    sql += `INSERT INTO project_summaries (repository, git_url, summary, purpose, architecture, key_decisions, technologies, status, linear_project_id, linear_issue_id, updated_at) VALUES (${values.join(', ')});\n`;
+    sql += `INSERT INTO project_summaries (repository, git_url, summary, purpose, architecture, key_decisions, technologies, status, linear_project_id, linear_issue_id, updated_at) VALUES (${values.join(", ")});\n`;
   }
 
-  sql += '\n-- Journal Entries\n';
+  sql += "\n-- Journal Entries\n";
 
   for (const entry of entries) {
     const values = [
@@ -1177,26 +1280,28 @@ export const exportToSQL = (outputPath: string): void => {
       entry.kronus_wisdom,
       entry.raw_agent_report,
       entry.created_at,
-    ].map(v => {
-      if (v === null) return 'NULL';
-      if (typeof v === 'string') {
+    ].map((v) => {
+      if (v === null) return "NULL";
+      if (typeof v === "string") {
         return `'${v.replace(/'/g, "''")}'`;
       }
       return String(v);
     });
 
-    sql += `INSERT INTO journal_entries (commit_hash, repository, branch, author, date, why, what_changed, decisions, technologies, kronus_wisdom, raw_agent_report, created_at) VALUES (${values.join(', ')});\n`;
+    sql += `INSERT INTO journal_entries (commit_hash, repository, branch, author, date, why, what_changed, decisions, technologies, kronus_wisdom, raw_agent_report, created_at) VALUES (${values.join(", ")});\n`;
   }
 
   // Add attachment metadata (note: binary data is NOT included in SQL backup)
-  sql += '\n-- Attachment Metadata (Binary data stored in database only)\n';
+  sql += "\n-- Attachment Metadata (Binary data stored in database only)\n";
   for (const att of attachmentMetadata) {
-    const desc = att.description ? ` - ${att.description}` : '';
+    const desc = att.description ? ` - ${att.description}` : "";
     sql += `-- Attachment: ${att.filename} (${att.file_size} bytes, ${att.mime_type})${desc} for commit ${att.commit_hash}\n`;
   }
 
-  fs.writeFileSync(outputPath, sql, 'utf-8');
-  logger.success(`Exported ${entries.length} entries, ${summaries.length} project summaries, and ${attachmentMetadata.length} attachment references to ${outputPath}`);
+  fs.writeFileSync(outputPath, sql, "utf-8");
+  logger.success(
+    `Exported ${entries.length} entries, ${summaries.length} project summaries, and ${attachmentMetadata.length} attachment references to ${outputPath}`,
+  );
 };
 
 /**
@@ -1205,20 +1310,25 @@ export const exportToSQL = (outputPath: string): void => {
  */
 export const restoreFromSQL = (sqlPath: string): void => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   if (!fs.existsSync(sqlPath)) {
     throw new Error(`SQL backup file not found: ${sqlPath}`);
   }
 
-  const sqlContent = fs.readFileSync(sqlPath, 'utf-8');
-  
+  const sqlContent = fs.readFileSync(sqlPath, "utf-8");
+
   // Split by semicolons and filter out comments/empty lines
   const statements = sqlContent
-    .split(';')
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && !s.startsWith('--') && !s.startsWith('INSERT INTO') === false);
+    .split(";")
+    .map((s) => s.trim())
+    .filter(
+      (s) =>
+        s.length > 0 &&
+        !s.startsWith("--") &&
+        !s.startsWith("INSERT INTO") === false,
+    );
 
   let restoredEntries = 0;
   let restoredSummaries = 0;
@@ -1226,17 +1336,21 @@ export const restoreFromSQL = (sqlPath: string): void => {
   let skippedSummaries = 0;
 
   // Process INSERT statements
-  for (const statement of sqlContent.split('\n')) {
+  for (const statement of sqlContent.split("\n")) {
     const trimmed = statement.trim();
-    if (!trimmed || trimmed.startsWith('--')) continue;
+    if (!trimmed || trimmed.startsWith("--")) continue;
 
-    if (trimmed.startsWith('INSERT INTO project_summaries')) {
+    if (trimmed.startsWith("INSERT INTO project_summaries")) {
       try {
         // Extract repository name to check if exists
         const repoMatch = trimmed.match(/VALUES\s*\(['"]([^'"]+)['"]/);
         if (repoMatch) {
           const repo = repoMatch[1];
-          const existing = db.prepare('SELECT repository FROM project_summaries WHERE repository = ?').get(repo);
+          const existing = db
+            .prepare(
+              "SELECT repository FROM project_summaries WHERE repository = ?",
+            )
+            .get(repo);
           if (existing) {
             skippedSummaries++;
             continue;
@@ -1245,19 +1359,26 @@ export const restoreFromSQL = (sqlPath: string): void => {
         db.exec(trimmed);
         restoredSummaries++;
       } catch (error: any) {
-        if (error.message?.includes('UNIQUE constraint') || error.message?.includes('duplicate')) {
+        if (
+          error.message?.includes("UNIQUE constraint") ||
+          error.message?.includes("duplicate")
+        ) {
           skippedSummaries++;
         } else {
           logger.warn(`Failed to restore project summary: ${error.message}`);
         }
       }
-    } else if (trimmed.startsWith('INSERT INTO journal_entries')) {
+    } else if (trimmed.startsWith("INSERT INTO journal_entries")) {
       try {
         // Extract commit_hash to check if exists
         const commitMatch = trimmed.match(/VALUES\s*\(['"]([a-f0-9]{7,})['"]/i);
         if (commitMatch) {
           const commitHash = commitMatch[1];
-          const existing = db.prepare('SELECT commit_hash FROM journal_entries WHERE commit_hash = ?').get(commitHash);
+          const existing = db
+            .prepare(
+              "SELECT commit_hash FROM journal_entries WHERE commit_hash = ?",
+            )
+            .get(commitHash);
           if (existing) {
             skippedEntries++;
             continue;
@@ -1266,7 +1387,10 @@ export const restoreFromSQL = (sqlPath: string): void => {
         db.exec(trimmed);
         restoredEntries++;
       } catch (error: any) {
-        if (error.message?.includes('UNIQUE constraint') || error.message?.includes('duplicate')) {
+        if (
+          error.message?.includes("UNIQUE constraint") ||
+          error.message?.includes("duplicate")
+        ) {
           skippedEntries++;
         } else {
           logger.warn(`Failed to restore journal entry: ${error.message}`);
@@ -1277,7 +1401,7 @@ export const restoreFromSQL = (sqlPath: string): void => {
 
   logger.success(
     `Restored ${restoredEntries} entries, ${restoredSummaries} project summaries. ` +
-    `Skipped ${skippedEntries} duplicate entries, ${skippedSummaries} duplicate summaries.`
+      `Skipped ${skippedEntries} duplicate entries, ${skippedSummaries} duplicate summaries.`,
   );
 };
 
@@ -1287,13 +1411,13 @@ export const restoreFromSQL = (sqlPath: string): void => {
 export interface MediaLibraryFilters {
   repository?: string;
   commit_hash?: string;
-  destination?: 'journal' | 'repository' | 'media' | 'portfolio' | 'all';
+  destination?: "journal" | "repository" | "media" | "portfolio" | "all";
   mime_type_prefix?: string;
   tags?: string[];
 }
 
 export interface UnifiedMediaRow {
-  source: 'entry_attachments' | 'media_assets';
+  source: "entry_attachments" | "media_assets";
   source_id: number;
   filename: string;
   mime_type: string;
@@ -1317,44 +1441,48 @@ export interface UnifiedMediaRow {
 export const getUnifiedMediaLibrary = (
   filters: MediaLibraryFilters,
   limit: number = 50,
-  offset: number = 0
-): { items: UnifiedMediaRow[]; total: number; sources: { entry_attachments: number; media_assets: number } } => {
+  offset: number = 0,
+): {
+  items: UnifiedMediaRow[];
+  total: number;
+  sources: { entry_attachments: number; media_assets: number };
+} => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   // Clamp limit
   const safeLimit = Math.min(Math.max(1, limit), 100);
 
   // Build WHERE clauses
-  const attachmentConditions: string[] = ['1=1'];
-  const mediaConditions: string[] = ['1=1'];
+  const attachmentConditions: string[] = ["1=1"];
+  const mediaConditions: string[] = ["1=1"];
   const params: any[] = [];
 
   if (filters.commit_hash) {
-    attachmentConditions.push('ea.commit_hash = ?');
-    mediaConditions.push('ma.commit_hash = ?');
+    attachmentConditions.push("ea.commit_hash = ?");
+    mediaConditions.push("ma.commit_hash = ?");
     params.push(filters.commit_hash, filters.commit_hash);
   }
 
   if (filters.repository) {
     // For attachments, join with journal_entries to get repository
-    attachmentConditions.push('je.repository = ?');
+    attachmentConditions.push("je.repository = ?");
     // For media_assets, need to join with journal_entries if commit_hash present
-    mediaConditions.push('(je2.repository = ? OR ma.commit_hash IS NULL)');
+    mediaConditions.push("(je2.repository = ? OR ma.commit_hash IS NULL)");
     params.push(filters.repository, filters.repository);
   }
 
   if (filters.mime_type_prefix) {
-    attachmentConditions.push('ea.mime_type LIKE ?');
-    mediaConditions.push('ma.mime_type LIKE ?');
-    const prefix = filters.mime_type_prefix + '%';
+    attachmentConditions.push("ea.mime_type LIKE ?");
+    mediaConditions.push("ma.mime_type LIKE ?");
+    const prefix = filters.mime_type_prefix + "%";
     params.push(prefix, prefix);
   }
 
-  if (filters.destination && filters.destination !== 'all') {
+  if (filters.destination && filters.destination !== "all") {
     // Only applies to media_assets
-    mediaConditions.push('ma.destination = ?');
+    mediaConditions.push("ma.destination = ?");
     params.push(filters.destination);
   }
 
@@ -1363,34 +1491,52 @@ export const getUnifiedMediaLibrary = (
     SELECT COUNT(*) as count
     FROM entry_attachments ea
     LEFT JOIN journal_entries je ON ea.commit_hash = je.commit_hash
-    WHERE ${attachmentConditions.join(' AND ')}
+    WHERE ${attachmentConditions.join(" AND ")}
   `;
 
   const mediaCountQuery = `
     SELECT COUNT(*) as count
     FROM media_assets ma
     LEFT JOIN journal_entries je2 ON ma.commit_hash = je2.commit_hash
-    WHERE ${mediaConditions.join(' AND ')}
+    WHERE ${mediaConditions.join(" AND ")}
   `;
 
   // Note: params order matters - attachment conditions first, then media conditions
-  const attachmentParams = params.filter((_, i) => i % 2 === 0 || !filters.commit_hash && !filters.repository && !filters.mime_type_prefix);
-  const mediaParams = params.filter((_, i) => i % 2 === 1 || !filters.commit_hash && !filters.repository && !filters.mime_type_prefix);
+  const attachmentParams = params.filter(
+    (_, i) =>
+      i % 2 === 0 ||
+      (!filters.commit_hash &&
+        !filters.repository &&
+        !filters.mime_type_prefix),
+  );
+  const mediaParams = params.filter(
+    (_, i) =>
+      i % 2 === 1 ||
+      (!filters.commit_hash &&
+        !filters.repository &&
+        !filters.mime_type_prefix),
+  );
 
   // Simplified approach: build params for each query separately
   const buildParams = (forMedia: boolean): any[] => {
     const p: any[] = [];
     if (filters.commit_hash) p.push(filters.commit_hash);
     if (filters.repository) p.push(filters.repository);
-    if (filters.mime_type_prefix) p.push(filters.mime_type_prefix + '%');
-    if (forMedia && filters.destination && filters.destination !== 'all') {
+    if (filters.mime_type_prefix) p.push(filters.mime_type_prefix + "%");
+    if (forMedia && filters.destination && filters.destination !== "all") {
       p.push(filters.destination);
     }
     return p;
   };
 
-  const attachmentCount = (db.prepare(attachmentCountQuery).get(...buildParams(false)) as { count: number }).count;
-  const mediaCount = (db.prepare(mediaCountQuery).get(...buildParams(true)) as { count: number }).count;
+  const attachmentCount = (
+    db.prepare(attachmentCountQuery).get(...buildParams(false)) as {
+      count: number;
+    }
+  ).count;
+  const mediaCount = (
+    db.prepare(mediaCountQuery).get(...buildParams(true)) as { count: number }
+  ).count;
 
   // UNION query for actual data
   const query = `
@@ -1416,7 +1562,7 @@ export const getUnifiedMediaLibrary = (
       ea.uploaded_at as created_at
     FROM entry_attachments ea
     LEFT JOIN journal_entries je ON ea.commit_hash = je.commit_hash
-    WHERE ${attachmentConditions.join(' AND ')}
+    WHERE ${attachmentConditions.join(" AND ")}
 
     UNION ALL
 
@@ -1442,13 +1588,18 @@ export const getUnifiedMediaLibrary = (
       ma.created_at
     FROM media_assets ma
     LEFT JOIN journal_entries je2 ON ma.commit_hash = je2.commit_hash
-    WHERE ${mediaConditions.join(' AND ')}
+    WHERE ${mediaConditions.join(" AND ")}
 
     ORDER BY created_at DESC
     LIMIT ? OFFSET ?
   `;
 
-  const allParams = [...buildParams(false), ...buildParams(true), safeLimit, offset];
+  const allParams = [
+    ...buildParams(false),
+    ...buildParams(true),
+    safeLimit,
+    offset,
+  ];
   const items = db.prepare(query).all(...allParams) as UnifiedMediaRow[];
 
   return {
@@ -1572,10 +1723,10 @@ export const listLinearProjects = (
     state?: string;
     limit?: number;
     offset?: number;
-  } = {}
+  } = {},
 ): { projects: LinearProject[]; total: number } => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   const { includeDeleted = true, state, limit = 50, offset = 0 } = options;
@@ -1584,25 +1735,30 @@ export const listLinearProjects = (
   const params: any[] = [];
 
   if (!includeDeleted) {
-    conditions.push('is_deleted = 0');
+    conditions.push("is_deleted = 0");
   }
   if (state) {
-    conditions.push('state = ?');
+    conditions.push("state = ?");
     params.push(state);
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT * FROM linear_projects
     ${whereClause}
     ORDER BY is_deleted ASC, name ASC
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `,
+    )
+    .all(...params, limit, offset);
 
-  const totalRow = db.prepare(
-    `SELECT COUNT(*) as count FROM linear_projects ${whereClause}`
-  ).get(...params) as { count: number };
+  const totalRow = db
+    .prepare(`SELECT COUNT(*) as count FROM linear_projects ${whereClause}`)
+    .get(...params) as { count: number };
 
   return {
     projects: rows.map(mapLinearProjectRow),
@@ -1615,10 +1771,10 @@ export const listLinearProjects = (
  */
 export const getLinearProject = (id: string): LinearProject | null => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
-  const row = db.prepare('SELECT * FROM linear_projects WHERE id = ?').get(id);
+  const row = db.prepare("SELECT * FROM linear_projects WHERE id = ?").get(id);
   return row ? mapLinearProjectRow(row) : null;
 };
 
@@ -1639,45 +1795,57 @@ export const listLinearIssues = (
     includeDeleted?: boolean;
     limit?: number;
     offset?: number;
-  } = {}
+  } = {},
 ): { issues: LinearIssue[]; total: number } => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
-  const { projectId, assigneeId, stateName, includeDeleted = true, limit = 50, offset = 0 } = options;
+  const {
+    projectId,
+    assigneeId,
+    stateName,
+    includeDeleted = true,
+    limit = 50,
+    offset = 0,
+  } = options;
 
   const conditions: string[] = [];
   const params: any[] = [];
 
   if (!includeDeleted) {
-    conditions.push('is_deleted = 0');
+    conditions.push("is_deleted = 0");
   }
   if (projectId) {
-    conditions.push('project_id = ?');
+    conditions.push("project_id = ?");
     params.push(projectId);
   }
   if (assigneeId) {
-    conditions.push('assignee_id = ?');
+    conditions.push("assignee_id = ?");
     params.push(assigneeId);
   }
   if (stateName) {
-    conditions.push('state_name = ?');
+    conditions.push("state_name = ?");
     params.push(stateName);
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT * FROM linear_issues
     ${whereClause}
     ORDER BY is_deleted ASC, identifier DESC
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `,
+    )
+    .all(...params, limit, offset);
 
-  const totalRow = db.prepare(
-    `SELECT COUNT(*) as count FROM linear_issues ${whereClause}`
-  ).get(...params) as { count: number };
+  const totalRow = db
+    .prepare(`SELECT COUNT(*) as count FROM linear_issues ${whereClause}`)
+    .get(...params) as { count: number };
 
   return {
     issues: rows.map(mapLinearIssueRow),
@@ -1690,13 +1858,17 @@ export const listLinearIssues = (
  */
 export const getLinearIssue = (idOrIdentifier: string): LinearIssue | null => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
   // Try by ID first, then by identifier
-  let row = db.prepare('SELECT * FROM linear_issues WHERE id = ?').get(idOrIdentifier);
+  let row = db
+    .prepare("SELECT * FROM linear_issues WHERE id = ?")
+    .get(idOrIdentifier);
   if (!row) {
-    row = db.prepare('SELECT * FROM linear_issues WHERE identifier = ?').get(idOrIdentifier);
+    row = db
+      .prepare("SELECT * FROM linear_issues WHERE identifier = ?")
+      .get(idOrIdentifier);
   }
   return row ? mapLinearIssueRow(row) : null;
 };
@@ -1713,26 +1885,44 @@ export const getLinearCacheStats = (): {
   lastIssueSync: string | null;
 } => {
   if (!db) {
-    throw new Error('Database not initialized');
+    throw new Error("Database not initialized");
   }
 
-  const projectStats = db.prepare(`
+  const projectStats = db
+    .prepare(
+      `
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN is_deleted = 0 THEN 1 ELSE 0 END) as active,
       SUM(CASE WHEN is_deleted = 1 THEN 1 ELSE 0 END) as deleted,
       MAX(synced_at) as last_sync
     FROM linear_projects
-  `).get() as { total: number; active: number; deleted: number; last_sync: string | null };
+  `,
+    )
+    .get() as {
+    total: number;
+    active: number;
+    deleted: number;
+    last_sync: string | null;
+  };
 
-  const issueStats = db.prepare(`
+  const issueStats = db
+    .prepare(
+      `
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN is_deleted = 0 THEN 1 ELSE 0 END) as active,
       SUM(CASE WHEN is_deleted = 1 THEN 1 ELSE 0 END) as deleted,
       MAX(synced_at) as last_sync
     FROM linear_issues
-  `).get() as { total: number; active: number; deleted: number; last_sync: string | null };
+  `,
+    )
+    .get() as {
+    total: number;
+    active: number;
+    deleted: number;
+    last_sync: string | null;
+  };
 
   return {
     projects: {

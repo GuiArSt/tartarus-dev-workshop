@@ -29,8 +29,8 @@ import {
   formatNumber,
 } from "./config-styles";
 
-// Model context limits - Gemini 3 Pro has 1M context
-const MODEL_CONTEXT_LIMIT = 1000000;
+// Default context limit (will be overridden by prop)
+const DEFAULT_CONTEXT_LIMIT = 1000000;
 const CONTEXT_WARNING_THRESHOLD = 0.5;
 
 // SoulConfigState - controls which repository sections Kronus knows about
@@ -88,6 +88,7 @@ interface SectionStats {
 interface SoulConfigProps {
   config: SoulConfigState;
   onChange: (config: SoulConfigState) => void;
+  contextLimit?: number; // Model-specific context limit
 }
 
 const DEFAULT_CONFIG: SoulConfigState = {
@@ -130,20 +131,66 @@ const FALLBACK_STATS: SectionStats = {
 
 // Section metadata with icons
 const REPOSITORY_SECTIONS = [
-  { key: "writings", label: "Writings", icon: FileText, statsKey: "writings", tokensKey: "writingsTokens" },
-  { key: "portfolioProjects", label: "Portfolio", icon: Briefcase, statsKey: "portfolioProjects", tokensKey: "portfolioProjectsTokens" },
+  {
+    key: "writings",
+    label: "Writings",
+    icon: FileText,
+    statsKey: "writings",
+    tokensKey: "writingsTokens",
+  },
+  {
+    key: "portfolioProjects",
+    label: "Portfolio",
+    icon: Briefcase,
+    statsKey: "portfolioProjects",
+    tokensKey: "portfolioProjectsTokens",
+  },
   { key: "skills", label: "Skills", icon: Code2, statsKey: "skills", tokensKey: "skillsTokens" },
-  { key: "workExperience", label: "Experience", icon: Building2, statsKey: "workExperience", tokensKey: "workExperienceTokens" },
-  { key: "education", label: "Education", icon: GraduationCap, statsKey: "education", tokensKey: "educationTokens" },
-  { key: "journalEntries", label: "Journal", icon: BookOpen, statsKey: "journalEntries", tokensKey: "journalEntriesTokens" },
+  {
+    key: "workExperience",
+    label: "Experience",
+    icon: Building2,
+    statsKey: "workExperience",
+    tokensKey: "workExperienceTokens",
+  },
+  {
+    key: "education",
+    label: "Education",
+    icon: GraduationCap,
+    statsKey: "education",
+    tokensKey: "educationTokens",
+  },
+  {
+    key: "journalEntries",
+    label: "Journal",
+    icon: BookOpen,
+    statsKey: "journalEntries",
+    tokensKey: "journalEntriesTokens",
+  },
 ] as const;
 
 const LINEAR_SECTIONS = [
-  { key: "linearProjects", label: "Projects", icon: FolderKanban, statsKey: "linearProjects", tokensKey: "linearProjectsTokens" },
-  { key: "linearIssues", label: "Issues", icon: ListTodo, statsKey: "linearIssues", tokensKey: "linearIssuesTokens" },
+  {
+    key: "linearProjects",
+    label: "Projects",
+    icon: FolderKanban,
+    statsKey: "linearProjects",
+    tokensKey: "linearProjectsTokens",
+  },
+  {
+    key: "linearIssues",
+    label: "Issues",
+    icon: ListTodo,
+    statsKey: "linearIssues",
+    tokensKey: "linearIssuesTokens",
+  },
 ] as const;
 
-export function SoulConfig({ config, onChange }: SoulConfigProps) {
+export function SoulConfig({
+  config,
+  onChange,
+  contextLimit = DEFAULT_CONTEXT_LIMIT,
+}: SoulConfigProps) {
   const [open, setOpen] = useState(false);
   const [stats, setStats] = useState<SectionStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -209,7 +256,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
     (config.linearProjects ? linearProjectTokens : 0) +
     (config.linearIssues ? linearIssueTokens : 0);
 
-  const contextPercentage = (estimatedTokens / MODEL_CONTEXT_LIMIT) * 100;
+  const contextPercentage = (estimatedTokens / contextLimit) * 100;
   const isHighContext = contextPercentage > CONTEXT_WARNING_THRESHOLD * 100;
 
   const toggleSection = (section: keyof SoulConfigState) => {
@@ -262,9 +309,14 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
   };
 
   const enabledCount = [
-    config.writings, config.portfolioProjects, config.skills,
-    config.workExperience, config.education, config.journalEntries,
-    config.linearProjects, config.linearIssues
+    config.writings,
+    config.portfolioProjects,
+    config.skills,
+    config.workExperience,
+    config.education,
+    config.journalEntries,
+    config.linearProjects,
+    config.linearIssues,
   ].filter(Boolean).length;
 
   const totalSections = 8;
@@ -283,7 +335,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
           <Flame className="h-4 w-4" />
           <span className="hidden sm:inline">Soul</span>
           <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full font-mono"
+            className="rounded-full px-1.5 py-0.5 font-mono text-[10px]"
             style={{
               backgroundColor: enabledCount < totalSections ? TARTARUS.goldGlow : TARTARUS.surface,
               color: enabledCount < totalSections ? TARTARUS.gold : TARTARUS.textMuted,
@@ -294,7 +346,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[340px] z-[100] shadow-2xl rounded-xl p-0 overflow-hidden"
+        className="z-[100] w-[340px] overflow-hidden rounded-xl p-0 shadow-2xl"
         align="start"
         sideOffset={8}
         style={popoverStyles.container}
@@ -302,7 +354,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
         <div style={popoverStyles.inner}>
           {/* Header */}
           <div
-            className="px-4 py-3 flex items-center justify-between"
+            className="flex items-center justify-between px-4 py-3"
             style={{ borderBottom: `1px solid ${TARTARUS.borderSubtle}` }}
           >
             <div>
@@ -312,14 +364,14 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
             <div className="flex gap-1">
               <button
                 onClick={selectAll}
-                className="hover:bg-white/5 rounded"
+                className="rounded hover:bg-white/5"
                 style={headerStyles.actionButton}
               >
                 All
               </button>
               <button
                 onClick={selectNone}
-                className="hover:bg-white/5 rounded"
+                className="rounded hover:bg-white/5"
                 style={headerStyles.actionButton}
               >
                 None
@@ -328,7 +380,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
           </div>
 
           {/* Content */}
-          <div className="px-4 py-3 space-y-4 max-h-[400px] overflow-y-auto">
+          <div className="max-h-[400px] space-y-4 overflow-y-auto px-4 py-3">
             {/* Repository Section */}
             <div>
               <div style={sectionStyles.label}>Repository</div>
@@ -341,7 +393,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
                       onClick={() => toggleSection(key as keyof SoulConfigState)}
                     >
                       <Switch
@@ -361,7 +413,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
                         {label}
                       </span>
                       <span
-                        className="text-[11px] font-mono px-2 py-0.5 rounded"
+                        className="rounded px-2 py-0.5 font-mono text-[11px]"
                         style={{
                           color: TARTARUS.textDim,
                           backgroundColor: TARTARUS.surface,
@@ -370,7 +422,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
                         {loading ? "..." : count}
                       </span>
                       <span
-                        className="text-[11px] font-mono w-12 text-right"
+                        className="w-12 text-right font-mono text-[11px]"
                         style={{ color: TARTARUS.textDim }}
                       >
                         ~{loading ? "..." : formatNumber(tokens)}
@@ -383,12 +435,14 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
 
             {/* Linear Section */}
             <div style={sectionStyles.divider}>
-              <div className="flex items-center justify-between mb-2">
-                <div style={sectionStyles.label} className="mb-0">Linear</div>
+              <div className="mb-2 flex items-center justify-between">
+                <div style={sectionStyles.label} className="mb-0">
+                  Linear
+                </div>
                 <button
                   onClick={syncLinear}
                   disabled={syncing}
-                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded hover:bg-white/5 transition-colors"
+                  className="flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-white/5"
                   style={{ color: TARTARUS.textMuted }}
                 >
                   <RefreshCw className={cn("h-3 w-3", syncing && "animate-spin")} />
@@ -399,14 +453,16 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
                 {LINEAR_SECTIONS.map(({ key, label, icon: Icon }) => {
                   const enabled = config[key as keyof SoulConfigState] as boolean;
                   // Get breakdown from enhanced stats
-                  const breakdown = key === "linearProjects"
-                    ? currentStats.linear?.projects
-                    : currentStats.linear?.issues;
+                  const breakdown =
+                    key === "linearProjects"
+                      ? currentStats.linear?.projects
+                      : currentStats.linear?.issues;
 
                   // Calculate count and tokens based on includeCompleted toggle
                   const activeCount = breakdown?.active ?? 0;
                   const completedCount = breakdown?.completed ?? 0;
-                  const totalCount = breakdown?.total ?? (currentStats[key as keyof SectionStats] as number) ?? 0;
+                  const totalCount =
+                    breakdown?.total ?? (currentStats[key as keyof SectionStats] as number) ?? 0;
                   const displayCount = config.linearIncludeCompleted ? totalCount : activeCount;
                   const tokens = config.linearIncludeCompleted
                     ? (breakdown?.tokensAll ?? 0)
@@ -415,7 +471,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
                       onClick={() => toggleSection(key as keyof SoulConfigState)}
                     >
                       <Switch
@@ -435,14 +491,16 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
                         {label}
                       </span>
                       <span
-                        className="text-[11px] font-mono px-2 py-0.5 rounded"
+                        className="rounded px-2 py-0.5 font-mono text-[11px]"
                         style={{
                           color: TARTARUS.textDim,
                           backgroundColor: TARTARUS.surface,
                         }}
-                        title={breakdown && !config.linearIncludeCompleted && completedCount > 0
-                          ? `${completedCount} completed excluded`
-                          : undefined}
+                        title={
+                          breakdown && !config.linearIncludeCompleted && completedCount > 0
+                            ? `${completedCount} completed excluded`
+                            : undefined
+                        }
                       >
                         {loading ? "..." : displayCount}
                         {!loading && !config.linearIncludeCompleted && completedCount > 0 && (
@@ -452,7 +510,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
                         )}
                       </span>
                       <span
-                        className="text-[11px] font-mono w-12 text-right"
+                        className="w-12 text-right font-mono text-[11px]"
                         style={{ color: TARTARUS.textDim }}
                       >
                         ~{loading ? "..." : formatNumber(tokens)}
@@ -463,7 +521,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
 
                 {/* Include Completed toggle */}
                 <div
-                  className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
                   onClick={() => toggleSection("linearIncludeCompleted")}
                 >
                   <Switch
@@ -474,11 +532,15 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
                   />
                   <CheckCircle2
                     className="h-4 w-4 transition-colors"
-                    style={{ color: config.linearIncludeCompleted ? TARTARUS.gold : TARTARUS.textDim }}
+                    style={{
+                      color: config.linearIncludeCompleted ? TARTARUS.gold : TARTARUS.textDim,
+                    }}
                   />
                   <span
                     className="flex-1 text-[13px] font-medium transition-colors"
-                    style={{ color: config.linearIncludeCompleted ? TARTARUS.text : TARTARUS.textMuted }}
+                    style={{
+                      color: config.linearIncludeCompleted ? TARTARUS.text : TARTARUS.textMuted,
+                    }}
                   >
                     Include Completed
                   </span>
@@ -490,28 +552,31 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
           {/* Footer - Token Estimate */}
           <div
             className="px-4 py-3"
-            style={{ borderTop: `1px solid ${TARTARUS.borderSubtle}`, backgroundColor: TARTARUS.surface }}
+            style={{
+              borderTop: `1px solid ${TARTARUS.borderSubtle}`,
+              backgroundColor: TARTARUS.surface,
+            }}
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <span className="text-[12px]" style={{ color: TARTARUS.textMuted }}>
                 Estimated context
               </span>
               <div className="flex items-center gap-2">
                 <span
-                  className="text-[13px] font-mono font-medium"
+                  className="font-mono text-[13px] font-medium"
                   style={{ color: isHighContext ? TARTARUS.gold : TARTARUS.teal }}
                 >
                   ~{formatNumber(estimatedTokens)}
                 </span>
                 <span className="text-[11px]" style={{ color: TARTARUS.textDim }}>
-                  / {formatNumber(MODEL_CONTEXT_LIMIT)}
+                  / {formatNumber(contextLimit)}
                 </span>
               </div>
             </div>
 
             {/* Progress bar */}
             <div
-              className="h-1.5 rounded-full overflow-hidden"
+              className="h-1.5 overflow-hidden rounded-full"
               style={{ backgroundColor: TARTARUS.border }}
             >
               <div
@@ -526,7 +591,7 @@ export function SoulConfig({ config, onChange }: SoulConfigProps) {
 
             {isHighContext && (
               <p
-                className="text-[11px] mt-2 px-2 py-1.5 rounded"
+                className="mt-2 rounded px-2 py-1.5 text-[11px]"
                 style={{
                   color: TARTARUS.gold,
                   backgroundColor: TARTARUS.goldGlow,

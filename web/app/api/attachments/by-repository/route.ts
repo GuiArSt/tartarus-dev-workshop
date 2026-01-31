@@ -17,7 +17,9 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const db = getDatabase();
   const { repository } = requireQuery(byRepoQuerySchema, request);
 
-  const attachments = db.prepare(`
+  const attachments = db
+    .prepare(
+      `
     SELECT
       ea.id,
       ea.commit_hash,
@@ -32,7 +34,9 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
     JOIN journal_entries je ON ea.commit_hash = je.commit_hash
     WHERE je.repository = ?
     ORDER BY ea.uploaded_at DESC
-  `).all(repository);
+  `
+    )
+    .all(repository);
 
   return NextResponse.json({
     attachments,

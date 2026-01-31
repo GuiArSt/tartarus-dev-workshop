@@ -30,10 +30,16 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const body = await requireBody(createCategorySchema, request);
 
   // Generate ID from name
-  const id = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  const id = body.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 
   // Get max sortOrder
-  const maxOrder = db.prepare("SELECT MAX(sortOrder) as max FROM skill_categories").get() as { max: number | null };
+  const maxOrder = db.prepare("SELECT MAX(sortOrder) as max FROM skill_categories").get() as {
+    max: number | null;
+  };
   const sortOrder = (maxOrder.max || 0) + 1;
 
   try {

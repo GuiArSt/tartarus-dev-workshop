@@ -13,10 +13,13 @@ export function getSupabaseAdmin(): SupabaseClient | null {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   // New format: SUPABASE_SECRET_KEY, fallback to legacy SERVICE_ROLE_KEY
-  const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseSecretKey =
+    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseSecretKey) {
-    console.warn("Supabase admin not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY.");
+    console.warn(
+      "Supabase admin not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY."
+    );
     return null;
   }
 

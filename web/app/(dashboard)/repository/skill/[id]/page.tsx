@@ -16,7 +16,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Edit, Save, X, Cpu, Palette, Database, Server, PenTool, Users, Tag, ExternalLink, Calendar, Star, Upload, ImageIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  Save,
+  X,
+  Cpu,
+  Palette,
+  Database,
+  Server,
+  PenTool,
+  Users,
+  Tag,
+  ExternalLink,
+  Calendar,
+  Star,
+  Upload,
+  ImageIcon,
+} from "lucide-react";
 import { getSkillIconUrl } from "@/lib/skill-icons";
 
 interface Skill {
@@ -43,38 +60,39 @@ const CATEGORIES = [
 ];
 
 // Tartarus-inspired category theming
-const CATEGORY_CONFIG: Record<string, { accent: string; accentBg: string; icon: React.ReactNode }> = {
-  "AI & Development": {
-    accent: "text-[var(--tartarus-teal)]",
-    accentBg: "bg-[var(--tartarus-teal-soft)]",
-    icon: <Cpu className="h-5 w-5" />
-  },
-  "Languages & Frameworks": {
-    accent: "text-[var(--tartarus-teal)]",
-    accentBg: "bg-[var(--tartarus-teal-soft)]",
-    icon: <Database className="h-5 w-5" />
-  },
-  "Data & Analytics": {
-    accent: "text-[var(--tartarus-teal)]",
-    accentBg: "bg-[var(--tartarus-teal-soft)]",
-    icon: <Database className="h-5 w-5" />
-  },
-  "Infrastructure & DevOps": {
-    accent: "text-[var(--tartarus-gold)]",
-    accentBg: "bg-[var(--tartarus-gold-soft)]",
-    icon: <Server className="h-5 w-5" />
-  },
-  "Design & UX": {
-    accent: "text-[var(--tartarus-gold)]",
-    accentBg: "bg-[var(--tartarus-gold-soft)]",
-    icon: <Palette className="h-5 w-5" />
-  },
-  "Leadership & Collaboration": {
-    accent: "text-[var(--tartarus-gold)]",
-    accentBg: "bg-[var(--tartarus-gold-soft)]",
-    icon: <Users className="h-5 w-5" />
-  },
-};
+const CATEGORY_CONFIG: Record<string, { accent: string; accentBg: string; icon: React.ReactNode }> =
+  {
+    "AI & Development": {
+      accent: "text-[var(--tartarus-teal)]",
+      accentBg: "bg-[var(--tartarus-teal-soft)]",
+      icon: <Cpu className="h-5 w-5" />,
+    },
+    "Languages & Frameworks": {
+      accent: "text-[var(--tartarus-teal)]",
+      accentBg: "bg-[var(--tartarus-teal-soft)]",
+      icon: <Database className="h-5 w-5" />,
+    },
+    "Data & Analytics": {
+      accent: "text-[var(--tartarus-teal)]",
+      accentBg: "bg-[var(--tartarus-teal-soft)]",
+      icon: <Database className="h-5 w-5" />,
+    },
+    "Infrastructure & DevOps": {
+      accent: "text-[var(--tartarus-gold)]",
+      accentBg: "bg-[var(--tartarus-gold-soft)]",
+      icon: <Server className="h-5 w-5" />,
+    },
+    "Design & UX": {
+      accent: "text-[var(--tartarus-gold)]",
+      accentBg: "bg-[var(--tartarus-gold-soft)]",
+      icon: <Palette className="h-5 w-5" />,
+    },
+    "Leadership & Collaboration": {
+      accent: "text-[var(--tartarus-gold)]",
+      accentBg: "bg-[var(--tartarus-gold-soft)]",
+      icon: <Users className="h-5 w-5" />,
+    },
+  };
 
 export default function SkillDetailPage() {
   const params = useParams();
@@ -154,7 +172,10 @@ export default function SkillDetailPage() {
   };
 
   const removeTag = (tagToRemove: string) => {
-    setEditedSkill({ ...editedSkill, tags: editedSkill.tags?.filter(t => t !== tagToRemove) || [] });
+    setEditedSkill({
+      ...editedSkill,
+      tags: editedSkill.tags?.filter((t) => t !== tagToRemove) || [],
+    });
   };
 
   const editWithKronus = () => {
@@ -177,7 +198,9 @@ What would you like to change?`;
     router.push("/chat");
   };
 
-  const config = skill ? CATEGORY_CONFIG[skill.category] || CATEGORY_CONFIG["AI & Development"] : CATEGORY_CONFIG["AI & Development"];
+  const config = skill
+    ? CATEGORY_CONFIG[skill.category] || CATEGORY_CONFIG["AI & Development"]
+    : CATEGORY_CONFIG["AI & Development"];
 
   // Determine which icon to show
   const getIconDisplay = () => {
@@ -213,7 +236,7 @@ What would you like to change?`;
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col p-6 bg-[var(--tartarus-void)]">
+      <div className="flex h-full flex-col bg-[var(--tartarus-void)] p-6">
         <Skeleton className="mb-4 h-8 w-1/3 bg-[var(--tartarus-elevated)]" />
         <Skeleton className="h-96 w-full bg-[var(--tartarus-elevated)]" />
       </div>
@@ -231,21 +254,19 @@ What would you like to change?`;
   return (
     <div className="flex h-full flex-col bg-[var(--tartarus-void)]">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between px-6 border-b border-[var(--tartarus-border)]">
+      <header className="flex h-14 items-center justify-between border-b border-[var(--tartarus-border)] px-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/repository?tab=cv")}
-            className="text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-ivory)] hover:bg-[var(--tartarus-elevated)]"
+            className="text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)] hover:text-[var(--tartarus-ivory)]"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
           <h1 className="text-lg font-semibold text-[var(--tartarus-ivory)]">{skill.name}</h1>
-          <Badge className={`${config.accentBg} ${config.accent}`}>
-            {skill.category}
-          </Badge>
+          <Badge className={`${config.accentBg} ${config.accent}`}>{skill.category}</Badge>
         </div>
         <div className="flex items-center gap-2">
           {isEditing ? (
@@ -253,7 +274,11 @@ What would you like to change?`;
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setIsEditing(false); setEditedSkill(skill); setIconError(false); }}
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditedSkill(skill);
+                  setIconError(false);
+                }}
                 className="border-[var(--tartarus-border)] text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)]"
               >
                 <X className="mr-2 h-4 w-4" />
@@ -285,7 +310,11 @@ What would you like to change?`;
                 onClick={editWithKronus}
                 className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
               >
-                <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                <img
+                  src="/chronus-logo.png"
+                  alt="Kronus"
+                  className="mr-2 h-4 w-4 rounded-full object-cover"
+                />
                 Edit with Kronus
               </Button>
             </>
@@ -295,21 +324,21 @@ What would you like to change?`;
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-3xl mx-auto">
+        <div className="mx-auto max-w-3xl">
           {/* Hero Card */}
-          <Card className="overflow-hidden border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-lg mb-6">
+          <Card className="mb-6 overflow-hidden border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-lg">
             {/* Header with gradient */}
-            <div className="h-32 bg-gradient-to-r from-[var(--tartarus-deep)] to-[var(--tartarus-surface)] relative border-b border-[var(--tartarus-border)]">
+            <div className="relative h-32 border-b border-[var(--tartarus-border)] bg-gradient-to-r from-[var(--tartarus-deep)] to-[var(--tartarus-surface)]">
               <div className="absolute bottom-4 left-6 flex items-center gap-4">
                 {/* Icon Container */}
-                <div className="h-20 w-20 rounded-xl bg-[var(--tartarus-elevated)] border border-[var(--tartarus-border)] shadow-lg flex items-center justify-center relative group">
+                <div className="group relative flex h-20 w-20 items-center justify-center rounded-xl border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] shadow-lg">
                   {getIconDisplay()}
 
                   {/* Upload overlay when editing */}
                   {isEditing && (
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
                     >
                       <Upload className="h-6 w-6 text-white" />
                     </button>
@@ -330,21 +359,24 @@ What would you like to change?`;
               </div>
             </div>
 
-            <CardContent className="pt-6 space-y-6">
+            <CardContent className="space-y-6 pt-6">
               {/* Custom Icon URL (when editing) */}
               {isEditing && (
                 <div>
-                  <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">
-                    <ImageIcon className="h-3 w-3 inline mr-1" />
+                  <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                    <ImageIcon className="mr-1 inline h-3 w-3" />
                     Custom Icon URL (or upload above)
                   </Label>
                   <Input
                     value={editedSkill.icon || ""}
-                    onChange={(e) => { setEditedSkill({ ...editedSkill, icon: e.target.value }); setIconError(false); }}
+                    onChange={(e) => {
+                      setEditedSkill({ ...editedSkill, icon: e.target.value });
+                      setIconError(false);
+                    }}
                     placeholder="https://... or paste SVG data URL"
-                    className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                    className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                   />
-                  <p className="text-xs text-[var(--tartarus-ivory-faded)] mt-1">
+                  <p className="mt-1 text-xs text-[var(--tartarus-ivory-faded)]">
                     Supports: PNG, SVG, JPG. Leave empty to use auto-detected icon.
                   </p>
                 </div>
@@ -352,9 +384,13 @@ What would you like to change?`;
 
               {/* Proficiency Level */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-[var(--tartarus-ivory-muted)]">Proficiency Level</span>
-                  <span className="text-sm font-bold text-[var(--tartarus-ivory)]">{skill.magnitude}/5</span>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                    Proficiency Level
+                  </span>
+                  <span className="text-sm font-bold text-[var(--tartarus-ivory)]">
+                    {skill.magnitude}/5
+                  </span>
                 </div>
                 {isEditing ? (
                   <div className="flex items-center gap-2">
@@ -362,13 +398,15 @@ What would you like to change?`;
                       <button
                         key={level}
                         onClick={() => setEditedSkill({ ...editedSkill, magnitude: level })}
-                        className={`h-8 flex-1 rounded-lg transition-all border ${
+                        className={`h-8 flex-1 rounded-lg border transition-all ${
                           level <= (editedSkill.magnitude || 0)
-                            ? "bg-[var(--tartarus-teal)] border-[var(--tartarus-teal)] text-[var(--tartarus-void)]"
-                            : "bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory-faded)] hover:border-[var(--tartarus-teal-dim)]"
+                            ? "border-[var(--tartarus-teal)] bg-[var(--tartarus-teal)] text-[var(--tartarus-void)]"
+                            : "border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory-faded)] hover:border-[var(--tartarus-teal-dim)]"
                         }`}
                       >
-                        <Star className={`h-4 w-4 mx-auto ${level <= (editedSkill.magnitude || 0) ? "fill-current" : ""}`} />
+                        <Star
+                          className={`mx-auto h-4 w-4 ${level <= (editedSkill.magnitude || 0) ? "fill-current" : ""}`}
+                        />
                       </button>
                     ))}
                   </div>
@@ -390,32 +428,44 @@ What would you like to change?`;
 
               {/* Description */}
               <div>
-                <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">Description</Label>
+                <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                  Description
+                </Label>
                 {isEditing ? (
                   <Textarea
                     value={editedSkill.description || ""}
-                    onChange={(e) => setEditedSkill({ ...editedSkill, description: e.target.value })}
-                    className="min-h-[100px] bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                    onChange={(e) =>
+                      setEditedSkill({ ...editedSkill, description: e.target.value })
+                    }
+                    className="min-h-[100px] border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                   />
                 ) : (
-                  <p className="text-[var(--tartarus-ivory)] leading-relaxed">{skill.description}</p>
+                  <p className="leading-relaxed text-[var(--tartarus-ivory)]">
+                    {skill.description}
+                  </p>
                 )}
               </div>
 
               {/* Category (when editing) */}
               {isEditing && (
                 <div>
-                  <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">Category</Label>
+                  <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                    Category
+                  </Label>
                   <Select
                     value={editedSkill.category}
                     onValueChange={(value) => setEditedSkill({ ...editedSkill, category: value })}
                   >
-                    <SelectTrigger className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
+                    <SelectTrigger className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
+                    <SelectContent className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
                       {CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat} className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-elevated)]">
+                        <SelectItem
+                          key={cat}
+                          value={cat}
+                          className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-elevated)]"
+                        >
                           {cat}
                         </SelectItem>
                       ))}
@@ -428,32 +478,36 @@ What would you like to change?`;
               {(skill.firstUsed || skill.lastUsed || isEditing) && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">
-                      <Calendar className="h-3 w-3 inline mr-1" />
+                    <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                      <Calendar className="mr-1 inline h-3 w-3" />
                       First Used
                     </Label>
                     {isEditing ? (
                       <Input
                         value={editedSkill.firstUsed || ""}
-                        onChange={(e) => setEditedSkill({ ...editedSkill, firstUsed: e.target.value })}
+                        onChange={(e) =>
+                          setEditedSkill({ ...editedSkill, firstUsed: e.target.value })
+                        }
                         placeholder="e.g., 2020"
-                        className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                        className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                       />
                     ) : (
                       <p className="text-[var(--tartarus-ivory)]">{skill.firstUsed || "—"}</p>
                     )}
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">
-                      <Calendar className="h-3 w-3 inline mr-1" />
+                    <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                      <Calendar className="mr-1 inline h-3 w-3" />
                       Last Used
                     </Label>
                     {isEditing ? (
                       <Input
                         value={editedSkill.lastUsed || ""}
-                        onChange={(e) => setEditedSkill({ ...editedSkill, lastUsed: e.target.value })}
+                        onChange={(e) =>
+                          setEditedSkill({ ...editedSkill, lastUsed: e.target.value })
+                        }
                         placeholder="e.g., Present"
-                        className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                        className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                       />
                     ) : (
                       <p className="text-[var(--tartarus-ivory)]">{skill.lastUsed || "—"}</p>
@@ -465,8 +519,8 @@ What would you like to change?`;
               {/* Reference URL */}
               {(skill.url || isEditing) && (
                 <div>
-                  <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">
-                    <ExternalLink className="h-3 w-3 inline mr-1" />
+                  <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                    <ExternalLink className="mr-1 inline h-3 w-3" />
                     Reference URL
                   </Label>
                   {isEditing ? (
@@ -474,7 +528,7 @@ What would you like to change?`;
                       value={editedSkill.url || ""}
                       onChange={(e) => setEditedSkill({ ...editedSkill, url: e.target.value })}
                       placeholder="https://..."
-                      className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                   ) : skill.url ? (
                     <a
@@ -491,17 +545,24 @@ What would you like to change?`;
 
               {/* Tags */}
               <div>
-                <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">
-                  <Tag className="h-3 w-3 inline mr-1" />
+                <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                  <Tag className="mr-1 inline h-3 w-3" />
                   Tags
                 </Label>
                 {isEditing ? (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-1">
                       {editedSkill.tags?.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)] pr-1">
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="bg-[var(--tartarus-teal-soft)] pr-1 text-[var(--tartarus-teal)]"
+                        >
                           {tag}
-                          <button onClick={() => removeTag(tag)} className="ml-1 hover:text-[var(--tartarus-error)]">
+                          <button
+                            onClick={() => removeTag(tag)}
+                            className="ml-1 hover:text-[var(--tartarus-error)]"
+                          >
                             <X className="h-3 w-3" />
                           </button>
                         </Badge>
@@ -512,8 +573,13 @@ What would you like to change?`;
                         value={newTag}
                         onChange={(e) => setNewTag(e.target.value)}
                         placeholder="Add tag..."
-                        className="max-w-xs bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
+                        className="max-w-xs border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addTag();
+                          }
+                        }}
                       />
                       <Button
                         variant="outline"
@@ -529,12 +595,18 @@ What would you like to change?`;
                   <div className="flex flex-wrap gap-1">
                     {skill.tags?.length > 0 ? (
                       skill.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]"
+                        >
                           {tag}
                         </Badge>
                       ))
                     ) : (
-                      <span className="text-[var(--tartarus-ivory-faded)] text-sm italic">No tags</span>
+                      <span className="text-sm text-[var(--tartarus-ivory-faded)] italic">
+                        No tags
+                      </span>
                     )}
                   </div>
                 )}

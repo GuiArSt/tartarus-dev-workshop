@@ -69,7 +69,12 @@ export const toolSpecs = {
       why: z.string().optional().describe("Updated 'why' field"),
       what_changed: z.string().optional().describe("Updated 'what changed' field"),
       decisions: z.string().optional().describe("Updated 'decisions' field"),
-      technologies: z.string().optional().describe("Comma-separated list of technologies used. NO markdown, just names: 'React, TypeScript, PostgreSQL'"),
+      technologies: z
+        .string()
+        .optional()
+        .describe(
+          "Comma-separated list of technologies used. NO markdown, just names: 'React, TypeScript, PostgreSQL'"
+        ),
       kronus_wisdom: z.string().nullable().optional().describe("Updated wisdom/reflection"),
     }),
   },
@@ -105,8 +110,18 @@ export const toolSpecs = {
       purpose: z.string().min(10).describe("Why this project exists"),
       architecture: z.string().min(10).describe("Overall architecture"),
       key_decisions: z.string().min(10).describe("Major decisions"),
-      technologies: z.string().min(3).describe("Comma-separated list of technologies. NO markdown formatting, NO labels like 'Frontend:' or 'Backend:'. Just technology names separated by commas. Example: 'Next.js, React, TypeScript, PostgreSQL, Tailwind CSS'"),
-      status: z.string().min(3).describe("Current project status - a short phrase like 'Production-ready', 'In development', 'Beta', etc."),
+      technologies: z
+        .string()
+        .min(3)
+        .describe(
+          "Comma-separated list of technologies. NO markdown formatting, NO labels like 'Frontend:' or 'Backend:'. Just technology names separated by commas. Example: 'Next.js, React, TypeScript, PostgreSQL, Tailwind CSS'"
+        ),
+      status: z
+        .string()
+        .min(3)
+        .describe(
+          "Current project status - a short phrase like 'Production-ready', 'In development', 'Beta', etc."
+        ),
     }),
   },
 
@@ -194,10 +209,14 @@ export const toolSpecs = {
   },
 
   linear_create_project: {
-    description: "Create a new project in Linear. Projects help organize related issues and track progress toward goals.",
+    description:
+      "Create a new project in Linear. Projects help organize related issues and track progress toward goals.",
     inputSchema: z.object({
       name: z.string().min(1).describe("Project name"),
-      teamIds: z.array(z.string()).min(1).describe("Array of team IDs to associate with the project (at least one required)"),
+      teamIds: z
+        .array(z.string())
+        .min(1)
+        .describe("Array of team IDs to associate with the project (at least one required)"),
       description: z.string().optional().describe("Project description (plain text)"),
       content: z.string().optional().describe("Project content (rich text markdown)"),
       leadId: z.string().optional().describe("User ID for the project lead"),
@@ -214,8 +233,14 @@ export const toolSpecs = {
       description: z.string().optional().describe("New description"),
       content: z.string().optional().describe("New content (rich text)"),
       leadId: z.string().optional().describe("User ID for the project lead"),
-      targetDate: z.string().optional().describe("Target completion date (ISO 8601 format, e.g., \"2026-03-01\")"),
-      startDate: z.string().optional().describe("Project start date (ISO 8601 format, e.g., \"2026-01-15\")"),
+      targetDate: z
+        .string()
+        .optional()
+        .describe('Target completion date (ISO 8601 format, e.g., "2026-03-01")'),
+      startDate: z
+        .string()
+        .optional()
+        .describe('Project start date (ISO 8601 format, e.g., "2026-01-15")'),
     }),
   },
   // NOTE: Old document_*, skill_*, experience_*, education_* tools removed
@@ -233,20 +258,29 @@ export const toolSpecs = {
         .default("gemini-3-pro-image-preview")
         .describe(
           "Model identifier. " +
-          "Gemini 3 Pro Image (default): 'gemini-3-pro-image-preview' or 'nano-banana-pro' (4K, best text rendering). " +
-          "Gemini 2.5 Flash: 'gemini-2.5-flash-image-preview' (fast). " +
-          "FLUX.2: 'black-forest-labs/flux-2-pro' (best quality), 'black-forest-labs/flux-schnell' (fastest). " +
-          "Imagen: 'imagen-3.0-generate-002'. " +
-          "Stable Diffusion: 'stability-ai/stable-diffusion-3.5-large', 'stability-ai/sdxl'."
+            "Gemini 3 Pro Image (default): 'gemini-3-pro-image-preview' or 'nano-banana-pro' (4K, best text rendering). " +
+            "Gemini 2.5 Flash: 'gemini-2.5-flash-image-preview' (fast). " +
+            "FLUX.2: 'black-forest-labs/flux-2-pro' (best quality), 'black-forest-labs/flux-schnell' (fastest). " +
+            "Imagen: 'imagen-3.0-generate-002'. " +
+            "Stable Diffusion: 'stability-ai/stable-diffusion-3.5-large', 'stability-ai/sdxl'."
         ),
       width: z.number().optional().default(1024).describe("Image width in pixels"),
       height: z.number().optional().default(1024).describe("Image height in pixels"),
       num_outputs: z.number().optional().default(1).describe("Number of images to generate"),
-      guidance_scale: z.number().optional().describe("Guidance scale (Replicate models only, usually 3.5-7.5 for FLUX, 1-20 for SDXL)"),
-      num_inference_steps: z.number().optional().describe("Number of inference steps (Replicate models only, more steps = higher quality but slower)"),
+      guidance_scale: z
+        .number()
+        .optional()
+        .describe(
+          "Guidance scale (Replicate models only, usually 3.5-7.5 for FLUX, 1-20 for SDXL)"
+        ),
+      num_inference_steps: z
+        .number()
+        .optional()
+        .describe(
+          "Number of inference steps (Replicate models only, more steps = higher quality but slower)"
+        ),
     }),
   },
-
 } as const;
 
 // Server-side definitions for streamText

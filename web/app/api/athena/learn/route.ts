@@ -55,18 +55,25 @@ const AthenaLearningSchema = z.object({
   }),
 
   // Concepts extracted
-  concepts: z.array(z.object({
-    name: z.string(),
-    description: z.string(),
-    relatedTo: z.array(z.string()).describe("Related concepts"),
-  })),
+  concepts: z.array(
+    z.object({
+      name: z.string(),
+      description: z.string(),
+      relatedTo: z.array(z.string()).describe("Related concepts"),
+    })
+  ),
 
   // For spaced repetition
-  flashcards: z.array(z.object({
-    front: z.string().describe("Question or prompt"),
-    back: z.string().describe("Answer or explanation"),
-    tags: z.array(z.string()),
-  })).min(3).max(8),
+  flashcards: z
+    .array(
+      z.object({
+        front: z.string().describe("Question or prompt"),
+        back: z.string().describe("Answer or explanation"),
+        tags: z.array(z.string()),
+      })
+    )
+    .min(3)
+    .max(8),
 });
 
 /**
@@ -83,18 +90,12 @@ export async function POST(request: NextRequest) {
     } = await request.json();
 
     if (!repository) {
-      return NextResponse.json(
-        { error: "repository is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "repository is required" }, { status: 400 });
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "Anthropic API key not configured" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
     }
 
     // Load journal entries for context
@@ -126,7 +127,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Format journal context
-    const journalContext = entries.map((e, idx) => `
+    const journalContext = entries
+      .map(
+        (e, idx) => `
 ## Entry ${idx + 1}: ${e.commit_hash}
 **Date:** ${e.date}
 **Why:** ${e.why}
@@ -134,7 +137,9 @@ export async function POST(request: NextRequest) {
 **Decisions:** ${e.decisions}
 **Technologies:** ${e.technologies}
 **Kronus Wisdom:** ${e.kronus_wisdom}
-`).join("\n---\n");
+`
+      )
+      .join("\n---\n");
 
     // If public repo URL provided, we could fetch code here
     // For now, we rely on journal entries which describe the changes

@@ -1,4 +1,4 @@
-import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 
 /**
  * Custom error classes for better error handling
@@ -7,21 +7,24 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 export class ConfigurationError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'ConfigurationError';
+    this.name = "ConfigurationError";
   }
 }
 
 export class LinearAPIError extends Error {
-  constructor(message: string, public readonly linearError?: any) {
+  constructor(
+    message: string,
+    public readonly linearError?: any,
+  ) {
     super(message);
-    this.name = 'LinearAPIError';
+    this.name = "LinearAPIError";
   }
 }
 
 export class JournalError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'JournalError';
+    this.name = "JournalError";
   }
 }
 
@@ -36,20 +39,20 @@ export function toMcpError(error: any): McpError {
   if (error instanceof LinearAPIError) {
     return new McpError(
       ErrorCode.InternalError,
-      `Linear API Error: ${error.message}`
+      `Linear API Error: ${error.message}`,
     );
   }
 
   if (error instanceof JournalError) {
     return new McpError(
       ErrorCode.InternalError,
-      `Journal Error: ${error.message}`
+      `Journal Error: ${error.message}`,
     );
   }
 
   // Generic error
   return new McpError(
     ErrorCode.InternalError,
-    error.message || 'An unexpected error occurred'
+    error.message || "An unexpected error occurred",
   );
 }

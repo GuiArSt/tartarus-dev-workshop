@@ -153,7 +153,8 @@ export function AtroposInterface() {
   // Navigate to previous change
   const goToPrevChange = useCallback(() => {
     if (!diffResult || diffResult.changeCount === 0) return;
-    const prevIndex = currentChangeIndex === 0 ? diffResult.changeCount - 1 : currentChangeIndex - 1;
+    const prevIndex =
+      currentChangeIndex === 0 ? diffResult.changeCount - 1 : currentChangeIndex - 1;
     setCurrentChangeIndex(prevIndex);
     scrollToChange(prevIndex);
   }, [currentChangeIndex, diffResult, scrollToChange]);
@@ -454,9 +455,7 @@ export function AtroposInterface() {
       });
       if (res.ok) {
         const data = await res.json();
-        setMemory((prev) =>
-          prev ? { ...prev, customDictionary: data.customDictionary } : prev
-        );
+        setMemory((prev) => (prev ? { ...prev, customDictionary: data.customDictionary } : prev));
         setNewWord("");
       }
     } catch (e) {
@@ -473,9 +472,7 @@ export function AtroposInterface() {
       });
       if (res.ok) {
         const data = await res.json();
-        setMemory((prev) =>
-          prev ? { ...prev, customDictionary: data.customDictionary } : prev
-        );
+        setMemory((prev) => (prev ? { ...prev, customDictionary: data.customDictionary } : prev));
       }
     } catch (e) {
       console.error("Failed to remove word:", e);
@@ -496,37 +493,35 @@ export function AtroposInterface() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Main content area */}
-      <div className="flex-1 p-6 space-y-6 overflow-auto">
+      <div className="flex-1 space-y-6 overflow-auto p-6">
         {/* Draft Input */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[var(--tartarus-ivory)]">
-            Your Draft
-          </label>
+          <label className="text-sm font-medium text-[var(--tartarus-ivory)]">Your Draft</label>
           <Textarea
             placeholder="Paste or type your text here..."
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            className="min-h-[160px] resize-y bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-teal)] focus:ring-[var(--tartarus-teal)]"
+            className="min-h-[160px] resize-y border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-teal)] focus:ring-[var(--tartarus-teal)]"
           />
-          <div className="flex justify-between items-center">
+          <div className="flex items-center justify-between">
             <span className="text-xs text-[var(--tartarus-ivory-faded)]">
               {draft.length.toLocaleString()} characters
             </span>
             <Button
               onClick={() => correctText(false)}
               disabled={isChecking || !draft.trim()}
-              className="bg-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-bright)] text-[var(--tartarus-deep)]"
+              className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal-bright)]"
             >
               {isChecking ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Correcting...
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4 mr-2" />
+                  <Zap className="mr-2 h-4 w-4" />
                   Correct
                 </>
               )}
@@ -536,7 +531,7 @@ export function AtroposInterface() {
 
         {/* Error display */}
         {error && (
-          <div className="p-4 rounded-lg bg-[var(--tartarus-error)]/10 border border-[var(--tartarus-error)]/30 text-[var(--tartarus-error)]">
+          <div className="rounded-lg border border-[var(--tartarus-error)]/30 bg-[var(--tartarus-error)]/10 p-4 text-[var(--tartarus-error)]">
             {error}
           </div>
         )}
@@ -547,15 +542,13 @@ export function AtroposInterface() {
             {/* Header with status and controls */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-[var(--tartarus-ivory)]">
-                  Result
-                </label>
+                <label className="text-sm font-medium text-[var(--tartarus-ivory)]">Result</label>
                 {hadChanges ? (
-                  <Badge className="bg-[var(--tartarus-teal)]/20 text-[var(--tartarus-teal)] border-[var(--tartarus-teal)]/30">
+                  <Badge className="border-[var(--tartarus-teal)]/30 bg-[var(--tartarus-teal)]/20 text-[var(--tartarus-teal)]">
                     {diffSummary || "Corrections made"}
                   </Badge>
                 ) : (
-                  <Badge className="bg-[var(--tartarus-gold)]/20 text-[var(--tartarus-gold)] border-[var(--tartarus-gold)]/30">
+                  <Badge className="border-[var(--tartarus-gold)]/30 bg-[var(--tartarus-gold)]/20 text-[var(--tartarus-gold)]">
                     Perfect as is
                   </Badge>
                 )}
@@ -564,11 +557,11 @@ export function AtroposInterface() {
               <div className="flex items-center gap-2">
                 {/* View mode toggle */}
                 {hadChanges && diffResult && (
-                  <div className="flex rounded-md overflow-hidden border border-[var(--tartarus-border)]">
+                  <div className="flex overflow-hidden rounded-md border border-[var(--tartarus-border)]">
                     <button
                       onClick={() => setShowDiffView(true)}
                       className={cn(
-                        "px-2.5 py-1 text-xs flex items-center gap-1.5 transition-colors",
+                        "flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors",
                         showDiffView
                           ? "bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)]"
                           : "bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)]"
@@ -580,7 +573,7 @@ export function AtroposInterface() {
                     <button
                       onClick={() => setShowDiffView(false)}
                       className={cn(
-                        "px-2.5 py-1 text-xs flex items-center gap-1.5 transition-colors",
+                        "flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors",
                         !showDiffView
                           ? "bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)]"
                           : "bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)]"
@@ -597,7 +590,7 @@ export function AtroposInterface() {
                   size="sm"
                   variant="ghost"
                   onClick={copyToClipboard}
-                  className="h-7 px-2 text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)] hover:bg-[var(--tartarus-surface)]"
+                  className="h-7 px-2 text-[var(--tartarus-ivory-dim)] hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)]"
                 >
                   {copied ? (
                     <Check className="h-3.5 w-3.5 text-[var(--tartarus-teal)]" />
@@ -610,21 +603,21 @@ export function AtroposInterface() {
 
             {/* Change navigation bar */}
             {showDiffView && hadChanges && diffResult && diffResult.changeCount > 0 && (
-              <div className="flex items-center justify-between px-3 py-2 rounded-md bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)]">
+              <div className="flex items-center justify-between rounded-md border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] px-3 py-2">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={goToPrevChange}
-                    className="p-1 rounded hover:bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)] transition-colors"
+                    className="rounded p-1 text-[var(--tartarus-ivory-dim)] transition-colors hover:bg-[var(--tartarus-deep)] hover:text-[var(--tartarus-ivory)]"
                     title="Previous change (Shift+F8)"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <span className="text-xs font-medium text-[var(--tartarus-ivory)] min-w-[80px] text-center">
+                  <span className="min-w-[80px] text-center text-xs font-medium text-[var(--tartarus-ivory)]">
                     Change {currentChangeIndex + 1} of {diffResult.changeCount}
                   </span>
                   <button
                     onClick={goToNextChange}
-                    className="p-1 rounded hover:bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)] transition-colors"
+                    className="rounded p-1 text-[var(--tartarus-ivory-dim)] transition-colors hover:bg-[var(--tartarus-deep)] hover:text-[var(--tartarus-ivory)]"
                     title="Next change (F8)"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -642,7 +635,7 @@ export function AtroposInterface() {
               {showDiffView && hadChanges && diffResult ? (
                 <div
                   ref={diffContainerRef}
-                  className="min-h-[180px] max-h-[400px] p-4 rounded-lg bg-[var(--tartarus-deep)] border border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] overflow-auto whitespace-pre-wrap font-mono text-sm leading-relaxed"
+                  className="max-h-[400px] min-h-[180px] overflow-auto rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] p-4 font-mono text-sm leading-relaxed whitespace-pre-wrap text-[var(--tartarus-ivory)]"
                 >
                   {diffResult.parts.map((part, idx) => {
                     const isCurrentChange = part.changeIndex === currentChangeIndex;
@@ -651,9 +644,13 @@ export function AtroposInterface() {
                       return (
                         <span
                           key={idx}
-                          ref={part.changeIndex !== undefined ? (el) => {
-                            if (el) changeRefs.current.set(part.changeIndex!, el);
-                          } : undefined}
+                          ref={
+                            part.changeIndex !== undefined
+                              ? (el) => {
+                                  if (el) changeRefs.current.set(part.changeIndex!, el);
+                                }
+                              : undefined
+                          }
                           className={cn(
                             "atropos-diff-removed",
                             isCurrentChange && "atropos-diff-current"
@@ -667,9 +664,13 @@ export function AtroposInterface() {
                       return (
                         <span
                           key={idx}
-                          ref={part.changeIndex !== undefined ? (el) => {
-                            if (el) changeRefs.current.set(part.changeIndex!, el);
-                          } : undefined}
+                          ref={
+                            part.changeIndex !== undefined
+                              ? (el) => {
+                                  if (el) changeRefs.current.set(part.changeIndex!, el);
+                                }
+                              : undefined
+                          }
                           className={cn(
                             "atropos-diff-added",
                             isCurrentChange && "atropos-diff-current"
@@ -686,7 +687,7 @@ export function AtroposInterface() {
                 <Textarea
                   value={corrected}
                   readOnly
-                  className="min-h-[180px] resize-y bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] rounded-lg"
+                  className="min-h-[180px] resize-y rounded-lg border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]"
                 />
               )}
             </div>
@@ -695,7 +696,7 @@ export function AtroposInterface() {
 
         {/* Intent Questions Section */}
         {intentQuestions.length > 0 && (
-          <div className="p-4 rounded-lg bg-[var(--tartarus-gold)]/10 border border-[var(--tartarus-gold)]/30 space-y-4">
+          <div className="space-y-4 rounded-lg border border-[var(--tartarus-gold)]/30 bg-[var(--tartarus-gold)]/10 p-4">
             <div className="flex items-center gap-2 text-[var(--tartarus-gold)]">
               <MessageCircleQuestion className="h-5 w-5" />
               <span className="font-medium">Atropos seeks clarity:</span>
@@ -703,9 +704,7 @@ export function AtroposInterface() {
             {intentQuestions.map((q, idx) => (
               <div key={idx} className="space-y-2">
                 <p className="text-[var(--tartarus-ivory)]">"{q.question}"</p>
-                <p className="text-xs text-[var(--tartarus-ivory-faded)] italic">
-                  {q.context}
-                </p>
+                <p className="text-xs text-[var(--tartarus-ivory-faded)] italic">{q.context}</p>
                 <div className="flex flex-wrap gap-2">
                   {q.options.map((option, optIdx) => (
                     <Button
@@ -716,7 +715,7 @@ export function AtroposInterface() {
                       className={cn(
                         "border-[var(--tartarus-border)]",
                         selectedOptions[q.question] === option
-                          ? "bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] border-[var(--tartarus-teal)]"
+                          ? "border-[var(--tartarus-teal)] bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)]"
                           : "text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)]"
                       )}
                     >
@@ -726,21 +725,16 @@ export function AtroposInterface() {
                 </div>
                 <Input
                   placeholder="Or type your own answer..."
-                  value={
-                    selectedOptions[q.question] ? "" : answers[q.question] || ""
-                  }
+                  value={selectedOptions[q.question] ? "" : answers[q.question] || ""}
                   onChange={(e) => setFreeTextAnswer(q.question, e.target.value)}
-                  className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                  className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                 />
               </div>
             ))}
             <Button
               onClick={submitAnswers}
-              disabled={
-                isChecking ||
-                intentQuestions.some((q) => !answers[q.question])
-              }
-              className="bg-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold)]/80 text-[var(--tartarus-deep)]"
+              disabled={isChecking || intentQuestions.some((q) => !answers[q.question])}
+              className="bg-[var(--tartarus-gold)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-gold)]/80"
             >
               Submit Answers
             </Button>
@@ -750,10 +744,10 @@ export function AtroposInterface() {
         {/* Final Version & Save to Memory */}
         {corrected && intentQuestions.length === 0 && (
           <>
-            <div className="border-t border-[var(--tartarus-border)] pt-6 space-y-2">
+            <div className="space-y-2 border-t border-[var(--tartarus-border)] pt-6">
               <label className="text-sm font-medium text-[var(--tartarus-ivory)]">
                 Your Final Version{" "}
-                <span className="text-[var(--tartarus-ivory-faded)] font-normal">
+                <span className="font-normal text-[var(--tartarus-ivory-faded)]">
                   (optional - paste to teach Atropos)
                 </span>
               </label>
@@ -761,7 +755,7 @@ export function AtroposInterface() {
                 placeholder="Paste your edited final version here to help Atropos learn your preferences..."
                 value={finalVersion}
                 onChange={(e) => setFinalVersion(e.target.value)}
-                className="min-h-[120px] resize-y bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-gold)] focus:ring-[var(--tartarus-gold)]"
+                className="min-h-[120px] resize-y border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-gold)] focus:ring-[var(--tartarus-gold)]"
               />
               <div className="flex justify-end">
                 <Button
@@ -772,12 +766,12 @@ export function AtroposInterface() {
                 >
                   {isExtracting ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Extracting...
                     </>
                   ) : (
                     <>
-                      <Save className="h-4 w-4 mr-2" />
+                      <Save className="mr-2 h-4 w-4" />
                       Save to Memory
                     </>
                   )}
@@ -790,35 +784,33 @@ export function AtroposInterface() {
 
       {/* Save Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
+        <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
           <DialogHeader className="flex-shrink-0">
-            <DialogTitle className="text-[var(--tartarus-ivory)] flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-[var(--tartarus-ivory)]">
               <Sparkles className="h-5 w-5 text-[var(--tartarus-gold)]" />
               Extracted Learnings
             </DialogTitle>
           </DialogHeader>
           {extractedLearnings && (
-            <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-2">
+            <div className="flex-1 space-y-4 overflow-y-auto py-2 pr-2">
               {/* Label */}
               <div className="space-y-1">
-                <label className="text-xs text-[var(--tartarus-ivory-faded)]">
-                  Content Type
-                </label>
+                <label className="text-xs text-[var(--tartarus-ivory-faded)]">Content Type</label>
                 <Input
                   value={editedLabel}
                   onChange={(e) => setEditedLabel(e.target.value)}
-                  className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                  className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]"
                 />
               </div>
 
               {/* Main Changes - Collapsible */}
               {extractedLearnings.mainChanges.length > 0 && (
                 <details className="group" open>
-                  <summary className="flex items-center gap-2 cursor-pointer text-xs text-[var(--tartarus-ivory-faded)] hover:text-[var(--tartarus-ivory)] transition-colors">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs text-[var(--tartarus-ivory-faded)] transition-colors hover:text-[var(--tartarus-ivory)]">
                     <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                     Changes you made ({extractedLearnings.mainChanges.length})
                   </summary>
-                  <ul className="text-sm text-[var(--tartarus-ivory-dim)] space-y-1 mt-2 ml-5">
+                  <ul className="mt-2 ml-5 space-y-1 text-sm text-[var(--tartarus-ivory-dim)]">
                     {extractedLearnings.mainChanges.map((change, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-[var(--tartarus-teal)]">•</span>
@@ -832,15 +824,15 @@ export function AtroposInterface() {
               {/* New Patterns - Collapsible */}
               {extractedLearnings.newPatterns.length > 0 && (
                 <details className="group" open>
-                  <summary className="flex items-center gap-2 cursor-pointer text-xs text-[var(--tartarus-ivory-faded)] hover:text-[var(--tartarus-ivory)] transition-colors">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs text-[var(--tartarus-ivory-faded)] transition-colors hover:text-[var(--tartarus-ivory)]">
                     <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                     New patterns to remember ({extractedLearnings.newPatterns.length})
                   </summary>
-                  <div className="space-y-1.5 mt-2 ml-5">
+                  <div className="mt-2 ml-5 space-y-1.5">
                     {extractedLearnings.newPatterns.map((pattern) => (
                       <label
                         key={pattern}
-                        className="flex items-start gap-2 text-sm text-[var(--tartarus-ivory-dim)] cursor-pointer hover:text-[var(--tartarus-ivory)] transition-colors"
+                        className="flex cursor-pointer items-start gap-2 text-sm text-[var(--tartarus-ivory-dim)] transition-colors hover:text-[var(--tartarus-ivory)]"
                       >
                         <input
                           type="checkbox"
@@ -854,7 +846,7 @@ export function AtroposInterface() {
                             }
                             setSelectedPatterns(newSet);
                           }}
-                          className="accent-[var(--tartarus-teal)] mt-0.5 flex-shrink-0"
+                          className="mt-0.5 flex-shrink-0 accent-[var(--tartarus-teal)]"
                         />
                         <span>{pattern}</span>
                       </label>
@@ -866,16 +858,13 @@ export function AtroposInterface() {
               {/* Dictionary Words - Collapsible */}
               {extractedLearnings.newDictionaryWords.length > 0 && (
                 <details className="group" open>
-                  <summary className="flex items-center gap-2 cursor-pointer text-xs text-[var(--tartarus-ivory-faded)] hover:text-[var(--tartarus-ivory)] transition-colors">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs text-[var(--tartarus-ivory-faded)] transition-colors hover:text-[var(--tartarus-ivory)]">
                     <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                     Add to dictionary ({extractedLearnings.newDictionaryWords.length})
                   </summary>
-                  <div className="flex flex-wrap gap-2 mt-2 ml-5">
+                  <div className="mt-2 ml-5 flex flex-wrap gap-2">
                     {extractedLearnings.newDictionaryWords.map((word) => (
-                      <label
-                        key={word}
-                        className="flex items-center gap-1 text-sm cursor-pointer"
-                      >
+                      <label key={word} className="flex cursor-pointer items-center gap-1 text-sm">
                         <input
                           type="checkbox"
                           checked={selectedWords.has(word)}
@@ -903,7 +892,7 @@ export function AtroposInterface() {
               )}
             </div>
           )}
-          <DialogFooter className="flex-shrink-0 border-t border-[var(--tartarus-border)] pt-4 mt-2">
+          <DialogFooter className="mt-2 flex-shrink-0 border-t border-[var(--tartarus-border)] pt-4">
             <Button
               variant="ghost"
               onClick={() => setShowSaveDialog(false)}
@@ -914,13 +903,13 @@ export function AtroposInterface() {
             <Button
               onClick={saveToMemory}
               disabled={isSaving}
-              className="bg-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-bright)] text-[var(--tartarus-deep)]"
+              className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal-bright)]"
             >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="mr-2 h-4 w-4" />
                   Confirm & Save
                 </>
               )}
@@ -938,27 +927,23 @@ export function AtroposInterface() {
               loadMemory();
             }
           }}
-          className="w-full px-6 py-3 flex items-center justify-between text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)] hover:bg-[var(--tartarus-surface)] transition-colors"
+          className="flex w-full items-center justify-between px-6 py-3 text-[var(--tartarus-ivory-dim)] transition-colors hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)]"
         >
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
             <span className="text-sm font-medium">Memory Insights</span>
             {stats && (
               <span className="text-xs text-[var(--tartarus-ivory-faded)]">
-                {stats.memoryEntries} memories · {stats.dictionaryWords} words ·{" "}
-                {stats.totalChecks} checks
+                {stats.memoryEntries} memories · {stats.dictionaryWords} words · {stats.totalChecks}{" "}
+                checks
               </span>
             )}
           </div>
-          {showMemory ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronUp className="h-4 w-4" />
-          )}
+          {showMemory ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
         </button>
 
         {showMemory && (
-          <div className="px-6 pb-4 space-y-4 bg-[var(--tartarus-deep)]/50">
+          <div className="space-y-4 bg-[var(--tartarus-deep)]/50 px-6 pb-4">
             {isLoadingMemory ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-[var(--tartarus-teal)]" />
@@ -967,43 +952,35 @@ export function AtroposInterface() {
               <>
                 {/* Stats Row */}
                 <div className="grid grid-cols-4 gap-4">
-                  <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)]">
+                  <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3">
                     <p className="text-2xl font-bold text-[var(--tartarus-teal)]">
                       {stats?.totalChecks || 0}
                     </p>
-                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">
-                      Total Checks
-                    </p>
+                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">Total Checks</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)]">
+                  <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3">
                     <p className="text-2xl font-bold text-[var(--tartarus-gold)]">
                       {stats?.totalCorrections || 0}
                     </p>
-                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">
-                      Corrections
-                    </p>
+                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">Corrections</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)]">
+                  <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3">
                     <p className="text-2xl font-bold text-[var(--tartarus-ivory)]">
                       {memory.memories.length}
                     </p>
-                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">
-                      Memories
-                    </p>
+                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">Memories</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)]">
+                  <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3">
                     <p className="text-2xl font-bold text-[var(--tartarus-ivory)]">
                       {memory.customDictionary.length}
                     </p>
-                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">
-                      Dictionary
-                    </p>
+                    <p className="text-xs text-[var(--tartarus-ivory-faded)]">Dictionary</p>
                   </div>
                 </div>
 
                 {/* Add New Memory */}
-                <div className="p-3 rounded-lg bg-[var(--tartarus-surface)] border border-[var(--tartarus-teal)]/30">
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="rounded-lg border border-[var(--tartarus-teal)]/30 bg-[var(--tartarus-surface)] p-3">
+                  <div className="mb-2 flex items-center gap-2">
                     <Plus className="h-4 w-4 text-[var(--tartarus-teal)]" />
                     <span className="text-sm font-medium text-[var(--tartarus-teal)]">
                       Add new memory
@@ -1015,13 +992,13 @@ export function AtroposInterface() {
                       value={newMemoryInput}
                       onChange={(e) => setNewMemoryInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && !isAddingMemory && handleAddMemory()}
-                      className="text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                     <Button
                       size="sm"
                       onClick={handleAddMemory}
                       disabled={isAddingMemory || !newMemoryInput.trim()}
-                      className="bg-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-bright)] text-[var(--tartarus-deep)]"
+                      className="bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)] hover:bg-[var(--tartarus-teal-bright)]"
                     >
                       {isAddingMemory ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1034,8 +1011,8 @@ export function AtroposInterface() {
 
                 {/* Atropos response after edit */}
                 {lastEditResponse && (
-                  <div className="p-2 rounded bg-[var(--tartarus-gold)]/10 border border-[var(--tartarus-gold)]/30">
-                    <p className="text-xs text-[var(--tartarus-gold)] italic flex items-center gap-2">
+                  <div className="rounded border border-[var(--tartarus-gold)]/30 bg-[var(--tartarus-gold)]/10 p-2">
+                    <p className="flex items-center gap-2 text-xs text-[var(--tartarus-gold)] italic">
                       <Sparkles className="h-3 w-3" />
                       {lastEditResponse}
                     </p>
@@ -1052,7 +1029,7 @@ export function AtroposInterface() {
                       <button
                         onClick={() => setSelectedTag(null)}
                         className={cn(
-                          "px-2 py-1 text-xs rounded transition-colors",
+                          "rounded px-2 py-1 text-xs transition-colors",
                           selectedTag === null
                             ? "bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)]"
                             : "bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)]"
@@ -1065,7 +1042,7 @@ export function AtroposInterface() {
                           key={tag}
                           onClick={() => setSelectedTag(tag)}
                           className={cn(
-                            "px-2 py-1 text-xs rounded transition-colors",
+                            "rounded px-2 py-1 text-xs transition-colors",
                             selectedTag === tag
                               ? "bg-[var(--tartarus-teal)] text-[var(--tartarus-deep)]"
                               : "bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)]"
@@ -1086,67 +1063,79 @@ export function AtroposInterface() {
                         Learned Patterns ({filteredMemories.length})
                       </h4>
                     </div>
-                    <div className="space-y-2 max-h-60 overflow-auto">
-                      {filteredMemories.slice().reverse().map((m, idx) => {
-                        const memoryIndex = memory.memories.length - 1 - memory.memories.indexOf(m);
-                        return (
-                          <div
-                            key={idx}
-                            className="p-2.5 rounded bg-[var(--tartarus-surface)] border border-[var(--tartarus-border)] group"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm text-[var(--tartarus-ivory-dim)] flex-1">
-                                {m.content}
-                              </p>
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                <button
-                                  onClick={() => {
-                                    const newContent = prompt("Edit memory:", m.content);
-                                    if (newContent && newContent !== m.content) {
-                                      handleEditMemoryDirect(`Edit memory #${memoryIndex} to: "${newContent}"`);
+                    <div className="max-h-60 space-y-2 overflow-auto">
+                      {filteredMemories
+                        .slice()
+                        .reverse()
+                        .map((m, idx) => {
+                          const memoryIndex =
+                            memory.memories.length - 1 - memory.memories.indexOf(m);
+                          return (
+                            <div
+                              key={idx}
+                              className="group rounded border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-2.5"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="flex-1 text-sm text-[var(--tartarus-ivory-dim)]">
+                                  {m.content}
+                                </p>
+                                <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                  <button
+                                    onClick={() => {
+                                      const newContent = prompt("Edit memory:", m.content);
+                                      if (newContent && newContent !== m.content) {
+                                        handleEditMemoryDirect(
+                                          `Edit memory #${memoryIndex} to: "${newContent}"`
+                                        );
+                                      }
+                                    }}
+                                    disabled={isEditingMemory}
+                                    className="rounded p-1 text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold)]/20 disabled:opacity-50"
+                                    title="Edit memory"
+                                  >
+                                    <Sparkles className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleEditMemoryDirect(`Remove memory #${memoryIndex}`)
                                     }
-                                  }}
-                                  disabled={isEditingMemory}
-                                  className="p-1 rounded hover:bg-[var(--tartarus-gold)]/20 text-[var(--tartarus-gold)] disabled:opacity-50"
-                                  title="Edit memory"
-                                >
-                                  <Sparkles className="h-3 w-3" />
-                                </button>
-                                <button
-                                  onClick={() => handleEditMemoryDirect(`Remove memory #${memoryIndex}`)}
-                                  disabled={isEditingMemory}
-                                  className="p-1 rounded hover:bg-[var(--tartarus-error)]/20 text-[var(--tartarus-error)] disabled:opacity-50"
-                                  title="Remove memory"
-                                >
-                                  {isEditingMemory ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                                </button>
+                                    disabled={isEditingMemory}
+                                    className="rounded p-1 text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error)]/20 disabled:opacity-50"
+                                    title="Remove memory"
+                                  >
+                                    {isEditingMemory ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <X className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="mt-1.5 flex items-center justify-between">
+                                <div className="flex gap-1">
+                                  {m.tags.length > 0 ? (
+                                    m.tags.map((tag) => (
+                                      <Badge
+                                        key={tag}
+                                        variant="outline"
+                                        className="border-[var(--tartarus-teal)]/30 text-[10px] text-[var(--tartarus-teal)]"
+                                      >
+                                        {tag}
+                                      </Badge>
+                                    ))
+                                  ) : (
+                                    <span className="text-[10px] text-[var(--tartarus-ivory-faded)]">
+                                      No tags
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-[var(--tartarus-ivory-faded)]">
+                                  {formatDateShort(m.createdAt)}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between mt-1.5">
-                              <div className="flex gap-1">
-                                {m.tags.length > 0 ? (
-                                  m.tags.map((tag) => (
-                                    <Badge
-                                      key={tag}
-                                      variant="outline"
-                                      className="text-[10px] border-[var(--tartarus-teal)]/30 text-[var(--tartarus-teal)]"
-                                    >
-                                      {tag}
-                                    </Badge>
-                                  ))
-                                ) : (
-                                  <span className="text-[10px] text-[var(--tartarus-ivory-faded)]">
-                                    No tags
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-[10px] text-[var(--tartarus-ivory-faded)]">
-                                {formatDateShort(m.createdAt)}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
                     </div>
                   </div>
                 )}
@@ -1156,30 +1145,30 @@ export function AtroposInterface() {
                   <h4 className="text-sm font-medium text-[var(--tartarus-ivory)]">
                     Protected Dictionary
                   </h4>
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-auto">
+                  <div className="flex max-h-32 flex-wrap gap-2 overflow-auto">
                     {memory.customDictionary.map((word) => (
                       <Badge
                         key={word}
                         variant="outline"
-                        className="text-xs border-[var(--tartarus-gold)]/30 text-[var(--tartarus-gold)] bg-[var(--tartarus-gold)]/10 group"
+                        className="group border-[var(--tartarus-gold)]/30 bg-[var(--tartarus-gold)]/10 text-xs text-[var(--tartarus-gold)]"
                       >
                         {word}
                         <button
                           onClick={() => removeDictionaryWord(word)}
-                          className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="ml-1 opacity-0 transition-opacity group-hover:opacity-100"
                         >
                           <X className="h-3 w-3" />
                         </button>
                       </Badge>
                     ))}
                   </div>
-                  <div className="flex gap-2 mt-2">
+                  <div className="mt-2 flex gap-2">
                     <Input
                       placeholder="Add word..."
                       value={newWord}
                       onChange={(e) => setNewWord(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addDictionaryWord()}
-                      className="h-8 text-sm bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                     <Button
                       size="sm"
@@ -1193,31 +1182,30 @@ export function AtroposInterface() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-between items-center pt-2">
+                <div className="flex items-center justify-between pt-2">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={loadMemory}
                     className="text-[var(--tartarus-ivory-dim)] hover:text-[var(--tartarus-ivory)]"
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className="mr-2 h-4 w-4" />
                     Refresh
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={resetMemory}
-                    className="text-[var(--tartarus-error)] hover:text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error)]/10"
+                    className="text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error)]/10 hover:text-[var(--tartarus-error)]"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="mr-2 h-4 w-4" />
                     Clear Memory
                   </Button>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-[var(--tartarus-ivory-faded)] py-4">
-                No memory data available yet. Start correcting text to build your
-                writing memory.
+              <p className="py-4 text-sm text-[var(--tartarus-ivory-faded)]">
+                No memory data available yet. Start correcting text to build your writing memory.
               </p>
             )}
           </div>

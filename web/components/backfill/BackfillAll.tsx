@@ -3,13 +3,7 @@
 import { useState } from "react";
 import { Sparkles, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -115,8 +109,8 @@ export function BackfillAll() {
         <DialogHeader>
           <DialogTitle>Backfill AI Summaries</DialogTitle>
           <DialogDescription>
-            Generate AI summaries for all items that don't have one yet. This
-            may take a while depending on the number of items.
+            Generate AI summaries for all items that don't have one yet. This may take a while
+            depending on the number of items.
           </DialogDescription>
         </DialogHeader>
 
@@ -137,18 +131,16 @@ export function BackfillAll() {
                       %
                     </span>
                   </div>
-                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                  <div className="bg-secondary h-2 overflow-hidden rounded-full">
                     <div
-                      className="h-full bg-primary transition-all duration-300"
+                      className="bg-primary h-full transition-all duration-300"
                       style={{
                         width: `${progress.total > 0 ? (progress.processed / progress.total) * 100 : 0}%`,
                       }}
                     />
                   </div>
                   {progress.currentItem && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {progress.currentItem}
-                    </p>
+                    <p className="text-muted-foreground truncate text-xs">{progress.currentItem}</p>
                   )}
                 </div>
               </CardContent>
@@ -159,7 +151,7 @@ export function BackfillAll() {
           {results.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   Completed
                 </CardTitle>
@@ -167,29 +159,22 @@ export function BackfillAll() {
               <CardContent>
                 <div className="space-y-1 text-sm">
                   {results.map((result, i) => (
-                    <div
-                      key={i}
-                      className="flex justify-between text-muted-foreground"
-                    >
+                    <div key={i} className="text-muted-foreground flex justify-between">
                       <span>{result.type}</span>
                       <span>
                         {result.succeeded} / {result.total}
                         {result.failed > 0 && (
-                          <span className="text-destructive ml-1">
-                            ({result.failed} failed)
-                          </span>
+                          <span className="text-destructive ml-1">({result.failed} failed)</span>
                         )}
                       </span>
                     </div>
                   ))}
-                  <div className="border-t pt-1 mt-2 flex justify-between font-medium">
+                  <div className="mt-2 flex justify-between border-t pt-1 font-medium">
                     <span>Total</span>
                     <span>
                       {totalSucceeded} succeeded
                       {totalFailed > 0 && (
-                        <span className="text-destructive ml-1">
-                          , {totalFailed} failed
-                        </span>
+                        <span className="text-destructive ml-1">, {totalFailed} failed</span>
                       )}
                     </span>
                   </div>
@@ -202,8 +187,8 @@ export function BackfillAll() {
           {error && (
             <Card className="border-destructive">
               <CardContent className="pt-4">
-                <div className="flex items-start gap-2 text-destructive">
-                  <AlertCircle className="h-4 w-4 mt-0.5" />
+                <div className="text-destructive flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4" />
                   <p className="text-sm">{error}</p>
                 </div>
               </CardContent>
@@ -211,30 +196,26 @@ export function BackfillAll() {
           )}
 
           {/* Action button */}
-          <Button
-            onClick={handleBackfill}
-            disabled={isRunning}
-            className="w-full"
-          >
+          <Button onClick={handleBackfill} disabled={isRunning} className="w-full">
             {isRunning ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
               </>
             ) : results.length > 0 ? (
               <>
-                <Sparkles className="h-4 w-4 mr-2" />
+                <Sparkles className="mr-2 h-4 w-4" />
                 Run Again
               </>
             ) : (
               <>
-                <Sparkles className="h-4 w-4 mr-2" />
+                <Sparkles className="mr-2 h-4 w-4" />
                 Start Backfill
               </>
             )}
           </Button>
 
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-muted-foreground text-center text-xs">
             Summaries are generated using Claude Haiku 4.5 for fast processing.
           </p>
         </div>

@@ -42,18 +42,17 @@ interface AtroposStatsRow {
  * Schema for Atropos memory edit response
  */
 const MemoryEditResponseSchema = z.object({
-  action: z.enum(["add_memory", "edit_memory", "remove_memory", "add_word", "remove_word", "no_change"])
+  action: z
+    .enum(["add_memory", "edit_memory", "remove_memory", "add_word", "remove_word", "no_change"])
     .describe("The action to perform on memory"),
-  memoryContent: z.string().optional()
-    .describe("The memory content to add or the edited version"),
-  memoryTags: z.array(z.string()).optional()
-    .describe("Tags for the memory entry"),
-  targetMemoryIndex: z.number().optional()
+  memoryContent: z.string().optional().describe("The memory content to add or the edited version"),
+  memoryTags: z.array(z.string()).optional().describe("Tags for the memory entry"),
+  targetMemoryIndex: z
+    .number()
+    .optional()
     .describe("Index of memory to edit or remove (0-based from most recent)"),
-  word: z.string().optional()
-    .describe("Dictionary word to add or remove"),
-  explanation: z.string()
-    .describe("Brief explanation of what Atropos understood and did"),
+  word: z.string().optional().describe("Dictionary word to add or remove"),
+  explanation: z.string().describe("Brief explanation of what Atropos understood and did"),
 });
 
 /**
@@ -71,10 +70,7 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "Anthropic API key not configured" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
     }
 
     const db = getDatabase();
@@ -91,9 +87,9 @@ export async function POST(request: NextRequest) {
       .all(userId) as AtroposDictionaryRow[];
 
     // Load stats
-    let statsRow = db
-      .prepare("SELECT * FROM atropos_stats WHERE user_id = ?")
-      .get(userId) as AtroposStatsRow | undefined;
+    let statsRow = db.prepare("SELECT * FROM atropos_stats WHERE user_id = ?").get(userId) as
+      | AtroposStatsRow
+      | undefined;
 
     if (!statsRow) {
       db.prepare(
@@ -106,14 +102,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Build memory object for AI context
-    const memories = memoriesRows.map(m => ({
+    const memories = memoriesRows.map((m) => ({
       id: m.id,
       content: m.content,
       tags: JSON.parse(m.tags || "[]") as string[],
       createdAt: m.created_at,
     }));
 
-    const customDictionary = dictionaryRows.map(d => d.term);
+    const customDictionary = dictionaryRows.map((d) => d.term);
 
     // Format memories with indices for reference (most recent first, already sorted)
     const memoriesWithIndices = memories
@@ -153,7 +149,7 @@ Be helpful and interpret the user's intent. If they say "remember that I prefer.
     }
 
     // Apply the action to normalized tables
-    let actionTaken = response.action;
+    const actionTaken = response.action;
 
     switch (response.action) {
       case "add_memory":
@@ -197,18 +193,20 @@ Be helpful and interpret the user's intent. If they say "remember that I prefer.
             .prepare("SELECT id FROM atropos_dictionary WHERE user_id = ? AND term = ?")
             .get(userId, response.word);
           if (!exists) {
-            db.prepare(
-              `INSERT INTO atropos_dictionary (user_id, term) VALUES (?, ?)`
-            ).run(userId, response.word);
+            db.prepare(`INSERT INTO atropos_dictionary (user_id, term) VALUES (?, ?)`).run(
+              userId,
+              response.word
+            );
           }
         }
         break;
 
       case "remove_word":
         if (response.word) {
-          db.prepare(
-            "DELETE FROM atropos_dictionary WHERE user_id = ? AND term = ?"
-          ).run(userId, response.word);
+          db.prepare("DELETE FROM atropos_dictionary WHERE user_id = ? AND term = ?").run(
+            userId,
+            response.word
+          );
         }
         break;
 
@@ -231,8 +229,8 @@ Be helpful and interpret the user's intent. If they say "remember that I prefer.
       action: actionTaken,
       explanation: response.explanation,
       memory: {
-        customDictionary: updatedDictionary.map(d => d.term),
-        memories: updatedMemories.map(m => ({
+        customDictionary: updatedDictionary.map((d) => d.term),
+        memories: updatedMemories.map((m) => ({
           content: m.content,
           tags: JSON.parse(m.tags || "[]"),
           createdAt: m.created_at,
@@ -248,9 +246,6 @@ Be helpful and interpret the user's intent. If they say "remember that I prefer.
   } catch (error: unknown) {
     const err = error as Error;
     console.error("[Atropos Memory Edit] Error:", err);
-    return NextResponse.json(
-      { error: err.message || "Memory edit failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err.message || "Memory edit failed" }, { status: 500 });
   }
 }

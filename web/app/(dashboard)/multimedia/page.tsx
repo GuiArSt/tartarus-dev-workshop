@@ -84,7 +84,7 @@ export default function MultimediaPage() {
   const [uploading, setUploading] = useState(false);
   const [supabaseUrl, setSupabaseUrl] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [attachments, setAttachments] = useState<JournalAttachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(true);
   const [selectedAttachment, setSelectedAttachment] = useState<JournalAttachment | null>(null);
@@ -156,7 +156,7 @@ export default function MultimediaPage() {
 
   const loadThumbnails = async (assets: MediaAsset[]) => {
     // Load thumbnails in parallel (limit to first 20 for performance)
-    const imageAssets = assets.filter(a => a.mime_type.startsWith("image/")).slice(0, 20);
+    const imageAssets = assets.filter((a) => a.mime_type.startsWith("image/")).slice(0, 20);
 
     const results = await Promise.allSettled(
       imageAssets.map(async (asset) => {
@@ -206,11 +206,10 @@ export default function MultimediaPage() {
     setRegeneratingMediaSummary(true);
     try {
       // Build content for summarization (description, prompt, alt text)
-      const content = [
-        selectedMedia.description,
-        selectedMedia.prompt,
-        selectedMedia.alt,
-      ].filter(Boolean).join("\n\n") || selectedMedia.filename;
+      const content =
+        [selectedMedia.description, selectedMedia.prompt, selectedMedia.alt]
+          .filter(Boolean)
+          .join("\n\n") || selectedMedia.filename;
 
       const response = await fetch("/api/ai/summarize", {
         method: "POST",
@@ -288,15 +287,20 @@ export default function MultimediaPage() {
     }
   };
 
-  const isMermaid = (filename: string, mimeType: string) => filename.endsWith(".mmd") || (mimeType === "text/plain" && filename.includes("mermaid"));
+  const isMermaid = (filename: string, mimeType: string) =>
+    filename.endsWith(".mmd") || (mimeType === "text/plain" && filename.includes("mermaid"));
   const isImage = (mimeType: string) => mimeType.startsWith("image/");
 
   const filteredMedia = mediaAssets.filter((asset) => {
     switch (mediaFilter) {
-      case "ai-generated": return !!asset.prompt;
-      case "journal": return !!asset.commit_hash;
-      case "standalone": return !asset.commit_hash && !asset.document_id;
-      default: return true;
+      case "ai-generated":
+        return !!asset.prompt;
+      case "journal":
+        return !!asset.commit_hash;
+      case "standalone":
+        return !asset.commit_hash && !asset.document_id;
+      default:
+        return true;
     }
   });
 
@@ -310,10 +314,20 @@ export default function MultimediaPage() {
       <header className="journal-header flex h-14 items-center justify-between px-6">
         <h1 className="journal-title text-lg">Multimedia</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+          >
             {viewMode === "grid" ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
           </Button>
-          <input type="file" ref={fileInputRef} onChange={handleUpload} accept="image/*" className="hidden" />
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleUpload}
+            accept="image/*"
+            className="hidden"
+          />
         </div>
       </header>
 
@@ -321,73 +335,122 @@ export default function MultimediaPage() {
         <div className="journal-tabs px-6">
           <TabsList className="h-12">
             <TabsTrigger value="media" className="gap-2">
-              <ImageIcon className="h-4 w-4" />Media Library
-              {totalMedia > 0 && <Badge variant="secondary" className="ml-1">{totalMedia}</Badge>}
+              <ImageIcon className="h-4 w-4" />
+              Media Library
+              {totalMedia > 0 && (
+                <Badge variant="secondary" className="ml-1">
+                  {totalMedia}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="diagrams" className="gap-2">
-              <FileCode className="h-4 w-4" />Diagrams
-              {mermaidAttachments.length > 0 && <Badge variant="secondary" className="ml-1">{mermaidAttachments.length}</Badge>}
+              <FileCode className="h-4 w-4" />
+              Diagrams
+              {mermaidAttachments.length > 0 && (
+                <Badge variant="secondary" className="ml-1">
+                  {mermaidAttachments.length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="cloud" className="gap-2">
-              <Cloud className="h-4 w-4" />Cloud
-              {isSupabaseConfigured && images.length > 0 && <Badge variant="secondary" className="ml-1">{images.length}</Badge>}
+              <Cloud className="h-4 w-4" />
+              Cloud
+              {isSupabaseConfigured && images.length > 0 && (
+                <Badge variant="secondary" className="ml-1">
+                  {images.length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="create" className="gap-2">
-              <Plus className="h-4 w-4" />Create Diagram
+              <Plus className="h-4 w-4" />
+              Create Diagram
             </TabsTrigger>
           </TabsList>
         </div>
 
         <ScrollArea className="flex-1 bg-[var(--journal-paper)]">
           <TabsContent value="media" className="mt-0 p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="mb-6 flex items-center justify-between">
               <Select value={mediaFilter} onValueChange={(v) => setMediaFilter(v as MediaFilter)}>
                 <SelectTrigger className="w-[200px]">
-                  <Filter className="h-4 w-4 mr-2" /><SelectValue />
+                  <Filter className="mr-2 h-4 w-4" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Media ({totalMedia})</SelectItem>
-                  <SelectItem value="ai-generated"><Sparkles className="h-3 w-3 mr-2 inline" />AI Generated ({aiGeneratedCount})</SelectItem>
-                  <SelectItem value="journal"><BookOpen className="h-3 w-3 mr-2 inline" />Journal Linked ({journalLinkedCount})</SelectItem>
+                  <SelectItem value="ai-generated">
+                    <Sparkles className="mr-2 inline h-3 w-3" />
+                    AI Generated ({aiGeneratedCount})
+                  </SelectItem>
+                  <SelectItem value="journal">
+                    <BookOpen className="mr-2 inline h-3 w-3" />
+                    Journal Linked ({journalLinkedCount})
+                  </SelectItem>
                   <SelectItem value="standalone">Standalone</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-sm text-muted-foreground">{filteredMedia.length} item{filteredMedia.length !== 1 ? "s" : ""}</p>
+              <p className="text-muted-foreground text-sm">
+                {filteredMedia.length} item{filteredMedia.length !== 1 ? "s" : ""}
+              </p>
             </div>
 
             {loadingMedia ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
             ) : filteredMedia.length === 0 ? (
               <div className="py-12 text-center">
-                <ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <ImageIcon className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
                 <h3 className="mb-2 font-semibold">No media found</h3>
-                <p className="text-sm text-muted-foreground">{mediaFilter === "all" ? "Ask Kronus to generate an image!" : "No items match this filter."}</p>
+                <p className="text-muted-foreground text-sm">
+                  {mediaFilter === "all"
+                    ? "Ask Kronus to generate an image!"
+                    : "No items match this filter."}
+                </p>
               </div>
             ) : viewMode === "grid" ? (
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {filteredMedia.map((asset) => (
-                  <Card key={asset.id} className="cursor-pointer overflow-hidden hover:ring-2 hover:ring-primary transition-all" onClick={() => viewMediaAsset(asset)}>
-                    <div className="flex aspect-square items-center justify-center bg-muted relative overflow-hidden">
+                  <Card
+                    key={asset.id}
+                    className="hover:ring-primary cursor-pointer overflow-hidden transition-all hover:ring-2"
+                    onClick={() => viewMediaAsset(asset)}
+                  >
+                    <div className="bg-muted relative flex aspect-square items-center justify-center overflow-hidden">
                       {thumbnails[asset.id] ? (
                         <img
                           src={`data:${asset.mime_type};base64,${thumbnails[asset.id]}`}
                           alt={asset.filename}
-                          className="w-full h-full object-cover"
+                          className="h-full w-full object-cover"
                         />
                       ) : (
-                        <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                        <ImageIcon className="text-muted-foreground h-12 w-12" />
                       )}
                       <div className="absolute top-2 right-2 flex gap-1">
-                        {asset.prompt && <Badge className="text-xs" variant="secondary"><Sparkles className="h-3 w-3" /></Badge>}
-                        {asset.commit_hash && <Badge className="text-xs" variant="outline"><BookOpen className="h-3 w-3" /></Badge>}
+                        {asset.prompt && (
+                          <Badge className="text-xs" variant="secondary">
+                            <Sparkles className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {asset.commit_hash && (
+                          <Badge className="text-xs" variant="outline">
+                            <BookOpen className="h-3 w-3" />
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <CardContent className="p-3">
                       <p className="truncate text-sm font-medium">{asset.filename}</p>
-                      <p className="text-xs text-muted-foreground truncate">{asset.description || asset.prompt?.substring(0, 40) || "No description"}</p>
+                      <p className="text-muted-foreground truncate text-xs">
+                        {asset.description || asset.prompt?.substring(0, 40) || "No description"}
+                      </p>
                       <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">{Math.round(asset.file_size / 1024)} KB</span>
-                        <span className="text-xs text-muted-foreground">{formatDateShort(asset.created_at)}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {Math.round(asset.file_size / 1024)} KB
+                        </span>
+                        <span className="text-muted-foreground text-xs">
+                          {formatDateShort(asset.created_at)}
+                        </span>
                       </div>
                     </CardContent>
                   </Card>
@@ -396,29 +459,49 @@ export default function MultimediaPage() {
             ) : (
               <div className="space-y-2">
                 {filteredMedia.map((asset) => (
-                  <Card key={asset.id} className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => viewMediaAsset(asset)}>
+                  <Card
+                    key={asset.id}
+                    className="hover:bg-muted/50 cursor-pointer p-4 transition-colors"
+                    onClick={() => viewMediaAsset(asset)}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded bg-muted flex items-center justify-center overflow-hidden">
+                        <div className="bg-muted flex h-12 w-12 items-center justify-center overflow-hidden rounded">
                           {thumbnails[asset.id] ? (
                             <img
                               src={`data:${asset.mime_type};base64,${thumbnails[asset.id]}`}
                               alt={asset.filename}
-                              className="w-full h-full object-cover"
+                              className="h-full w-full object-cover"
                             />
                           ) : (
-                            <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                            <ImageIcon className="text-muted-foreground h-6 w-6" />
                           )}
                         </div>
                         <div>
                           <p className="font-medium">{asset.filename}</p>
-                          <p className="text-xs text-muted-foreground">{asset.description || asset.prompt?.substring(0, 60) || "No description"}</p>
+                          <p className="text-muted-foreground text-xs">
+                            {asset.description ||
+                              asset.prompt?.substring(0, 60) ||
+                              "No description"}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {asset.prompt && <Badge variant="secondary"><Sparkles className="h-3 w-3 mr-1" />AI</Badge>}
-                        {asset.commit_hash && <Badge variant="outline"><BookOpen className="h-3 w-3 mr-1" />Journal</Badge>}
-                        <span className="text-sm text-muted-foreground">{Math.round(asset.file_size / 1024)} KB</span>
+                        {asset.prompt && (
+                          <Badge variant="secondary">
+                            <Sparkles className="mr-1 h-3 w-3" />
+                            AI
+                          </Badge>
+                        )}
+                        {asset.commit_hash && (
+                          <Badge variant="outline">
+                            <BookOpen className="mr-1 h-3 w-3" />
+                            Journal
+                          </Badge>
+                        )}
+                        <span className="text-muted-foreground text-sm">
+                          {Math.round(asset.file_size / 1024)} KB
+                        </span>
                       </div>
                     </div>
                   </Card>
@@ -429,21 +512,34 @@ export default function MultimediaPage() {
 
           <TabsContent value="diagrams" className="mt-0 p-6">
             {loadingAttachments ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
             ) : mermaidAttachments.length === 0 ? (
               <div className="py-12 text-center">
-                <FileCode className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <FileCode className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
                 <h3 className="mb-2 font-semibold">No diagrams yet</h3>
-                <p className="text-sm text-muted-foreground">Create a new diagram or attach one to a journal entry</p>
+                <p className="text-muted-foreground text-sm">
+                  Create a new diagram or attach one to a journal entry
+                </p>
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 {mermaidAttachments.map((attachment) => (
-                  <Card key={attachment.id} className="cursor-pointer overflow-hidden hover:ring-2 hover:ring-primary transition-all" onClick={() => viewAttachment(attachment)}>
-                    <div className="flex aspect-video items-center justify-center bg-muted"><FileCode className="h-12 w-12 text-muted-foreground" /></div>
+                  <Card
+                    key={attachment.id}
+                    className="hover:ring-primary cursor-pointer overflow-hidden transition-all hover:ring-2"
+                    onClick={() => viewAttachment(attachment)}
+                  >
+                    <div className="bg-muted flex aspect-video items-center justify-center">
+                      <FileCode className="text-muted-foreground h-12 w-12" />
+                    </div>
                     <CardContent className="p-3">
                       <p className="truncate text-sm font-medium">{attachment.filename}</p>
-                      <p className="text-xs text-muted-foreground">{attachment.description || `Commit: ${attachment.commit_hash.substring(0, 7)}`}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {attachment.description ||
+                          `Commit: ${attachment.commit_hash.substring(0, 7)}`}
+                      </p>
                     </CardContent>
                   </Card>
                 ))}
@@ -454,40 +550,57 @@ export default function MultimediaPage() {
           <TabsContent value="cloud" className="mt-0 p-6">
             {!isSupabaseConfigured ? (
               <div className="py-12 text-center">
-                <Cloud className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <Cloud className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
                 <h3 className="mb-2 font-semibold">Cloud storage not configured</h3>
-                <p className="text-sm text-muted-foreground mb-4">Set up Supabase to enable cloud storage</p>
+                <p className="text-muted-foreground mb-4 text-sm">
+                  Set up Supabase to enable cloud storage
+                </p>
               </div>
             ) : loading ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
             ) : images.length === 0 ? (
               <div className="py-12 text-center">
-                <Cloud className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <Cloud className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
                 <h3 className="mb-2 font-semibold">No cloud images</h3>
-                <Button onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
+                <Button onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload
+                </Button>
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {images.map((image) => (
-                  <Card key={image.id} className="cursor-pointer overflow-hidden hover:ring-2 hover:ring-primary" onClick={() => setSelectedImage(image)}>
-                    <div className="flex aspect-square items-center justify-center bg-muted overflow-hidden">
+                  <Card
+                    key={image.id}
+                    className="hover:ring-primary cursor-pointer overflow-hidden hover:ring-2"
+                    onClick={() => setSelectedImage(image)}
+                  >
+                    <div className="bg-muted flex aspect-square items-center justify-center overflow-hidden">
                       {image.publicUrl ? (
                         <img
                           src={image.publicUrl}
                           alt={image.name}
-                          className="w-full h-full object-cover"
+                          className="h-full w-full object-cover"
                           onError={(e) => {
                             // Fallback to placeholder on error
                             (e.target as HTMLImageElement).style.display = "none";
-                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove(
+                              "hidden"
+                            );
                           }}
                         />
                       ) : null}
-                      <ImageIcon className={`h-12 w-12 text-muted-foreground ${image.publicUrl ? "hidden" : ""}`} />
+                      <ImageIcon
+                        className={`text-muted-foreground h-12 w-12 ${image.publicUrl ? "hidden" : ""}`}
+                      />
                     </div>
                     <CardContent className="p-3">
                       <p className="truncate text-sm font-medium">{image.name}</p>
-                      <p className="text-xs text-muted-foreground">{formatDateShort(image.created_at)}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {formatDateShort(image.created_at)}
+                      </p>
                     </CardContent>
                   </Card>
                 ))}
@@ -496,47 +609,135 @@ export default function MultimediaPage() {
           </TabsContent>
 
           <TabsContent value="create" className="mt-0 h-full">
-            <div className="p-6 h-[calc(100vh-14rem)]"><MermaidEditor /></div>
+            <div className="h-[calc(100vh-14rem)] p-6">
+              <MermaidEditor />
+            </div>
           </TabsContent>
         </ScrollArea>
       </Tabs>
 
-      <Dialog open={!!selectedAttachment} onOpenChange={() => { setSelectedAttachment(null); setAttachmentData(null); }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-          <DialogHeader><DialogTitle className="flex items-center gap-2">{selectedAttachment?.filename}<Badge variant="outline">{selectedAttachment?.mime_type}</Badge></DialogTitle></DialogHeader>
+      <Dialog
+        open={!!selectedAttachment}
+        onOpenChange={() => {
+          setSelectedAttachment(null);
+          setAttachmentData(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedAttachment?.filename}
+              <Badge variant="outline">{selectedAttachment?.mime_type}</Badge>
+            </DialogTitle>
+          </DialogHeader>
           {selectedAttachment && (
             <div>
-              {selectedAttachment.description && <p className="text-sm text-muted-foreground mb-4">{selectedAttachment.description}</p>}
+              {selectedAttachment.description && (
+                <p className="text-muted-foreground mb-4 text-sm">
+                  {selectedAttachment.description}
+                </p>
+              )}
               {attachmentData ? (
-                isMermaid(selectedAttachment.filename, selectedAttachment.mime_type) ? <MermaidEditor initialCode={atob(attachmentData)} readOnly={true} />
-                : isImage(selectedAttachment.mime_type) ? <img src={`data:${selectedAttachment.mime_type};base64,${attachmentData}`} alt={selectedAttachment.filename} className="max-w-full rounded-lg" />
-                : <pre className="p-4 bg-muted rounded-lg text-sm overflow-auto max-h-96">{atob(attachmentData)}</pre>
-              ) : <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}
-              <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <div className="text-sm text-muted-foreground">Commit: <code className="bg-muted px-1 rounded">{selectedAttachment.commit_hash.substring(0, 7)}</code></div>
-                <Button variant="outline" size="sm" asChild><a href={`/reader/${selectedAttachment.commit_hash}`}><ExternalLink className="h-4 w-4 mr-1" />View Entry</a></Button>
+                isMermaid(selectedAttachment.filename, selectedAttachment.mime_type) ? (
+                  <MermaidEditor initialCode={atob(attachmentData)} readOnly={true} />
+                ) : isImage(selectedAttachment.mime_type) ? (
+                  <img
+                    src={`data:${selectedAttachment.mime_type};base64,${attachmentData}`}
+                    alt={selectedAttachment.filename}
+                    className="max-w-full rounded-lg"
+                  />
+                ) : (
+                  <pre className="bg-muted max-h-96 overflow-auto rounded-lg p-4 text-sm">
+                    {atob(attachmentData)}
+                  </pre>
+                )
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+                </div>
+              )}
+              <div className="mt-4 flex items-center justify-between border-t pt-4">
+                <div className="text-muted-foreground text-sm">
+                  Commit:{" "}
+                  <code className="bg-muted rounded px-1">
+                    {selectedAttachment.commit_hash.substring(0, 7)}
+                  </code>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`/reader/${selectedAttachment.commit_hash}`}>
+                    <ExternalLink className="mr-1 h-4 w-4" />
+                    View Entry
+                  </a>
+                </Button>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!selectedMedia} onOpenChange={() => { setSelectedMedia(null); setMediaImageData(null); }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-          <DialogHeader><DialogTitle className="flex items-center gap-2">{selectedMedia?.filename}{selectedMedia?.prompt && <Badge variant="secondary"><Sparkles className="h-3 w-3 mr-1" />AI</Badge>}{selectedMedia?.model && <Badge variant="outline">{selectedMedia.model.split("/").pop()}</Badge>}</DialogTitle></DialogHeader>
+      <Dialog
+        open={!!selectedMedia}
+        onOpenChange={() => {
+          setSelectedMedia(null);
+          setMediaImageData(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedMedia?.filename}
+              {selectedMedia?.prompt && (
+                <Badge variant="secondary">
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  AI
+                </Badge>
+              )}
+              {selectedMedia?.model && (
+                <Badge variant="outline">{selectedMedia.model.split("/").pop()}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
           {selectedMedia && (
             <div>
-              {selectedMedia.description && <p className="text-sm text-muted-foreground mb-2">{selectedMedia.description}</p>}
-              {selectedMedia.prompt && <p className="text-sm italic text-muted-foreground mb-4 bg-muted p-2 rounded"><span className="font-medium not-italic">Prompt:</span> {selectedMedia.prompt}</p>}
+              {selectedMedia.description && (
+                <p className="text-muted-foreground mb-2 text-sm">{selectedMedia.description}</p>
+              )}
+              {selectedMedia.prompt && (
+                <p className="text-muted-foreground bg-muted mb-4 rounded p-2 text-sm italic">
+                  <span className="font-medium not-italic">Prompt:</span> {selectedMedia.prompt}
+                </p>
+              )}
               {selectedMedia.summary && (
-                <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-muted">
-                  <p className="text-xs font-medium text-muted-foreground mb-1">AI Summary (for Kronus indexing):</p>
-                  <p className="text-sm italic text-muted-foreground">{selectedMedia.summary}</p>
+                <div className="bg-muted/50 border-muted mb-4 rounded-lg border p-3">
+                  <p className="text-muted-foreground mb-1 text-xs font-medium">
+                    AI Summary (for Kronus indexing):
+                  </p>
+                  <p className="text-muted-foreground text-sm italic">{selectedMedia.summary}</p>
                 </div>
               )}
-              {mediaImageData ? <img src={`data:${selectedMedia.mime_type};base64,${mediaImageData}`} alt={selectedMedia.filename} className="max-w-full rounded-lg" /> : <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}
-              <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <div className="text-sm text-muted-foreground">{selectedMedia.commit_hash && <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />Linked: <code className="bg-muted px-1 rounded">{selectedMedia.commit_hash.substring(0, 7)}</code></span>}</div>
+              {mediaImageData ? (
+                <img
+                  src={`data:${selectedMedia.mime_type};base64,${mediaImageData}`}
+                  alt={selectedMedia.filename}
+                  className="max-w-full rounded-lg"
+                />
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+                </div>
+              )}
+              <div className="mt-4 flex items-center justify-between border-t pt-4">
+                <div className="text-muted-foreground text-sm">
+                  {selectedMedia.commit_hash && (
+                    <span className="flex items-center gap-1">
+                      <BookOpen className="h-3 w-3" />
+                      Linked:{" "}
+                      <code className="bg-muted rounded px-1">
+                        {selectedMedia.commit_hash.substring(0, 7)}
+                      </code>
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   {/* Regenerate Summary Button */}
                   <Button
@@ -547,12 +748,38 @@ export default function MultimediaPage() {
                     className="text-muted-foreground hover:bg-muted"
                     title="Regenerate AI Summary"
                   >
-                    <RefreshCw className={`h-4 w-4 mr-1 ${regeneratingMediaSummary ? "animate-spin" : ""}`} />
+                    <RefreshCw
+                      className={`mr-1 h-4 w-4 ${regeneratingMediaSummary ? "animate-spin" : ""}`}
+                    />
                     {regeneratingMediaSummary ? "Regenerating..." : "Regenerate Summary"}
                   </Button>
-                  {selectedMedia.commit_hash && <Button variant="outline" size="sm" asChild><a href={`/reader/${selectedMedia.commit_hash}`}><ExternalLink className="h-4 w-4 mr-1" />Entry</a></Button>}
-                  {mediaImageData && <Button variant="outline" size="sm" asChild><a href={`data:${selectedMedia.mime_type};base64,${mediaImageData}`} download={selectedMedia.filename}><Download className="h-4 w-4 mr-1" />Download</a></Button>}
-                  <Button variant="destructive" size="sm" onClick={() => deleteMediaAsset(selectedMedia.id)}><Trash2 className="h-4 w-4 mr-1" />Delete</Button>
+                  {selectedMedia.commit_hash && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={`/reader/${selectedMedia.commit_hash}`}>
+                        <ExternalLink className="mr-1 h-4 w-4" />
+                        Entry
+                      </a>
+                    </Button>
+                  )}
+                  {mediaImageData && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a
+                        href={`data:${selectedMedia.mime_type};base64,${mediaImageData}`}
+                        download={selectedMedia.filename}
+                      >
+                        <Download className="mr-1 h-4 w-4" />
+                        Download
+                      </a>
+                    </Button>
+                  )}
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => deleteMediaAsset(selectedMedia.id)}
+                  >
+                    <Trash2 className="mr-1 h-4 w-4" />
+                    Delete
+                  </Button>
                 </div>
               </div>
             </div>
@@ -561,8 +788,13 @@ export default function MultimediaPage() {
       </Dialog>
 
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-          <DialogHeader><DialogTitle className="flex items-center gap-2">{selectedImage?.name}<Badge variant="outline">Cloud Storage</Badge></DialogTitle></DialogHeader>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedImage?.name}
+              <Badge variant="outline">Cloud Storage</Badge>
+            </DialogTitle>
+          </DialogHeader>
           {selectedImage && (
             <div>
               {selectedImage.publicUrl ? (
@@ -572,12 +804,12 @@ export default function MultimediaPage() {
                   className="max-w-full rounded-lg"
                 />
               ) : (
-                <div className="flex aspect-video items-center justify-center rounded-lg bg-muted">
-                  <ImageIcon className="h-24 w-24 text-muted-foreground" />
+                <div className="bg-muted flex aspect-video items-center justify-center rounded-lg">
+                  <ImageIcon className="text-muted-foreground h-24 w-24" />
                 </div>
               )}
-              <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <div className="text-sm text-muted-foreground">
+              <div className="mt-4 flex items-center justify-between border-t pt-4">
+                <div className="text-muted-foreground text-sm">
                   Created: {new Date(selectedImage.created_at).toLocaleString()}
                 </div>
                 <div className="flex gap-2">
@@ -585,12 +817,14 @@ export default function MultimediaPage() {
                     <>
                       <Button variant="outline" size="sm" asChild>
                         <a href={selectedImage.publicUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-1" />Open
+                          <ExternalLink className="mr-1 h-4 w-4" />
+                          Open
                         </a>
                       </Button>
                       <Button variant="outline" size="sm" asChild>
                         <a href={selectedImage.publicUrl} download={selectedImage.name}>
-                          <Download className="h-4 w-4 mr-1" />Download
+                          <Download className="mr-1 h-4 w-4" />
+                          Download
                         </a>
                       </Button>
                     </>

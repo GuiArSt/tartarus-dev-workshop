@@ -18,23 +18,33 @@ import { startTrace, startSpan, endSpan, endTrace } from "@/lib/observability";
 // Zod schema for Entry 0 sections
 // Using empty string "" instead of null to avoid too many conditional branches in Anthropic's grammar
 const SummaryUpdateSchema = z.object({
-  summary: z.string().describe('High-level project overview. Empty string if no update.'),
-  purpose: z.string().describe('Why this project exists. Empty string if no update.'),
-  architecture: z.string().describe('Overall structure and organization. Empty string if no update.'),
-  key_decisions: z.string().describe('Major architectural decisions. Empty string if no update.'),
-  technologies: z.string().describe('Core technologies used. Empty string if no update.'),
-  status: z.string().describe('Current project status. Empty string if no update.'),
-  file_structure: z.string().describe('Git-style file tree with summaries. Empty string if no update.'),
-  tech_stack: z.string().describe('Frameworks, libraries, versions. Empty string if no update.'),
-  frontend: z.string().describe('FE patterns, components, state management. Empty string if no update.'),
-  backend: z.string().describe('BE routes, middleware, auth patterns. Empty string if no update.'),
-  database_info: z.string().describe('Schema, ORM patterns, migrations. Empty string if no update.'),
-  services: z.string().describe('External APIs, integrations. Empty string if no update.'),
-  custom_tooling: z.string().describe('Project-specific utilities. Empty string if no update.'),
-  data_flow: z.string().describe('How data is processed. Empty string if no update.'),
-  patterns: z.string().describe('Naming conventions, code style. Empty string if no update.'),
-  commands: z.string().describe('Dev, deploy, make commands. Empty string if no update.'),
-  extended_notes: z.string().describe('Gotchas, TODOs, historical context. Empty string if no update.'),
+  summary: z.string().describe("High-level project overview. Empty string if no update."),
+  purpose: z.string().describe("Why this project exists. Empty string if no update."),
+  architecture: z
+    .string()
+    .describe("Overall structure and organization. Empty string if no update."),
+  key_decisions: z.string().describe("Major architectural decisions. Empty string if no update."),
+  technologies: z.string().describe("Core technologies used. Empty string if no update."),
+  status: z.string().describe("Current project status. Empty string if no update."),
+  file_structure: z
+    .string()
+    .describe("Git-style file tree with summaries. Empty string if no update."),
+  tech_stack: z.string().describe("Frameworks, libraries, versions. Empty string if no update."),
+  frontend: z
+    .string()
+    .describe("FE patterns, components, state management. Empty string if no update."),
+  backend: z.string().describe("BE routes, middleware, auth patterns. Empty string if no update."),
+  database_info: z
+    .string()
+    .describe("Schema, ORM patterns, migrations. Empty string if no update."),
+  services: z.string().describe("External APIs, integrations. Empty string if no update."),
+  custom_tooling: z.string().describe("Project-specific utilities. Empty string if no update."),
+  data_flow: z.string().describe("How data is processed. Empty string if no update."),
+  patterns: z.string().describe("Naming conventions, code style. Empty string if no update."),
+  commands: z.string().describe("Dev, deploy, make commands. Empty string if no update."),
+  extended_notes: z
+    .string()
+    .describe("Gotchas, TODOs, historical context. Empty string if no update."),
 });
 
 type SummaryUpdate = z.infer<typeof SummaryUpdateSchema>;
@@ -77,42 +87,46 @@ interface ProjectSummary {
 
 function formatEntriesForContext(entries: JournalEntry[]): string {
   if (entries.length === 0) {
-    return 'No recent journal entries available.';
+    return "No recent journal entries available.";
   }
 
-  return entries.map(e => `
+  return entries
+    .map(
+      (e) => `
 ### ${e.commit_hash.substring(0, 7)} (${e.date})
 - **Why:** ${e.why}
 - **Changed:** ${e.what_changed}
 - **Decisions:** ${e.decisions}
 - **Tech:** ${e.technologies}
-${e.kronus_wisdom ? `- **Wisdom:** ${e.kronus_wisdom}` : ''}
-${e.files_changed ? `- **Files:** ${e.files_changed}` : ''}`).join('\n');
+${e.kronus_wisdom ? `- **Wisdom:** ${e.kronus_wisdom}` : ""}
+${e.files_changed ? `- **Files:** ${e.files_changed}` : ""}`
+    )
+    .join("\n");
 }
 
 function formatExistingSummary(summary: ProjectSummary): string {
   return `
 ## Existing Entry 0 Sections
 
-**Summary:** ${summary.summary || 'Not set'}
-**Purpose:** ${summary.purpose || 'Not set'}
-**Architecture:** ${summary.architecture || 'Not set'}
-**Key Decisions:** ${summary.key_decisions || 'Not set'}
-**Technologies:** ${summary.technologies || 'Not set'}
-**Status:** ${summary.status || 'Not set'}
+**Summary:** ${summary.summary || "Not set"}
+**Purpose:** ${summary.purpose || "Not set"}
+**Architecture:** ${summary.architecture || "Not set"}
+**Key Decisions:** ${summary.key_decisions || "Not set"}
+**Technologies:** ${summary.technologies || "Not set"}
+**Status:** ${summary.status || "Not set"}
 
 ### Living Summary Fields
-**File Structure:** ${summary.file_structure || 'Not set'}
-**Tech Stack:** ${summary.tech_stack || 'Not set'}
-**Frontend:** ${summary.frontend || 'Not set'}
-**Backend:** ${summary.backend || 'Not set'}
-**Database:** ${summary.database_info || 'Not set'}
-**Services:** ${summary.services || 'Not set'}
-**Custom Tooling:** ${summary.custom_tooling || 'Not set'}
-**Data Flow:** ${summary.data_flow || 'Not set'}
-**Patterns:** ${summary.patterns || 'Not set'}
-**Commands:** ${summary.commands || 'Not set'}
-**Extended Notes:** ${summary.extended_notes || 'Not set'}
+**File Structure:** ${summary.file_structure || "Not set"}
+**Tech Stack:** ${summary.tech_stack || "Not set"}
+**Frontend:** ${summary.frontend || "Not set"}
+**Backend:** ${summary.backend || "Not set"}
+**Database:** ${summary.database_info || "Not set"}
+**Services:** ${summary.services || "Not set"}
+**Custom Tooling:** ${summary.custom_tooling || "Not set"}
+**Data Flow:** ${summary.data_flow || "Not set"}
+**Patterns:** ${summary.patterns || "Not set"}
+**Commands:** ${summary.commands || "Not set"}
+**Extended Notes:** ${summary.extended_notes || "Not set"}
 `;
 }
 
@@ -133,10 +147,12 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   if (!existingSummary) {
     // Auto-create a project summary for repositories that only have journal entries
     // Note: git_url is nullable, summary is initialized with placeholder text
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO project_summaries (repository, git_url, summary, purpose, architecture, key_decisions, technologies, status, updated_at)
       VALUES (?, NULL, 'Auto-generated summary - pending analysis.', '', '', '', '', 'active', datetime('now'))
-    `).run(repository);
+    `
+    ).run(repository);
 
     existingSummary = db
       .prepare(`SELECT * FROM project_summaries WHERE repository = ?`)
@@ -145,20 +161,19 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   // Get recent journal entries
   const entries = db
-    .prepare(`
+    .prepare(
+      `
       SELECT commit_hash, date, why, what_changed, decisions, technologies, kronus_wisdom, files_changed
       FROM journal_entries
       WHERE repository = ?
       ORDER BY date DESC
       LIMIT ?
-    `)
+    `
+    )
     .all(repository, Math.min(entries_to_analyze, 20)) as JournalEntry[];
 
   if (entries.length === 0) {
-    return NextResponse.json(
-      { error: "No journal entries found to analyze" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "No journal entries found to analyze" }, { status: 400 });
   }
 
   // Build the AI prompt
@@ -207,7 +222,7 @@ Be thorough but concise. This is reference documentation for engineers.`;
   try {
     // Call Sonnet 4.5 for analysis - AI SDK 6.0 pattern
     const result = await generateText({
-      model: anthropic('claude-sonnet-4-5-20250929'),
+      model: anthropic("claude-sonnet-4-5-20250929"),
       output: Output.object({
         schema: SummaryUpdateSchema,
       }),
@@ -216,14 +231,17 @@ Be thorough but concise. This is reference documentation for engineers.`;
     });
 
     if (!result.output) {
-      throw new Error('No structured output generated from AI model');
+      throw new Error("No structured output generated from AI model");
     }
 
     updates = result.output as SummaryUpdate;
 
     // End span with token usage from result
     endSpan(aiSpanId, {
-      output: { fields_extracted: Object.keys(updates).filter(k => updates[k as keyof SummaryUpdate]).length },
+      output: {
+        fields_extracted: Object.keys(updates).filter((k) => updates[k as keyof SummaryUpdate])
+          .length,
+      },
       inputTokens: result.usage?.inputTokens,
       outputTokens: result.usage?.outputTokens,
     });
@@ -238,24 +256,38 @@ Be thorough but concise. This is reference documentation for engineers.`;
   const values: (string | number | null)[] = [];
 
   const updateFields: (keyof SummaryUpdate)[] = [
-    'summary', 'purpose', 'architecture', 'key_decisions', 'technologies', 'status',
-    'file_structure', 'tech_stack', 'frontend', 'backend', 'database_info',
-    'services', 'custom_tooling', 'data_flow', 'patterns', 'commands', 'extended_notes'
+    "summary",
+    "purpose",
+    "architecture",
+    "key_decisions",
+    "technologies",
+    "status",
+    "file_structure",
+    "tech_stack",
+    "frontend",
+    "backend",
+    "database_info",
+    "services",
+    "custom_tooling",
+    "data_flow",
+    "patterns",
+    "commands",
+    "extended_notes",
   ];
 
   for (const field of updateFields) {
     // Only update if non-empty string (empty string means no update)
-    if (updates[field] && updates[field].trim() !== '') {
+    if (updates[field] && updates[field].trim() !== "") {
       fieldsToUpdate.push(`${field} = ?`);
       values.push(updates[field]);
     }
   }
 
   // Track sync metadata
-  fieldsToUpdate.push('last_synced_entry = ?');
+  fieldsToUpdate.push("last_synced_entry = ?");
   values.push(entries[0].commit_hash);
 
-  fieldsToUpdate.push('entries_synced = ?');
+  fieldsToUpdate.push("entries_synced = ?");
   values.push((existingSummary.entries_synced || 0) + entries.length);
 
   fieldsToUpdate.push("updated_at = datetime('now')");
@@ -263,11 +295,13 @@ Be thorough but concise. This is reference documentation for engineers.`;
   // Update the database
   if (fieldsToUpdate.length > 0) {
     values.push(repository);
-    db.prepare(`
+    db.prepare(
+      `
       UPDATE project_summaries
-      SET ${fieldsToUpdate.join(', ')}
+      SET ${fieldsToUpdate.join(", ")}
       WHERE repository = ?
-    `).run(...values);
+    `
+    ).run(...values);
   }
 
   // Get updated summary
@@ -282,7 +316,10 @@ Be thorough but concise. This is reference documentation for engineers.`;
     success: true,
     message: `Analyzed ${entries.length} entries and updated Entry 0`,
     entries_analyzed: entries.length,
-    fields_updated: fieldsToUpdate.filter(f => !f.includes('last_synced') && !f.includes('entries_synced') && !f.includes('updated_at')).length,
+    fields_updated: fieldsToUpdate.filter(
+      (f) =>
+        !f.includes("last_synced") && !f.includes("entries_synced") && !f.includes("updated_at")
+    ).length,
     summary: updatedSummary,
   });
 });

@@ -13,10 +13,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <TooltipProvider>
       <div className="flex h-screen overflow-hidden bg-[var(--tartarus-deep)]">
         <Sidebar />
-        <main className="flex-1 overflow-auto bg-[var(--tartarus-void)] relative">
+        <main className="relative flex-1 overflow-auto bg-[var(--tartarus-void)]">
           {/* ChatInterface stays mounted, hidden when not on /chat */}
           <div
-            className={`absolute inset-0 flex flex-col kronus-chamber ${isChatRoute ? "" : "hidden"}`}
+            className={`kronus-chamber absolute inset-0 flex flex-col ${isChatRoute ? "" : "hidden"}`}
           >
             <ChatInterface />
           </div>

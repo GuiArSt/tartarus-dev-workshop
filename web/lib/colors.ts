@@ -21,18 +21,21 @@ export const TARTARUS_CATEGORY_COLORS = [
   "orange",
 ] as const;
 
-export type TartarusCategoryColor = typeof TARTARUS_CATEGORY_COLORS[number];
+export type TartarusCategoryColor = (typeof TARTARUS_CATEGORY_COLORS)[number];
 
 /**
  * Color class mappings for category-based styling
  * Each color provides consistent text, background, bar, and border classes
  */
-const COLOR_CLASS_MAP: Record<TartarusCategoryColor, {
-  text: string;
-  bg: string;
-  bar: string;
-  border: string;
-}> = {
+const COLOR_CLASS_MAP: Record<
+  TartarusCategoryColor,
+  {
+    text: string;
+    bg: string;
+    bar: string;
+    border: string;
+  }
+> = {
   teal: {
     text: "text-[var(--tartarus-teal)]",
     bg: "bg-[var(--tartarus-teal-soft)]",
@@ -168,18 +171,23 @@ export const statusColors = {
  */
 export const actionColors = {
   primary: {
-    solid: "bg-[var(--tartarus-teal)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-teal-bright)]",
-    outline: "border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]",
+    solid:
+      "bg-[var(--tartarus-teal)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-teal-bright)]",
+    outline:
+      "border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]",
     ghost: "text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]",
   },
   secondary: {
-    solid: "bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]",
-    outline: "border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)]",
+    solid:
+      "bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]",
+    outline:
+      "border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)]",
     ghost: "text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)]",
   },
   destructive: {
     solid: "bg-[var(--tartarus-error)] text-white hover:bg-[var(--tartarus-error)]/90",
-    outline: "border-[var(--tartarus-error)]/50 text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error-soft)]",
+    outline:
+      "border-[var(--tartarus-error)]/50 text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error-soft)]",
     ghost: "text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error-soft)]",
   },
 } as const;

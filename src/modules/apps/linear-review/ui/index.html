@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Linear Sync Preview</title>
+    <style>
+      /* Tartarus Design System - Dark Theme */
+      :root {
+        --bg-primary: #0a0a0f;
+        --bg-secondary: #12121a;
+        --bg-tertiary: #1a1a2e;
+        --bg-hover: #252540;
+        --text-primary: #e8e8ed;
+        --text-secondary: #a0a0b0;
+        --text-muted: #6b6b7b;
+        --border: #2a2a3e;
+        --accent: #6366f1;
+        --accent-hover: #818cf8;
+        --success: #22c55e;
+        --warning: #eab308;
+        --error: #ef4444;
+        --info: #3b82f6;
+        --radius: 8px;
+        --radius-sm: 4px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        line-height: 1.5;
+        min-height: 100vh;
+      }
+
+      .app-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 1rem;
+      }
+
+      /* Header */
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 1rem;
+      }
+
+      .header h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      /* Stats Bar */
+      .stats-bar {
+        display: flex;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .stat {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+      }
+
+      .stat-value {
+        font-weight: 600;
+        padding: 0.125rem 0.5rem;
+        border-radius: var(--radius-sm);
+      }
+
+      .stat-new { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+      .stat-updated { background: rgba(234, 179, 8, 0.2); color: var(--warning); }
+      .stat-deleted { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+      .stat-unchanged { background: rgba(160, 160, 176, 0.2); color: var(--text-secondary); }
+
+      /* Filters */
+      .filters {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .filter-btn {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: all 0.15s ease;
+      }
+
+      .filter-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+      }
+
+      .filter-btn.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+
+      /* Change Cards */
+      .changes-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .change-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        transition: border-color 0.15s ease;
+      }
+
+      .change-card:hover {
+        border-color: var(--accent);
+      }
+
+      .change-card.approved {
+        border-color: var(--success);
+        border-width: 2px;
+      }
+
+      .change-card.rejected {
+        border-color: var(--error);
+        border-width: 2px;
+        opacity: 0.6;
+      }
+
+      .change-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: var(--bg-tertiary);
+        cursor: pointer;
+      }
+
+      .change-header:hover {
+        background: var(--bg-hover);
+      }
+
+      .change-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .change-identifier {
+        font-family: monospace;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        background: var(--bg-primary);
+        padding: 0.125rem 0.375rem;
+        border-radius: var(--radius-sm);
+      }
+
+      .change-name {
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .action-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--radius-sm);
+        text-transform: uppercase;
+      }
+
+      .action-create { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+      .action-update { background: rgba(234, 179, 8, 0.2); color: var(--warning); }
+      .action-delete { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+
+      .type-badge {
+        font-size: 0.625rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: var(--radius-sm);
+        background: var(--bg-primary);
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+
+      .change-actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      /* Change Body (expandable) */
+      .change-body {
+        display: none;
+        padding: 1rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .change-card.expanded .change-body {
+        display: block;
+      }
+
+      /* Diff View */
+      .diff-section {
+        margin-bottom: 1rem;
+      }
+
+      .diff-section:last-child {
+        margin-bottom: 0;
+      }
+
+      .diff-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+      }
+
+      .diff-row {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        padding: 0.5rem;
+        background: var(--bg-primary);
+        border-radius: var(--radius-sm);
+        margin-bottom: 0.25rem;
+      }
+
+      .diff-field {
+        font-weight: 500;
+        color: var(--text-secondary);
+        min-width: 100px;
+      }
+
+      .diff-old {
+        color: var(--error);
+        text-decoration: line-through;
+      }
+
+      .diff-arrow {
+        color: var(--text-muted);
+      }
+
+      .diff-new {
+        color: var(--success);
+      }
+
+      /* Summary Section */
+      .summary-section {
+        background: var(--bg-primary);
+        border-radius: var(--radius-sm);
+        padding: 0.75rem;
+      }
+
+      .summary-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+      }
+
+      .summary-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+
+      .summary-badge {
+        font-size: 0.625rem;
+        padding: 0.125rem 0.375rem;
+        border-radius: var(--radius-sm);
+        background: var(--info);
+        color: white;
+      }
+
+      .summary-text {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+
+      .summary-edit {
+        width: 100%;
+        min-height: 80px;
+        padding: 0.5rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.875rem;
+        resize: vertical;
+      }
+
+      .summary-edit:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
+      /* Buttons */
+      .btn {
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+      }
+
+      .btn-secondary:hover {
+        background: var(--bg-hover);
+      }
+
+      .btn-success {
+        background: var(--success);
+        color: white;
+      }
+
+      .btn-success:hover {
+        background: #16a34a;
+      }
+
+      .btn-danger {
+        background: var(--error);
+        color: white;
+      }
+
+      .btn-danger:hover {
+        background: #dc2626;
+      }
+
+      .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+      }
+
+      .btn-icon {
+        padding: 0.5rem;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+      }
+
+      .btn-icon:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+      }
+
+      /* Footer Actions */
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-top: 1rem;
+        position: sticky;
+        bottom: 1rem;
+      }
+
+      .footer-info {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+      }
+
+      .footer-actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      /* Loading & Empty States */
+      .loading, .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        text-align: center;
+        color: var(--text-secondary);
+      }
+
+      .loading-spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 1rem;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+      }
+
+      /* Responsive */
+      @media (max-width: 600px) {
+        .header {
+          flex-direction: column;
+          gap: 0.75rem;
+          align-items: flex-start;
+        }
+
+        .stats-bar {
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .footer {
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- Header -->
+      <div class="header">
+        <h1>
+          <span>📋</span>
+          Linear Sync Preview
+        </h1>
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="refresh-btn" title="Refresh preview">
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="stats-bar" id="stats-bar">
+        <div class="stat">
+          <span class="stat-value stat-new" id="stat-new">0</span>
+          <span>New</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value stat-updated" id="stat-updated">0</span>
+          <span>Updated</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value stat-deleted" id="stat-deleted">0</span>
+          <span>Deleted</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value stat-unchanged" id="stat-unchanged">0</span>
+          <span>Unchanged</span>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters" id="filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="create">New</button>
+        <button class="filter-btn" data-filter="update">Updated</button>
+        <button class="filter-btn" data-filter="delete">Deleted</button>
+        <button class="filter-btn" data-filter="summary">Needs Summary Review</button>
+      </div>
+
+      <!-- Changes List -->
+      <div class="changes-list" id="changes-list">
+        <div class="loading" id="loading">
+          <div class="loading-spinner"></div>
+          <p>Loading preview...</p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer" id="footer" style="display: none;">
+        <div class="footer-info">
+          <span id="selected-count">0</span> items selected
+        </div>
+        <div class="footer-actions">
+          <button class="btn btn-secondary" id="approve-all-btn">
+            ✅ Approve All
+          </button>
+          <button class="btn btn-primary" id="apply-btn" disabled>
+            🚀 Apply Selected
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/app.ts"></script>
+  </body>
+</html>

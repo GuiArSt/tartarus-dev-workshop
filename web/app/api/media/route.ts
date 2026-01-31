@@ -12,7 +12,10 @@ import { ValidationError } from "@/lib/errors";
  */
 export const GET = withErrorHandler(async (request: NextRequest) => {
   const db = getDatabase();
-  const { limit, offset, commit_hash, document_id, destination } = requireQuery(mediaQuerySchema, request);
+  const { limit, offset, commit_hash, document_id, destination } = requireQuery(
+    mediaQuerySchema,
+    request
+  );
 
   let query = `
     SELECT

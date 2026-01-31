@@ -34,7 +34,9 @@ export const GET = withErrorHandler(async () => {
 
   // Get memories from normalized table
   const memories = db
-    .prepare("SELECT id, content, tags, frequency, updated_at FROM atropos_memories WHERE user_id = ? ORDER BY frequency DESC, updated_at DESC")
+    .prepare(
+      "SELECT id, content, tags, frequency, updated_at FROM atropos_memories WHERE user_id = ? ORDER BY frequency DESC, updated_at DESC"
+    )
     .all(userId) as AtroposMemoryItem[];
 
   // Get dictionary from normalized table
@@ -44,7 +46,9 @@ export const GET = withErrorHandler(async () => {
 
   // Get stats
   const stats = db
-    .prepare("SELECT total_checks, total_corrections, total_characters_corrected, updated_at FROM atropos_stats WHERE user_id = ?")
+    .prepare(
+      "SELECT total_checks, total_corrections, total_characters_corrected, updated_at FROM atropos_stats WHERE user_id = ?"
+    )
     .get(userId) as AtroposStatsRow | undefined;
 
   // Build response
@@ -146,13 +150,12 @@ export const PATCH = withErrorHandler(async (request: NextRequest) => {
   const userId = "default";
 
   if (action === "add") {
-    db.prepare(
-      "INSERT OR IGNORE INTO atropos_dictionary (user_id, term) VALUES (?, ?)"
-    ).run(userId, word);
+    db.prepare("INSERT OR IGNORE INTO atropos_dictionary (user_id, term) VALUES (?, ?)").run(
+      userId,
+      word
+    );
   } else if (action === "remove") {
-    db.prepare(
-      "DELETE FROM atropos_dictionary WHERE user_id = ? AND term = ?"
-    ).run(userId, word);
+    db.prepare("DELETE FROM atropos_dictionary WHERE user_id = ? AND term = ?").run(userId, word);
   } else {
     throw new ValidationError("Invalid action. Use 'add' or 'remove'");
   }
@@ -183,9 +186,7 @@ export const DELETE = withErrorHandler(async () => {
   db.prepare("DELETE FROM atropos_stats WHERE user_id = ?").run(userId);
 
   // Re-insert default dictionary terms
-  const insertTerm = db.prepare(
-    "INSERT INTO atropos_dictionary (user_id, term) VALUES (?, ?)"
-  );
+  const insertTerm = db.prepare("INSERT INTO atropos_dictionary (user_id, term) VALUES (?, ?)");
   for (const term of defaultMemory.customDictionary) {
     insertTerm.run(userId, term);
   }

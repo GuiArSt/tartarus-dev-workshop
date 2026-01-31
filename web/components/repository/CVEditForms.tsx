@@ -60,7 +60,17 @@ interface Education {
   achievements: string[];
 }
 
-export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { skill: Skill; onSave: (data: Partial<Skill>) => void; onCancel: () => void; categories?: SkillCategory[] }) {
+export function SkillEditForm({
+  skill,
+  onSave,
+  onCancel,
+  categories = [],
+}: {
+  skill: Skill;
+  onSave: (data: Partial<Skill>) => void;
+  onCancel: () => void;
+  categories?: SkillCategory[];
+}) {
   const [formData, setFormData] = useState(skill);
   const [newTag, setNewTag] = useState("");
 
@@ -77,7 +87,7 @@ export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { sk
   };
 
   const removeTag = (tagToRemove: string) => {
-    setFormData({ ...formData, tags: formData.tags.filter(t => t !== tagToRemove) });
+    setFormData({ ...formData, tags: formData.tags.filter((t) => t !== tagToRemove) });
   };
 
   const handleTagKeyDown = (e: React.KeyboardEvent) => {
@@ -88,12 +98,17 @@ export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { sk
   };
 
   return (
-    <Card className="shadow-lg border-[#E5E0D8]">
-      <CardHeader className="border-b border-[#E5E0D8] pb-4 bg-[#FAF8F2]">
+    <Card className="border-[#E5E0D8] shadow-lg">
+      <CardHeader className="border-b border-[#E5E0D8] bg-[#FAF8F2] pb-4">
         <CardTitle className="flex items-center justify-between text-lg">
           <span className="font-semibold text-[#2A2520]">Edit Skill: {skill.name}</span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onCancel} className="gap-2 border-[#D5D0C8] text-[#5C5550] hover:bg-[#F5F3F0] hover:text-[#2A2520]">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              className="gap-2 border-[#D5D0C8] text-[#5C5550] hover:bg-[#F5F3F0] hover:text-[#2A2520]"
+            >
               <X className="h-4 w-4" />
               Cancel
             </Button>
@@ -116,11 +131,14 @@ export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { sk
         <div className="space-y-2">
           <Label className="text-sm font-medium text-[#2A2520]">Category</Label>
           {categories.length > 0 ? (
-            <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+            <Select
+              value={formData.category}
+              onValueChange={(v) => setFormData({ ...formData, category: v })}
+            >
               <SelectTrigger className="h-10 border-[#E5E0D8]">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
-              <SelectContent className="z-[100] bg-white border-[#E5E0D8]">
+              <SelectContent className="z-[100] border-[#E5E0D8] bg-white">
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.name}>
                     {cat.name}
@@ -138,11 +156,14 @@ export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { sk
         </div>
         <div className="space-y-2">
           <Label className="text-sm font-medium text-[#2A2520]">Magnitude (1-4)</Label>
-          <Select value={String(formData.magnitude)} onValueChange={(v) => setFormData({ ...formData, magnitude: parseInt(v) })}>
+          <Select
+            value={String(formData.magnitude)}
+            onValueChange={(v) => setFormData({ ...formData, magnitude: parseInt(v) })}
+          >
             <SelectTrigger className="h-10 border-[#E5E0D8]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="z-[100] bg-white border-[#E5E0D8]">
+            <SelectContent className="z-[100] border-[#E5E0D8] bg-white">
               <SelectItem value="1">1 - Beginner</SelectItem>
               <SelectItem value="2">2 - Apprentice</SelectItem>
               <SelectItem value="3">3 - Professional</SelectItem>
@@ -162,12 +183,12 @@ export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { sk
         </div>
         <div className="space-y-2">
           <Label className="text-sm font-medium text-[#2A2520]">Tags</Label>
-          <div className="flex flex-wrap gap-2 mb-2 min-h-[36px] p-2 border border-[#E5E0D8] rounded-md bg-[#FAF8F2]">
+          <div className="mb-2 flex min-h-[36px] flex-wrap gap-2 rounded-md border border-[#E5E0D8] bg-[#FAF8F2] p-2">
             {formData.tags.map((tag) => (
               <Badge
                 key={tag}
                 variant="secondary"
-                className="gap-1 bg-[#00A0A4]/10 text-[#007A7D] border border-[#00A0A4]/30 hover:bg-[#00A0A4]/20"
+                className="gap-1 border border-[#00A0A4]/30 bg-[#00A0A4]/10 text-[#007A7D] hover:bg-[#00A0A4]/20"
               >
                 {tag}
                 <button
@@ -179,9 +200,7 @@ export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { sk
                 </button>
               </Badge>
             ))}
-            {formData.tags.length === 0 && (
-              <span className="text-sm text-[#A0998A]">No tags</span>
-            )}
+            {formData.tags.length === 0 && <span className="text-sm text-[#A0998A]">No tags</span>}
           </div>
           <div className="flex gap-2">
             <Input
@@ -208,7 +227,15 @@ export function SkillEditForm({ skill, onSave, onCancel, categories = [] }: { sk
   );
 }
 
-export function ExperienceEditForm({ experience, onSave, onCancel }: { experience: WorkExperience; onSave: (data: Partial<WorkExperience>) => void; onCancel: () => void }) {
+export function ExperienceEditForm({
+  experience,
+  onSave,
+  onCancel,
+}: {
+  experience: WorkExperience;
+  onSave: (data: Partial<WorkExperience>) => void;
+  onCancel: () => void;
+}) {
   const [formData, setFormData] = useState(experience);
 
   const handleSave = () => {
@@ -231,11 +258,16 @@ export function ExperienceEditForm({ experience, onSave, onCancel }: { experienc
 
   return (
     <Card className="border-[#E5E0D8]">
-      <CardHeader className="border-b border-[#E5E0D8] pb-4 bg-[#FAF8F2]">
+      <CardHeader className="border-b border-[#E5E0D8] bg-[#FAF8F2] pb-4">
         <CardTitle className="flex items-center justify-between text-lg">
           <span className="font-semibold text-[#2A2520]">Edit Experience: {experience.title}</span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onCancel} className="gap-2 border-[#D5D0C8] text-[#5C5550] hover:bg-[#F5F3F0] hover:text-[#2A2520]">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              className="gap-2 border-[#D5D0C8] text-[#5C5550] hover:bg-[#F5F3F0] hover:text-[#2A2520]"
+            >
               <X className="h-4 w-4" />
               Cancel
             </Button>
@@ -250,40 +282,76 @@ export function ExperienceEditForm({ experience, onSave, onCancel }: { experienc
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium">Title</Label>
-            <Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="h-10" />
+            <Input
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="h-10"
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">Company</Label>
-            <Input value={formData.company} onChange={(e) => setFormData({ ...formData, company: e.target.value })} className="h-10" />
+            <Input
+              value={formData.company}
+              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              className="h-10"
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium">Location</Label>
-            <Input value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="h-10" />
+            <Input
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              className="h-10"
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">Department</Label>
-            <Input value={formData.department || ""} onChange={(e) => setFormData({ ...formData, department: e.target.value })} className="h-10" />
+            <Input
+              value={formData.department || ""}
+              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              className="h-10"
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium">Start Date (YYYY-MM)</Label>
-            <Input value={formData.dateStart} onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })} className="h-10" placeholder="2023-08" />
+            <Input
+              value={formData.dateStart}
+              onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })}
+              className="h-10"
+              placeholder="2023-08"
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">End Date (YYYY-MM or leave empty)</Label>
-            <Input value={formData.dateEnd || ""} onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value || null })} className="h-10" placeholder="2025-04 or leave empty" />
+            <Input
+              value={formData.dateEnd || ""}
+              onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value || null })}
+              className="h-10"
+              placeholder="2025-04 or leave empty"
+            />
           </div>
         </div>
         <div>
           <Label className="text-sm font-medium">Tagline</Label>
-          <Input value={formData.tagline} onChange={(e) => setFormData({ ...formData, tagline: e.target.value })} className="h-10" />
+          <Input
+            value={formData.tagline}
+            onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
+            className="h-10"
+          />
         </div>
         <div>
           <Label className="text-sm font-medium">Note</Label>
-          <Textarea value={formData.note || ""} onChange={(e) => setFormData({ ...formData, note: e.target.value })} rows={2} className="resize-none" spellCheck="false" />
+          <Textarea
+            value={formData.note || ""}
+            onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+            rows={2}
+            className="resize-none"
+            spellCheck="false"
+          />
         </div>
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -300,11 +368,15 @@ export function ExperienceEditForm({ experience, onSave, onCancel }: { experienc
                   value={typeof ach === "string" ? ach : ach.description || ""}
                   onChange={(e) => {
                     const newAchievements = [...formData.achievements];
-                    newAchievements[idx] = typeof ach === "string" ? e.target.value : { ...ach, description: e.target.value };
+                    newAchievements[idx] =
+                      typeof ach === "string"
+                        ? e.target.value
+                        : { ...ach, description: e.target.value };
                     setFormData({ ...formData, achievements: newAchievements });
                   }}
                   rows={2}
-                  className="flex-1 resize-none" spellCheck="false"
+                  className="flex-1 resize-none"
+                  spellCheck="false"
                 />
                 <Button variant="ghost" size="sm" onClick={() => removeAchievement(idx)}>
                   <Trash2 className="h-4 w-4" />
@@ -341,7 +413,7 @@ interface PortfolioProject {
 export function PortfolioProjectEditForm({
   project,
   onSave,
-  onCancel
+  onCancel,
 }: {
   project: PortfolioProject;
   onSave: (data: Partial<PortfolioProject>) => void;
@@ -364,7 +436,10 @@ export function PortfolioProjectEditForm({
   };
 
   const removeTech = (techToRemove: string) => {
-    setFormData({ ...formData, technologies: formData.technologies.filter(t => t !== techToRemove) });
+    setFormData({
+      ...formData,
+      technologies: formData.technologies.filter((t) => t !== techToRemove),
+    });
   };
 
   const addTag = () => {
@@ -376,7 +451,7 @@ export function PortfolioProjectEditForm({
   };
 
   const removeTag = (tagToRemove: string) => {
-    setFormData({ ...formData, tags: formData.tags.filter(t => t !== tagToRemove) });
+    setFormData({ ...formData, tags: formData.tags.filter((t) => t !== tagToRemove) });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, addFn: () => void) => {
@@ -387,12 +462,17 @@ export function PortfolioProjectEditForm({
   };
 
   return (
-    <Card className="shadow-lg border-[#E5E0D8]">
-      <CardHeader className="border-b border-[#E5E0D8] pb-4 bg-[#FAF8F2]">
+    <Card className="border-[#E5E0D8] shadow-lg">
+      <CardHeader className="border-b border-[#E5E0D8] bg-[#FAF8F2] pb-4">
         <CardTitle className="flex items-center justify-between text-lg">
           <span className="font-semibold text-[#2A2520]">Edit Project: {project.title}</span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onCancel} className="gap-2 border-[#D5D0C8] text-[#5C5550] hover:bg-[#F5F3F0] hover:text-[#2A2520]">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              className="gap-2 border-[#D5D0C8] text-[#5C5550] hover:bg-[#F5F3F0] hover:text-[#2A2520]"
+            >
               <X className="h-4 w-4" />
               Cancel
             </Button>
@@ -448,11 +528,16 @@ export function PortfolioProjectEditForm({
         <div className="grid grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium text-[#2A2520]">Status</Label>
-            <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v as "shipped" | "wip" | "archived" })}>
+            <Select
+              value={formData.status}
+              onValueChange={(v) =>
+                setFormData({ ...formData, status: v as "shipped" | "wip" | "archived" })
+              }
+            >
               <SelectTrigger className="h-10 border-[#E5E0D8]">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="z-[100] bg-white border-[#E5E0D8]">
+              <SelectContent className="z-[100] border-[#E5E0D8] bg-white">
                 <SelectItem value="shipped">Shipped</SelectItem>
                 <SelectItem value="wip">Work in Progress</SelectItem>
                 <SelectItem value="archived">Archived</SelectItem>
@@ -468,13 +553,13 @@ export function PortfolioProjectEditForm({
               placeholder="YYYY-MM"
             />
           </div>
-          <div className="space-y-2 flex items-end">
-            <label className="flex items-center gap-2 h-10 cursor-pointer">
+          <div className="flex items-end space-y-2">
+            <label className="flex h-10 cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={formData.featured}
                 onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                className="w-4 h-4 rounded border-[#E5E0D8]"
+                className="h-4 w-4 rounded border-[#E5E0D8]"
               />
               <span className="text-sm font-medium text-[#2A2520]">Featured</span>
             </label>
@@ -507,12 +592,12 @@ export function PortfolioProjectEditForm({
 
         <div className="space-y-2">
           <Label className="text-sm font-medium text-[#2A2520]">Technologies</Label>
-          <div className="flex flex-wrap gap-2 mb-2 min-h-[36px] p-2 border border-[#E5E0D8] rounded-md bg-[#FAF8F2]">
+          <div className="mb-2 flex min-h-[36px] flex-wrap gap-2 rounded-md border border-[#E5E0D8] bg-[#FAF8F2] p-2">
             {formData.technologies.map((tech) => (
               <Badge
                 key={tech}
                 variant="secondary"
-                className="gap-1 bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
+                className="gap-1 border border-blue-300 bg-blue-100 text-blue-700 hover:bg-blue-200"
               >
                 {tech}
                 <button
@@ -551,12 +636,12 @@ export function PortfolioProjectEditForm({
 
         <div className="space-y-2">
           <Label className="text-sm font-medium text-[#2A2520]">Tags</Label>
-          <div className="flex flex-wrap gap-2 mb-2 min-h-[36px] p-2 border border-[#E5E0D8] rounded-md bg-[#FAF8F2]">
+          <div className="mb-2 flex min-h-[36px] flex-wrap gap-2 rounded-md border border-[#E5E0D8] bg-[#FAF8F2] p-2">
             {formData.tags.map((tag) => (
               <Badge
                 key={tag}
                 variant="secondary"
-                className="gap-1 bg-[#00A0A4]/10 text-[#007A7D] border border-[#00A0A4]/30 hover:bg-[#00A0A4]/20"
+                className="gap-1 border border-[#00A0A4]/30 bg-[#00A0A4]/10 text-[#007A7D] hover:bg-[#00A0A4]/20"
               >
                 {tag}
                 <button
@@ -568,9 +653,7 @@ export function PortfolioProjectEditForm({
                 </button>
               </Badge>
             ))}
-            {formData.tags.length === 0 && (
-              <span className="text-sm text-[#A0998A]">No tags</span>
-            )}
+            {formData.tags.length === 0 && <span className="text-sm text-[#A0998A]">No tags</span>}
           </div>
           <div className="flex gap-2">
             <Input
@@ -607,7 +690,15 @@ export function PortfolioProjectEditForm({
   );
 }
 
-export function EducationEditForm({ education, onSave, onCancel }: { education: Education; onSave: (data: Partial<Education>) => void; onCancel: () => void }) {
+export function EducationEditForm({
+  education,
+  onSave,
+  onCancel,
+}: {
+  education: Education;
+  onSave: (data: Partial<Education>) => void;
+  onCancel: () => void;
+}) {
   const [formData, setFormData] = useState(education);
 
   const handleSave = () => {
@@ -644,11 +735,16 @@ export function EducationEditForm({ education, onSave, onCancel }: { education: 
 
   return (
     <Card className="border-[#E5E0D8]">
-      <CardHeader className="border-b border-[#E5E0D8] pb-4 bg-[#FAF8F2]">
+      <CardHeader className="border-b border-[#E5E0D8] bg-[#FAF8F2] pb-4">
         <CardTitle className="flex items-center justify-between text-lg">
           <span className="font-semibold text-[#2A2520]">Edit Education: {education.degree}</span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onCancel} className="gap-2 border-[#D5D0C8] text-[#5C5550] hover:bg-[#F5F3F0] hover:text-[#2A2520]">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              className="gap-2 border-[#D5D0C8] text-[#5C5550] hover:bg-[#F5F3F0] hover:text-[#2A2520]"
+            >
               <X className="h-4 w-4" />
               Cancel
             </Button>
@@ -663,40 +759,76 @@ export function EducationEditForm({ education, onSave, onCancel }: { education: 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium">Degree</Label>
-            <Input value={formData.degree} onChange={(e) => setFormData({ ...formData, degree: e.target.value })} className="h-10" />
+            <Input
+              value={formData.degree}
+              onChange={(e) => setFormData({ ...formData, degree: e.target.value })}
+              className="h-10"
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">Field</Label>
-            <Input value={formData.field} onChange={(e) => setFormData({ ...formData, field: e.target.value })} className="h-10" />
+            <Input
+              value={formData.field}
+              onChange={(e) => setFormData({ ...formData, field: e.target.value })}
+              className="h-10"
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium">Institution</Label>
-            <Input value={formData.institution} onChange={(e) => setFormData({ ...formData, institution: e.target.value })} className="h-10" />
+            <Input
+              value={formData.institution}
+              onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
+              className="h-10"
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">Location</Label>
-            <Input value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="h-10" />
+            <Input
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              className="h-10"
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium">Start Date (YYYY-MM)</Label>
-            <Input value={formData.dateStart} onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })} className="h-10" placeholder="2023-08" />
+            <Input
+              value={formData.dateStart}
+              onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })}
+              className="h-10"
+              placeholder="2023-08"
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-sm font-medium">End Date (YYYY-MM)</Label>
-            <Input value={formData.dateEnd} onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value })} className="h-10" placeholder="2023-02" />
+            <Input
+              value={formData.dateEnd}
+              onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value })}
+              className="h-10"
+              placeholder="2023-02"
+            />
           </div>
         </div>
         <div>
           <Label className="text-sm font-medium">Tagline</Label>
-          <Input value={formData.tagline} onChange={(e) => setFormData({ ...formData, tagline: e.target.value })} className="h-10" />
+          <Input
+            value={formData.tagline}
+            onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
+            className="h-10"
+          />
         </div>
         <div>
           <Label className="text-sm font-medium">Note</Label>
-          <Textarea value={formData.note || ""} onChange={(e) => setFormData({ ...formData, note: e.target.value })} rows={2} className="resize-none" spellCheck="false" />
+          <Textarea
+            value={formData.note || ""}
+            onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+            rows={2}
+            className="resize-none"
+            spellCheck="false"
+          />
         </div>
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -709,13 +841,13 @@ export function EducationEditForm({ education, onSave, onCancel }: { education: 
           <div className="space-y-2">
             {formData.focusAreas.map((area, idx) => (
               <div key={idx} className="flex gap-2">
-                <Input 
-                  value={area} 
+                <Input
+                  value={area}
                   onChange={(e) => {
                     const newAreas = [...formData.focusAreas];
                     newAreas[idx] = e.target.value;
                     setFormData({ ...formData, focusAreas: newAreas });
-                  }} 
+                  }}
                   className="h-10"
                 />
                 <Button variant="ghost" size="sm" onClick={() => removeFocusArea(idx)}>
@@ -736,13 +868,13 @@ export function EducationEditForm({ education, onSave, onCancel }: { education: 
           <div className="space-y-2">
             {formData.achievements.map((ach, idx) => (
               <div key={idx} className="flex gap-2">
-                <Input 
-                  value={ach} 
+                <Input
+                  value={ach}
                   onChange={(e) => {
                     const newAchievements = [...formData.achievements];
                     newAchievements[idx] = e.target.value;
                     setFormData({ ...formData, achievements: newAchievements });
-                  }} 
+                  }}
                   className="h-10"
                 />
                 <Button variant="ghost" size="sm" onClick={() => removeAchievement(idx)}>

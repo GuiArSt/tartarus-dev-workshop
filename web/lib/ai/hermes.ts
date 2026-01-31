@@ -18,16 +18,12 @@ export const ClarificationQuestionSchema = z.object({
     .describe(
       "A clarifying question when the text has cultural nuance, idioms, or multiple valid interpretations"
     ),
-  context: z
-    .string()
-    .describe("Brief explanation of why this clarification is needed"),
+  context: z.string().describe("Brief explanation of why this clarification is needed"),
   options: z
     .array(z.string())
     .min(2)
     .max(3)
-    .describe(
-      "2-3 quick-select options (A, B, C style). User can also provide free text."
-    ),
+    .describe("2-3 quick-select options (A, B, C style). User can also provide free text."),
 });
 
 /**
@@ -227,9 +223,7 @@ export function buildMemoryInjection(memory: HermesMemory): string {
         return t.term;
       })
       .join(", ");
-    sections.push(
-      `**Sacred Terms (preserve these, never translate):**\n${termsList}`
-    );
+    sections.push(`**Sacred Terms (preserve these, never translate):**\n${termsList}`);
   }
 
   // Memories/learnings
@@ -238,9 +232,7 @@ export function buildMemoryInjection(memory: HermesMemory): string {
     const memoryList = recentMemories
       .map((m) => {
         const langs =
-          m.sourceLanguage && m.targetLanguage
-            ? ` [${m.sourceLanguage}→${m.targetLanguage}]`
-            : "";
+          m.sourceLanguage && m.targetLanguage ? ` [${m.sourceLanguage}→${m.targetLanguage}]` : "";
         const tags = m.tags.length > 0 ? ` (${m.tags.join(", ")})` : "";
         return `- ${m.content}${langs}${tags}`;
       })
@@ -288,8 +280,7 @@ export function buildTranslationUserPrompt(
   const toneDescriptions: Record<TranslationTone, string> = {
     formal:
       "Use formal register. Professional, polished, suitable for business or official contexts.",
-    neutral:
-      "Use neutral register. Natural and conversational, neither too formal nor too casual.",
+    neutral: "Use neutral register. Natural and conversational, neither too formal nor too casual.",
     slang:
       "Use informal/slang register. Casual, friendly, use colloquialisms and expressions as appropriate.",
   };

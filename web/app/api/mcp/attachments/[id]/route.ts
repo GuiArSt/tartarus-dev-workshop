@@ -10,10 +10,7 @@ import { getDatabase } from "@/lib/db";
  * GET /api/mcp/attachments/:id/raw - Get raw binary content
  */
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // Validate MCP API key
   const auth = validateMcpApiKey(request);
   if (!auth.valid) {
@@ -39,16 +36,18 @@ export async function GET(
         `SELECT id, commit_hash, filename, file_type, file_size, description, file_data, created_at
          FROM journal_attachments WHERE id = ?`
       )
-      .get(attachmentId) as {
-      id: number;
-      commit_hash: string;
-      filename: string;
-      file_type: string;
-      file_size: number;
-      description: string | null;
-      file_data: Buffer;
-      created_at: string;
-    } | undefined;
+      .get(attachmentId) as
+      | {
+          id: number;
+          commit_hash: string;
+          filename: string;
+          file_type: string;
+          file_size: number;
+          description: string | null;
+          file_data: Buffer;
+          created_at: string;
+        }
+      | undefined;
 
     if (!attachment) {
       return NextResponse.json({ error: "Attachment not found" }, { status: 404 });
@@ -84,7 +83,7 @@ export async function GET(
           "Content-Length": attachment.file_size.toString(),
           "Content-Disposition": `inline; filename="${attachment.filename}"`,
           "Cache-Control": "public, max-age=3600", // 1 hour cache
-          "ETag": `"${attachment.id}-${attachment.file_size}"`,
+          ETag: `"${attachment.id}-${attachment.file_size}"`,
         },
       });
     }

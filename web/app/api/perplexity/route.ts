@@ -18,7 +18,7 @@ const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 
 // Allowed actions (whitelist)
 const ALLOWED_ACTIONS = ["search", "ask", "research", "reason"] as const;
-type Action = typeof ALLOWED_ACTIONS[number];
+type Action = (typeof ALLOWED_ACTIONS)[number];
 
 interface PerplexityRequest {
   action: Action;
@@ -47,10 +47,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "PERPLEXITY_API_KEY not configured" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "PERPLEXITY_API_KEY not configured" }, { status: 500 });
   }
 
   try {
@@ -95,7 +92,7 @@ export async function POST(req: NextRequest) {
     const response = await fetch(PERPLEXITY_API_URL, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(perplexityRequest),
@@ -136,7 +133,6 @@ export async function POST(req: NextRequest) {
       citations,
       usage: data.usage,
     });
-
   } catch (error: any) {
     console.error("[Perplexity] Error:", error);
     return NextResponse.json(

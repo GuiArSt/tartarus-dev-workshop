@@ -1,5 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Crimson_Pro, Cormorant_Garamond, Cinzel, IBM_Plex_Sans, Source_Serif_4, Playfair_Display, Spectral } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+  Crimson_Pro,
+  Cormorant_Garamond,
+  Cinzel,
+  IBM_Plex_Sans,
+  Source_Serif_4,
+  Playfair_Display,
+  Spectral,
+} from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -67,7 +77,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} ${crimsonPro.variable} ${cormorantGaramond.variable} ${cinzel.variable} ${ibmPlexSans.variable} ${sourceSerif4.variable} ${playfairDisplay.variable} ${spectral.variable} antialiased bg-[var(--tartarus-void)]`}>{children}</body>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} ${crimsonPro.variable} ${cormorantGaramond.variable} ${cinzel.variable} ${ibmPlexSans.variable} ${sourceSerif4.variable} ${playfairDisplay.variable} ${spectral.variable} bg-[var(--tartarus-void)] antialiased`}
+      >
+        {children}
+      </body>
     </html>
   );
 }

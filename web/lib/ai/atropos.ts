@@ -15,19 +15,13 @@ import { z } from "zod";
 export const IntentQuestionSchema = z.object({
   question: z
     .string()
-    .describe(
-      "A clarifying question when the text has ambiguity (double meaning, unclear intent)"
-    ),
-  context: z
-    .string()
-    .describe("Brief explanation of why this clarification is needed"),
+    .describe("A clarifying question when the text has ambiguity (double meaning, unclear intent)"),
+  context: z.string().describe("Brief explanation of why this clarification is needed"),
   options: z
     .array(z.string())
     .min(2)
     .max(3)
-    .describe(
-      "2-3 quick-select options (A, B, C style). User can also provide free text."
-    ),
+    .describe("2-3 quick-select options (A, B, C style). User can also provide free text."),
 });
 
 /**
@@ -41,9 +35,7 @@ export const CorrectionResponseSchema = z.object({
     ),
   hadChanges: z
     .boolean()
-    .describe(
-      "True if any corrections were made, false if text was already correct"
-    ),
+    .describe("True if any corrections were made, false if text was already correct"),
   intentQuestions: z
     .array(IntentQuestionSchema)
     .max(3)
@@ -229,10 +221,7 @@ export function getAtroposSystemPrompt(memory: AtroposMemory): string {
 /**
  * Build the user prompt for correction
  */
-export function buildCorrectionUserPrompt(
-  text: string,
-  answers?: Record<string, string>
-): string {
+export function buildCorrectionUserPrompt(text: string, answers?: Record<string, string>): string {
   let prompt = `Please correct the following:
 
 --------
@@ -252,10 +241,7 @@ ${text}`;
 /**
  * Build the user prompt for memory extraction
  */
-export function buildExtractionUserPrompt(
-  aiDraft: string,
-  userFinal: string
-): string {
+export function buildExtractionUserPrompt(aiDraft: string, userFinal: string): string {
   return `Analyze the differences between my AI-corrected draft and my final version.
 Extract what I changed and what patterns this reveals about my writing preferences.
 

@@ -12,12 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Main European languages with flag emojis
 const PRIMARY_LANGUAGES = [
@@ -80,20 +75,12 @@ export function LanguageSelector({
   const isPrimarySelected = PRIMARY_LANGUAGES.some((l) => l.code === value);
 
   // Filter out excluded language
-  const filteredPrimary = PRIMARY_LANGUAGES.filter(
-    (l) => l.code !== excludeLanguage
-  );
-  const filteredOther = OTHER_LANGUAGES.filter(
-    (l) => l.code !== excludeLanguage
-  );
+  const filteredPrimary = PRIMARY_LANGUAGES.filter((l) => l.code !== excludeLanguage);
+  const filteredOther = OTHER_LANGUAGES.filter((l) => l.code !== excludeLanguage);
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      {label && (
-        <span className="text-sm font-medium text-muted-foreground">
-          {label}
-        </span>
-      )}
+      {label && <span className="text-muted-foreground text-sm font-medium">{label}</span>}
 
       <div className="flex items-center gap-1">
         {/* Primary language flag buttons */}
@@ -107,7 +94,7 @@ export function LanguageSelector({
                     size="icon"
                     className={cn(
                       "h-9 w-9 text-lg",
-                      value === lang.code && "ring-2 ring-primary ring-offset-2"
+                      value === lang.code && "ring-primary ring-2 ring-offset-2"
                     )}
                     onClick={() => onChange(lang.code)}
                   >
@@ -128,14 +115,11 @@ export function LanguageSelector({
           onValueChange={(v) => onChange(v as LanguageCode)}
         >
           <SelectTrigger
-            className={cn(
-              "w-[140px]",
-              !isPrimarySelected && "ring-2 ring-primary ring-offset-2"
-            )}
+            className={cn("w-[140px]", !isPrimarySelected && "ring-primary ring-2 ring-offset-2")}
           >
             <SelectValue
               placeholder={
-                <span className="flex items-center gap-2 text-muted-foreground">
+                <span className="text-muted-foreground flex items-center gap-2">
                   <span>🌍</span>
                   <span>More...</span>
                 </span>
@@ -180,9 +164,7 @@ export function LanguageSelectorCompact({
   onChange,
   excludeLanguage,
 }: LanguageSelectorCompactProps) {
-  const filteredLanguages = ALL_LANGUAGES.filter(
-    (l) => l.code !== excludeLanguage
-  );
+  const filteredLanguages = ALL_LANGUAGES.filter((l) => l.code !== excludeLanguage);
   const selectedLanguage = ALL_LANGUAGES.find((l) => l.code === value);
 
   return (
@@ -200,29 +182,25 @@ export function LanguageSelectorCompact({
       <SelectContent>
         <SelectGroup>
           <SelectLabel>Primary</SelectLabel>
-          {PRIMARY_LANGUAGES.filter((l) => l.code !== excludeLanguage).map(
-            (lang) => (
-              <SelectItem key={lang.code} value={lang.code}>
-                <span className="flex items-center gap-2">
-                  <span>{lang.flag}</span>
-                  <span>{lang.name}</span>
-                </span>
-              </SelectItem>
-            )
-          )}
+          {PRIMARY_LANGUAGES.filter((l) => l.code !== excludeLanguage).map((lang) => (
+            <SelectItem key={lang.code} value={lang.code}>
+              <span className="flex items-center gap-2">
+                <span>{lang.flag}</span>
+                <span>{lang.name}</span>
+              </span>
+            </SelectItem>
+          ))}
         </SelectGroup>
         <SelectGroup>
           <SelectLabel>Other</SelectLabel>
-          {OTHER_LANGUAGES.filter((l) => l.code !== excludeLanguage).map(
-            (lang) => (
-              <SelectItem key={lang.code} value={lang.code}>
-                <span className="flex items-center gap-2">
-                  <span>{lang.flag}</span>
-                  <span>{lang.name}</span>
-                </span>
-              </SelectItem>
-            )
-          )}
+          {OTHER_LANGUAGES.filter((l) => l.code !== excludeLanguage).map((lang) => (
+            <SelectItem key={lang.code} value={lang.code}>
+              <span className="flex items-center gap-2">
+                <span>{lang.flag}</span>
+                <span>{lang.name}</span>
+              </span>
+            </SelectItem>
+          ))}
         </SelectGroup>
       </SelectContent>
     </Select>

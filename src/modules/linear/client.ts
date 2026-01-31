@@ -1,6 +1,6 @@
-import { LinearClient as LinearSDK } from '@linear/sdk';
-import { LinearAPIError } from '../../shared/errors.js';
-import { logger } from '../../shared/logger.js';
+import { LinearClient as LinearSDK } from "@linear/sdk";
+import { LinearAPIError } from "../../shared/errors.js";
+import { logger } from "../../shared/logger.js";
 import type {
   LinearTeam,
   LinearProject,
@@ -9,7 +9,7 @@ import type {
   UpdateIssueInput,
   UpdateProjectInput,
   CreateProjectInput,
-} from './types.js';
+} from "./types.js";
 
 /**
  * Linear API client wrapper using official SDK
@@ -19,7 +19,7 @@ export class LinearClient {
 
   constructor(apiKey: string) {
     this.sdk = new LinearSDK({ apiKey });
-    logger.debug('Linear client initialized');
+    logger.debug("Linear client initialized");
   }
 
   async getViewer(): Promise<{
@@ -30,7 +30,7 @@ export class LinearClient {
     projects: LinearProject[];
   }> {
     try {
-      logger.debug('Fetching viewer info (current user)');
+      logger.debug("Fetching viewer info (current user)");
       const viewer = await this.sdk.viewer;
       const teams = await viewer.teams();
 
@@ -58,15 +58,15 @@ export class LinearClient {
       };
     } catch (error) {
       throw new LinearAPIError(
-        `Failed to get viewer: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error
+        `Failed to get viewer: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error,
       );
     }
   }
 
   async listTeams(): Promise<LinearTeam[]> {
     try {
-      logger.debug('Fetching Linear teams');
+      logger.debug("Fetching Linear teams");
       const teams = await this.sdk.teams();
       return teams.nodes.map((team) => ({
         id: team.id,
@@ -75,15 +75,17 @@ export class LinearClient {
       }));
     } catch (error) {
       throw new LinearAPIError(
-        `Failed to list teams: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error
+        `Failed to list teams: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error,
       );
     }
   }
 
   async listProjects(teamId?: string): Promise<LinearProject[]> {
     try {
-      logger.debug(`Fetching Linear projects${teamId ? ` for team ${teamId}` : ''}`);
+      logger.debug(
+        `Fetching Linear projects${teamId ? ` for team ${teamId}` : ""}`,
+      );
 
       // Fetch all projects (Linear SDK doesn't support team filtering on projects easily)
       const projectsQuery = await this.sdk.projects();
@@ -97,22 +99,31 @@ export class LinearClient {
       }));
     } catch (error) {
       throw new LinearAPIError(
-        `Failed to list projects: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error
+        `Failed to list projects: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error,
       );
     }
   }
 
-  async listIssues(options: {
-    assigneeId?: string;
-    stateId?: string;
-    teamId?: string;
-    projectId?: string;
-    query?: string;
-    limit?: number;
-  } = {}): Promise<LinearIssue[]> {
+  async listIssues(
+    options: {
+      assigneeId?: string;
+      stateId?: string;
+      teamId?: string;
+      projectId?: string;
+      query?: string;
+      limit?: number;
+    } = {},
+  ): Promise<LinearIssue[]> {
     try {
-      const { assigneeId, stateId, teamId, projectId, query, limit = 50 } = options;
+      const {
+        assigneeId,
+        stateId,
+        teamId,
+        projectId,
+        query,
+        limit = 50,
+      } = options;
 
       logger.debug(`Listing Linear issues with filters:`, options);
 
@@ -145,7 +156,7 @@ export class LinearClient {
 
       const issues = await this.sdk.issues({
         filter: Object.keys(filter).length > 0 ? filter : undefined,
-        first: limit
+        first: limit,
       });
 
       return await Promise.all(
@@ -163,16 +174,22 @@ export class LinearClient {
             url: issue.url,
             priority: issue.priority,
             state: state ? { id: state.id, name: state.name } : undefined,
-            assignee: assignee ? { id: assignee.id, name: assignee.name } : undefined,
-            team: team ? { id: team.id, name: team.name, key: team.key } : undefined,
-            project: project ? { id: project.id, name: project.name } : undefined,
+            assignee: assignee
+              ? { id: assignee.id, name: assignee.name }
+              : undefined,
+            team: team
+              ? { id: team.id, name: team.name, key: team.key }
+              : undefined,
+            project: project
+              ? { id: project.id, name: project.name }
+              : undefined,
           };
-        })
+        }),
       );
     } catch (error) {
       throw new LinearAPIError(
-        `Failed to list issues: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error
+        `Failed to list issues: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error,
       );
     }
   }
@@ -196,7 +213,7 @@ export class LinearClient {
       const issue = await result.issue;
 
       if (!issue) {
-        throw new LinearAPIError('Failed to create issue: No issue returned');
+        throw new LinearAPIError("Failed to create issue: No issue returned");
       }
 
       return {
@@ -209,8 +226,8 @@ export class LinearClient {
       };
     } catch (error) {
       throw new LinearAPIError(
-        `Failed to create issue: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error
+        `Failed to create issue: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error,
       );
     }
   }
@@ -221,7 +238,8 @@ export class LinearClient {
 
       const updatePayload: any = {};
       if (input.title) updatePayload.title = input.title;
-      if (input.description !== undefined) updatePayload.description = input.description;
+      if (input.description !== undefined)
+        updatePayload.description = input.description;
       if (input.priority !== undefined) updatePayload.priority = input.priority;
       if (input.stateId) updatePayload.stateId = input.stateId;
       if (input.assigneeId) updatePayload.assigneeId = input.assigneeId;
@@ -230,7 +248,7 @@ export class LinearClient {
       const issue = await result.issue;
 
       if (!issue) {
-        throw new LinearAPIError('Failed to update issue: No issue returned');
+        throw new LinearAPIError("Failed to update issue: No issue returned");
       }
 
       return {
@@ -243,8 +261,8 @@ export class LinearClient {
       };
     } catch (error) {
       throw new LinearAPIError(
-        `Failed to update issue: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error
+        `Failed to update issue: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error,
       );
     }
   }
@@ -293,11 +311,13 @@ export class LinearClient {
       `,
         {
           input: createInput,
-        }
+        },
       );
 
       if (!result.projectCreate?.success || !result.projectCreate.project) {
-        throw new LinearAPIError('Failed to create project: No project returned');
+        throw new LinearAPIError(
+          "Failed to create project: No project returned",
+        );
       }
 
       const createdProject = result.projectCreate.project;
@@ -310,8 +330,8 @@ export class LinearClient {
       };
     } catch (error) {
       throw new LinearAPIError(
-        `Failed to create project: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error
+        `Failed to create project: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error,
       );
     }
   }
@@ -323,11 +343,14 @@ export class LinearClient {
       // Use GraphQL mutation directly as the SDK's project.update() has issues
       const updateInput: any = {};
       if (input.name) updateInput.name = input.name;
-      if (input.description !== undefined) updateInput.description = input.description;
+      if (input.description !== undefined)
+        updateInput.description = input.description;
       if (input.content !== undefined) updateInput.content = input.content;
       if (input.leadId !== undefined) updateInput.leadId = input.leadId;
-      if (input.targetDate !== undefined) updateInput.targetDate = input.targetDate;
-      if (input.startDate !== undefined) updateInput.startDate = input.startDate;
+      if (input.targetDate !== undefined)
+        updateInput.targetDate = input.targetDate;
+      if (input.startDate !== undefined)
+        updateInput.startDate = input.startDate;
 
       const result = await this.sdk.client.request<{
         projectUpdate: {
@@ -356,11 +379,13 @@ export class LinearClient {
         {
           id: input.projectId,
           input: updateInput,
-        }
+        },
       );
 
       if (!result.projectUpdate?.success || !result.projectUpdate.project) {
-        throw new LinearAPIError('Failed to update project: No project returned');
+        throw new LinearAPIError(
+          "Failed to update project: No project returned",
+        );
       }
 
       const updatedProject = result.projectUpdate.project;
@@ -373,8 +398,8 @@ export class LinearClient {
       };
     } catch (error) {
       throw new LinearAPIError(
-        `Failed to update project: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error
+        `Failed to update project: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error,
       );
     }
   }

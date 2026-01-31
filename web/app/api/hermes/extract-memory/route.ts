@@ -8,10 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText, Output } from "ai";
-import {
-  MemoryExtractionSchema,
-  buildExtractionUserPrompt,
-} from "@/lib/ai/hermes";
+import { MemoryExtractionSchema, buildExtractionUserPrompt } from "@/lib/ai/hermes";
 
 const EXTRACTION_SYSTEM_PROMPT = `You are Hermes, the messenger who translates.
 You are analyzing the differences between your AI translation and the user's final version.
@@ -36,26 +33,17 @@ export async function POST(request: NextRequest) {
     const { aiTranslation, userFinal, sourceLanguage, targetLanguage } = await request.json();
 
     if (!aiTranslation || typeof aiTranslation !== "string") {
-      return NextResponse.json(
-        { error: "aiTranslation is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "aiTranslation is required" }, { status: 400 });
     }
 
     if (!userFinal || typeof userFinal !== "string") {
-      return NextResponse.json(
-        { error: "userFinal is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "userFinal is required" }, { status: 400 });
     }
 
     // Check API key
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "Anthropic API key not configured" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
     }
 
     // Build the extraction prompt

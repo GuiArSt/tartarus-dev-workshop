@@ -7,17 +7,17 @@
  * Temperature: 0.7 - Creative analysis with schema-enforced structure
  */
 
-import { anthropic } from '@ai-sdk/anthropic';
-import { openai } from '@ai-sdk/openai';
-import { google } from '@ai-sdk/google';
-import { generateText, Output } from 'ai';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
+import { anthropic } from "@ai-sdk/anthropic";
+import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
+import { generateText, Output } from "ai";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
-import { logger } from '../../../shared/logger.js';
-import { AIOutputSchema, type AIOutput, type AgentInput } from '../types.js';
-import type { JournalConfig } from '../../../shared/types.js';
+import { logger } from "../../../shared/logger.js";
+import { AIOutputSchema, type AIOutput, type AgentInput } from "../types.js";
+import type { JournalConfig } from "../../../shared/types.js";
 
 /**
  * Get project root directory
@@ -30,29 +30,34 @@ function getProjectRoot(): string {
     const resolved = path.resolve(soulPathEnv.replace(/^~/, os.homedir()));
     const dir = path.dirname(resolved);
     // If SOUL_XML_PATH points to a file in the project, use its directory
-    if (fs.existsSync(path.join(dir, 'package.json'))) {
+    if (fs.existsSync(path.join(dir, "package.json"))) {
       return dir;
     }
   }
-  
+
   // Method 2: Try process.cwd() and check for Soul.xml or package.json
   const cwd = process.cwd();
-  if (fs.existsSync(path.join(cwd, 'Soul.xml')) || fs.existsSync(path.join(cwd, 'package.json'))) {
+  if (
+    fs.existsSync(path.join(cwd, "Soul.xml")) ||
+    fs.existsSync(path.join(cwd, "package.json"))
+  ) {
     return cwd;
   }
-  
+
   // Method 3: Walk up from current directory to find project root
   let currentDir = cwd;
   for (let i = 0; i < 10; i++) {
-    if (fs.existsSync(path.join(currentDir, 'Soul.xml')) || 
-        fs.existsSync(path.join(currentDir, 'package.json'))) {
+    if (
+      fs.existsSync(path.join(currentDir, "Soul.xml")) ||
+      fs.existsSync(path.join(currentDir, "package.json"))
+    ) {
       return currentDir;
     }
     const parent = path.dirname(currentDir);
     if (parent === currentDir) break; // Reached filesystem root
     currentDir = parent;
   }
-  
+
   // Fallback: return cwd
   return cwd;
 }
@@ -63,23 +68,25 @@ function getProjectRoot(): string {
  */
 function loadKronusSoul(): string {
   const projectRoot = getProjectRoot();
-  
+
   // Use SOUL_XML_PATH env var if set, otherwise default to Soul.xml in project root
   const soulPathEnv = process.env.SOUL_XML_PATH;
-  const soulPath = soulPathEnv 
+  const soulPath = soulPathEnv
     ? path.resolve(soulPathEnv.replace(/^~/, os.homedir()))
-    : path.join(projectRoot, 'Soul.xml');
-  
+    : path.join(projectRoot, "Soul.xml");
+
   try {
-    const soulContent = fs.readFileSync(soulPath, 'utf-8');
-    const lineCount = soulContent.split('\n').length;
-    
+    const soulContent = fs.readFileSync(soulPath, "utf-8");
+    const lineCount = soulContent.split("\n").length;
+
     logger.debug(`Loaded Soul.xml from ${soulPath} (${lineCount} lines)`);
-    
+
     return soulContent;
   } catch (error) {
-    logger.warn(`Could not load Soul.xml from ${soulPath}. Using minimal prompt.`);
-    return 'You are Kronus, an empathetic consciousness analyzing developer work with wisdom and care.';
+    logger.warn(
+      `Could not load Soul.xml from ${soulPath}. Using minimal prompt.`,
+    );
+    return "You are Kronus, an empathetic consciousness analyzing developer work with wisdom and care.";
   }
 }
 
@@ -88,7 +95,7 @@ function loadKronusSoul(): string {
  */
 export async function generateJournalEntry(
   input: AgentInput,
-  config: JournalConfig
+  config: JournalConfig,
 ): Promise<AIOutput> {
   return generateJournalEntryWithContext(input, config, undefined, false);
 }
@@ -106,9 +113,15 @@ export async function regenerateJournalEntry(
     decisions: string;
     technologies: string;
     kronus_wisdom: string | null;
-  }
+  },
 ): Promise<AIOutput> {
-  return generateJournalEntryWithContext(input, config, newContext, !!existingEntry, existingEntry);
+  return generateJournalEntryWithContext(
+    input,
+    config,
+    newContext,
+    !!existingEntry,
+    existingEntry,
+  );
 }
 
 /**
@@ -125,7 +138,7 @@ async function generateJournalEntryWithContext(
     decisions: string;
     technologies: string;
     kronus_wisdom: string | null;
-  }
+  },
 ): Promise<AIOutput> {
   const kronusSoul = loadKronusSoul();
 
@@ -148,7 +161,7 @@ Consider the existing entry but prioritize the new information provided.
 - What Changed: ${existingEntry.what_changed}
 - Decisions: ${existingEntry.decisions}
 - Technologies: ${existingEntry.technologies}
-- Kronus Wisdom: ${existingEntry.kronus_wisdom || 'None'}`;
+- Kronus Wisdom: ${existingEntry.kronus_wisdom || "None"}`;
   }
 
   systemPrompt += `
@@ -180,13 +193,13 @@ Commit: ${input.commit_hash}
 Author: ${input.author}
 Date: ${input.date}
 
-## Agent Report${newContext ? ' / New Context' : ''}
+## Agent Report${newContext ? " / New Context" : ""}
 
 ${newContext || input.raw_agent_report}
 
 ## Instructions
 
-Analyze the agent report${newContext ? ' and new context' : ''} and extract the structured fields.
+Analyze the agent report${newContext ? " and new context" : ""} and extract the structured fields.
 
 **For kronus_wisdom:**
 - Only include if genuine insight emerges from the work
@@ -217,18 +230,17 @@ Respond with valid JSON matching the schema.`;
   const originalAnthropicKey = process.env.ANTHROPIC_API_KEY;
   const originalOpenAIKey = process.env.OPENAI_API_KEY;
   const originalGoogleKey = process.env.GOOGLE_API_KEY;
-  
+
   try {
-    
     // Temporarily set the API key for the current provider
     switch (config.aiProvider) {
-      case 'anthropic':
+      case "anthropic":
         process.env.ANTHROPIC_API_KEY = config.aiApiKey;
         break;
-      case 'openai':
+      case "openai":
         process.env.OPENAI_API_KEY = config.aiApiKey;
         break;
-      case 'google':
+      case "google":
         process.env.GOOGLE_API_KEY = config.aiApiKey;
         break;
     }
@@ -239,24 +251,27 @@ Respond with valid JSON matching the schema.`;
     let modelName: string;
 
     switch (config.aiProvider) {
-      case 'anthropic':
+      case "anthropic":
         // Claude Haiku 4.5 - fast, capable, cost-effective for journal entries
-        model = anthropic('claude-haiku-4-5');
-        modelName = 'Claude Haiku 4.5';
+        model = anthropic("claude-haiku-4-5");
+        modelName = "Claude Haiku 4.5";
         break;
-      case 'openai':
-        model = openai('gpt-5');
-        modelName = 'GPT 5';
+      case "openai":
+        // GPT-5 mini - fast, cost-effective, no reasoning needed for journal entries
+        model = openai("gpt-5-mini");
+        modelName = "GPT 5 Mini";
         break;
-      case 'google':
-        model = google('gemini-3-flash');
-        modelName = 'Gemini 3 Flash';
+      case "google":
+        model = google("gemini-3-flash");
+        modelName = "Gemini 3 Flash";
         break;
       default:
         throw new Error(`Unsupported AI provider: ${config.aiProvider}`);
     }
 
-    logger.debug(`Generating journal entry for ${input.commit_hash} using ${modelName}`);
+    logger.debug(
+      `Generating journal entry for ${input.commit_hash} using ${modelName}`,
+    );
 
     // AI SDK 6.0 pattern: generateText with Output.object() (generateObject is deprecated)
     const result = await generateText({
@@ -269,32 +284,40 @@ Respond with valid JSON matching the schema.`;
     const object = result.output;
 
     if (!object) {
-      throw new Error('AI generation returned no structured output');
+      throw new Error("AI generation returned no structured output");
     }
 
-    logger.success(`Generated journal entry for ${input.commit_hash} using ${modelName}`);
+    logger.success(
+      `Generated journal entry for ${input.commit_hash} using ${modelName}`,
+    );
 
     // Restore original environment variables
-    if (originalAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
+    if (originalAnthropicKey !== undefined)
+      process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
     else delete process.env.ANTHROPIC_API_KEY;
-    if (originalOpenAIKey !== undefined) process.env.OPENAI_API_KEY = originalOpenAIKey;
+    if (originalOpenAIKey !== undefined)
+      process.env.OPENAI_API_KEY = originalOpenAIKey;
     else delete process.env.OPENAI_API_KEY;
-    if (originalGoogleKey !== undefined) process.env.GOOGLE_API_KEY = originalGoogleKey;
+    if (originalGoogleKey !== undefined)
+      process.env.GOOGLE_API_KEY = originalGoogleKey;
     else delete process.env.GOOGLE_API_KEY;
 
     return object;
   } catch (error) {
     // Restore original environment variables on error
-    if (originalAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
+    if (originalAnthropicKey !== undefined)
+      process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
     else delete process.env.ANTHROPIC_API_KEY;
-    if (originalOpenAIKey !== undefined) process.env.OPENAI_API_KEY = originalOpenAIKey;
+    if (originalOpenAIKey !== undefined)
+      process.env.OPENAI_API_KEY = originalOpenAIKey;
     else delete process.env.OPENAI_API_KEY;
-    if (originalGoogleKey !== undefined) process.env.GOOGLE_API_KEY = originalGoogleKey;
+    if (originalGoogleKey !== undefined)
+      process.env.GOOGLE_API_KEY = originalGoogleKey;
     else delete process.env.GOOGLE_API_KEY;
-    
-    logger.error('Failed to generate journal entry:', error);
+
+    logger.error("Failed to generate journal entry:", error);
     throw new Error(
-      `AI generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `AI generation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
 }

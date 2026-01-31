@@ -96,7 +96,11 @@ export type DocumentQueryParams = z.infer<typeof documentQuerySchema>;
  */
 export const createDocumentSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes").optional(),
+  slug: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes")
+    .optional(),
   type: z.enum(["writing", "prompt", "note"]).default("writing"),
   content: z.string().min(1, "Content is required"),
   language: z.string().default("en"),
@@ -139,7 +143,10 @@ export type LoginRequest = z.infer<typeof loginSchema>;
  * Create skill
  */
 export const createSkillSchema = z.object({
-  id: z.string().min(1).regex(/^[a-z0-9-]+$/, "ID must be lowercase alphanumeric with dashes"),
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "ID must be lowercase alphanumeric with dashes"),
   name: z.string().min(1),
   category: z.string().min(1),
   magnitude: z.number().min(1).max(5),
@@ -202,7 +209,9 @@ export type CreateMedia = z.infer<typeof createMediaSchema>;
  * Key decision made during the conversation
  */
 export const decisionSchema = z.object({
-  topic: z.string().describe("What the decision was about (e.g., 'Database schema', 'UI component')"),
+  topic: z
+    .string()
+    .describe("What the decision was about (e.g., 'Database schema', 'UI component')"),
   decision: z.string().describe("The actual decision made"),
   rationale: z.string().optional().describe("Why this decision was made, if discussed"),
 });
@@ -231,24 +240,23 @@ export const codeArtifactSchema = z.object({
  */
 export const compressionSummarySchema = z.object({
   // High-level summary
-  conversationOverview: z.string()
+  conversationOverview: z
+    .string()
     .describe("2-3 sentence overview of what this conversation was about"),
 
   // Key topics discussed
-  topicsDiscussed: z.array(z.string())
+  topicsDiscussed: z
+    .array(z.string())
     .describe("List of main topics/areas covered in the conversation"),
 
   // Decisions made
-  decisions: z.array(decisionSchema)
-    .describe("Important decisions made during the conversation"),
+  decisions: z.array(decisionSchema).describe("Important decisions made during the conversation"),
 
   // Tasks and their status
-  tasks: z.array(taskSchema)
-    .describe("Tasks identified, worked on, or completed"),
+  tasks: z.array(taskSchema).describe("Tasks identified, worked on, or completed"),
 
   // Code changes
-  codeArtifacts: z.array(codeArtifactSchema)
-    .describe("Files created, modified, or deleted"),
+  codeArtifacts: z.array(codeArtifactSchema).describe("Files created, modified, or deleted"),
 
   // Technical context
   technicalContext: z.object({
@@ -258,11 +266,15 @@ export const compressionSummarySchema = z.object({
   }),
 
   // User preferences discovered
-  userPreferences: z.array(z.string()).optional()
+  userPreferences: z
+    .array(z.string())
+    .optional()
     .describe("User preferences or style choices discovered during conversation"),
 
   // Open questions or blockers
-  openItems: z.array(z.string()).optional()
+  openItems: z
+    .array(z.string())
+    .optional()
     .describe("Unresolved questions or blockers at end of conversation"),
 
   // Metadata
@@ -347,7 +359,10 @@ export type PortfolioQueryParams = z.infer<typeof portfolioQuerySchema>;
  * Create portfolio project
  */
 export const createPortfolioProjectSchema = z.object({
-  id: z.string().min(1).regex(/^[a-z0-9-]+$/, "ID must be lowercase alphanumeric with dashes"),
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "ID must be lowercase alphanumeric with dashes"),
   title: z.string().min(1, "Title is required"),
   category: z.string().min(1, "Category is required"),
   company: z.string().optional(),
@@ -370,7 +385,9 @@ export type CreatePortfolioProject = z.infer<typeof createPortfolioProjectSchema
 /**
  * Update portfolio project
  */
-export const updatePortfolioProjectSchema = createPortfolioProjectSchema.partial().omit({ id: true });
+export const updatePortfolioProjectSchema = createPortfolioProjectSchema
+  .partial()
+  .omit({ id: true });
 
 export type UpdatePortfolioProject = z.infer<typeof updatePortfolioProjectSchema>;
 
@@ -382,7 +399,10 @@ export type UpdatePortfolioProject = z.infer<typeof updatePortfolioProjectSchema
  * Create work experience
  */
 export const createExperienceSchema = z.object({
-  id: z.string().min(1).regex(/^[a-z0-9-]+$/, "ID must be lowercase alphanumeric with dashes"),
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "ID must be lowercase alphanumeric with dashes"),
   title: z.string().min(1, "Title is required"),
   company: z.string().min(1, "Company is required"),
   department: z.string().optional(),
@@ -412,7 +432,10 @@ export type UpdateExperience = z.infer<typeof updateExperienceSchema>;
  * Create education
  */
 export const createEducationSchema = z.object({
-  id: z.string().min(1).regex(/^[a-z0-9-]+$/, "ID must be lowercase alphanumeric with dashes"),
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "ID must be lowercase alphanumeric with dashes"),
   degree: z.string().min(1, "Degree is required"),
   field: z.string().min(1, "Field is required"),
   institution: z.string().min(1, "Institution is required"),
@@ -461,3 +484,108 @@ export const updateCategorySchema = z.object({
 });
 
 export type UpdateCategory = z.infer<typeof updateCategorySchema>;
+
+// ============================================================================
+// PROMPT MANAGEMENT SCHEMAS
+// ============================================================================
+
+/**
+ * Query params for listing prompts
+ */
+export const promptQuerySchema = paginationSchema.extend({
+  project_id: z.string().optional(),
+  role: z.enum(["system", "user", "assistant", "chat"]).optional(),
+  status: z.enum(["active", "draft", "deprecated", "archived"]).optional(),
+  search: z.string().optional(),
+  latest_only: z.coerce.boolean().default(true),
+});
+
+export type PromptQueryParams = z.infer<typeof promptQuerySchema>;
+
+/**
+ * Create prompt
+ */
+export const createPromptSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  slug: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes")
+    .optional(),
+  project_id: z.string().optional(),
+  content: z.string().min(1, "Content is required"),
+  role: z.enum(["system", "user", "assistant", "chat"]).default("system"),
+  purpose: z.string().optional(),
+  input_schema: z.string().optional(),
+  output_schema: z.string().optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
+  status: z.enum(["active", "draft", "deprecated", "archived"]).default("active"),
+  tags: z.array(z.string()).default([]),
+  language: z.string().default("en"),
+});
+
+export type CreatePrompt = z.infer<typeof createPromptSchema>;
+
+/**
+ * Update prompt (creates new version)
+ */
+export const updatePromptSchema = z.object({
+  name: z.string().min(1).optional(),
+  content: z.string().min(1).optional(),
+  project_id: z.string().nullable().optional(),
+  role: z.enum(["system", "user", "assistant", "chat"]).optional(),
+  purpose: z.string().nullable().optional(),
+  input_schema: z.string().nullable().optional(),
+  output_schema: z.string().nullable().optional(),
+  config: z.record(z.string(), z.unknown()).nullable().optional(),
+  status: z.enum(["active", "draft", "deprecated", "archived"]).optional(),
+  tags: z.array(z.string()).optional(),
+  language: z.string().optional(),
+  // If true, creates a new version instead of updating in place
+  create_version: z.boolean().default(false),
+});
+
+export type UpdatePrompt = z.infer<typeof updatePromptSchema>;
+
+/**
+ * Slug parameter for prompts
+ */
+export const promptSlugSchema = z.object({
+  slug: z.string().min(1, "Slug is required"),
+});
+
+export type PromptSlugParam = z.infer<typeof promptSlugSchema>;
+
+/**
+ * Query params for listing prompt projects
+ */
+export const promptProjectQuerySchema = paginationSchema.extend({
+  status: z.enum(["active", "archived", "draft"]).optional(),
+  search: z.string().optional(),
+});
+
+export type PromptProjectQueryParams = z.infer<typeof promptProjectQuerySchema>;
+
+/**
+ * Create prompt project
+ */
+export const createPromptProjectSchema = z.object({
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "ID must be lowercase alphanumeric with dashes"),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  status: z.enum(["active", "archived", "draft"]).default("active"),
+  tags: z.array(z.string()).default([]),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+export type CreatePromptProject = z.infer<typeof createPromptProjectSchema>;
+
+/**
+ * Update prompt project
+ */
+export const updatePromptProjectSchema = createPromptProjectSchema.partial().omit({ id: true });
+
+export type UpdatePromptProject = z.infer<typeof updatePromptProjectSchema>;

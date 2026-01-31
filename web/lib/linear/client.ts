@@ -79,12 +79,10 @@ export async function listIssues(
   } = {}
 ) {
   const { stateId, teamId, projectId, query: searchQuery, limit = 50, showAll = false } = options;
-  
+
   // Apply default user filter unless showAll is true
   const defaultUserId = getDefaultUserId();
-  const finalAssigneeId = showAll 
-    ? options.assigneeId 
-    : (options.assigneeId || defaultUserId);
+  const finalAssigneeId = showAll ? options.assigneeId : options.assigneeId || defaultUserId;
 
   const filters: string[] = [];
 
@@ -207,18 +205,18 @@ export async function updateIssue(
 export async function listProjects(options: { teamId?: string; showAll?: boolean } = {}) {
   const { teamId, showAll = false } = options;
   const defaultUserId = getDefaultUserId();
-  
+
   const filters: string[] = [];
-  
+
   if (teamId) {
     filters.push(`accessibleTeams: { id: { eq: "${teamId}" } }`);
   }
-  
+
   // Filter to projects where user is a member (unless showAll)
   if (!showAll && defaultUserId) {
     filters.push(`members: { id: { eq: "${defaultUserId}" } }`);
   }
-  
+
   const filterStr = filters.length > 0 ? `filter: { ${filters.join(", ")} }` : "";
 
   const query = `

@@ -79,33 +79,53 @@ function formatTechnicalContent(content: string): string {
 
   // Wrap snake_case identifiers (table names, function names) in backticks
   // Must have at least one underscore and be 3+ chars
-  formatted = formatted.replace(
-    /(?<!`)\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b(?!`)/g,
-    "`$1`"
-  );
+  formatted = formatted.replace(/(?<!`)\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b(?!`)/g, "`$1`");
 
   // Wrap known acronyms/system names in backticks (if not already wrapped)
   // Common project-specific acronyms
-  const acronyms = ["TAS", "AIR", "CAI", "ISCO", "API", "SDK", "CLI", "MCP", "SQL", "JSON", "CSV", "HubSpot", "CRM", "MongoDB", "Nexus", "Jobilla"];
-  acronyms.forEach(acronym => {
+  const acronyms = [
+    "TAS",
+    "AIR",
+    "CAI",
+    "ISCO",
+    "API",
+    "SDK",
+    "CLI",
+    "MCP",
+    "SQL",
+    "JSON",
+    "CSV",
+    "HubSpot",
+    "CRM",
+    "MongoDB",
+    "Nexus",
+    "Jobilla",
+  ];
+  acronyms.forEach((acronym) => {
     // Use word boundaries and negative lookbehind/lookahead for backticks
     const regex = new RegExp(`(?<!\`)\\b(${acronym})\\b(?!\`)`, "g");
     formatted = formatted.replace(regex, "`$1`");
   });
 
   // Wrap parenthesized counts like (23,011 jobs) or (188 AIR campaigns) - make the number bold
-  formatted = formatted.replace(
-    /\((\d{1,3}(?:,\d{3})*)\s+([^)]+)\)/g,
-    "(**$1** $2)"
-  );
+  formatted = formatted.replace(/\((\d{1,3}(?:,\d{3})*)\s+([^)]+)\)/g, "(**$1** $2)");
 
   // Add line breaks before sentences starting with action verbs (if preceded by period + space)
-  const actionVerbs = ["Created", "Generated", "Added", "Cleaned", "Established", "Implemented", "Updated", "Removed", "Fixed", "Built", "Migrated"];
-  actionVerbs.forEach(verb => {
-    formatted = formatted.replace(
-      new RegExp(`\\.\\s+(${verb})`, "g"),
-      ".\n\n$1"
-    );
+  const actionVerbs = [
+    "Created",
+    "Generated",
+    "Added",
+    "Cleaned",
+    "Established",
+    "Implemented",
+    "Updated",
+    "Removed",
+    "Fixed",
+    "Built",
+    "Migrated",
+  ];
+  actionVerbs.forEach((verb) => {
+    formatted = formatted.replace(new RegExp(`\\.\\s+(${verb})`, "g"), ".\n\n$1");
   });
 
   return formatted;
@@ -120,7 +140,7 @@ function formatDecisions(decisions: string): string {
   if (!decisions) return "";
 
   // First apply technical formatting
-  let formatted = formatTechnicalContent(decisions);
+  const formatted = formatTechnicalContent(decisions);
 
   // Check if content already has proper line breaks for numbered items
   if (/^\d+\.\s/m.test(formatted) && formatted.includes("\n")) {
@@ -235,9 +255,10 @@ export default function EntryDetailPage() {
     if (!entry) return;
 
     // Build attachment info if present
-    const attachmentInfo = entry.attachments && entry.attachments.length > 0
-      ? `\n\n**Attachments (${entry.attachments.length}):**\n${entry.attachments.map(a => `- ${a.filename} (${a.mime_type}, ${(a.file_size / 1024).toFixed(1)}KB)${a.description ? `: ${a.description}` : ""}`).join("\n")}`
-      : "";
+    const attachmentInfo =
+      entry.attachments && entry.attachments.length > 0
+        ? `\n\n**Attachments (${entry.attachments.length}):**\n${entry.attachments.map((a) => `- ${a.filename} (${a.mime_type}, ${(a.file_size / 1024).toFixed(1)}KB)${a.description ? `: ${a.description}` : ""}`).join("\n")}`
+        : "";
 
     const context = `I want to UPDATE this journal entry. Please help me modify it:\n\n**Commit Hash:** ${entry.commit_hash}\n**Repository:** ${entry.repository}/${entry.branch}\n**Date:** ${formatDateShort(entry.date)}\n**Author:** ${entry.author}\n\n**Why:**\n${entry.why}\n\n**What Changed:**\n${entry.what_changed}\n\n**Decisions:**\n${entry.decisions}\n\n**Technologies:** ${entry.technologies}\n\n**Kronus Wisdom:**\n${entry.kronus_wisdom || "(none)"}\n\n**Raw Agent Report:**\n${entry.raw_agent_report.substring(0, 1500)}${entry.raw_agent_report.length > 1500 ? "..." : ""}${attachmentInfo}\n\nWhat changes would you like to make? You can update any field (why, what_changed, decisions, technologies, kronus_wisdom) using the journal_edit_entry tool, or regenerate the entire entry with new context using journal_regenerate_entry.`;
 
@@ -251,7 +272,7 @@ export default function EntryDetailPage() {
     try {
       // Build content for summarization
       const content = `${entry.why}\n\n${entry.what_changed}\n\n${entry.decisions}\n\nTechnologies: ${entry.technologies}`;
-      
+
       const response = await fetch("/api/ai/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -349,7 +370,9 @@ export default function EntryDetailPage() {
                 className="text-muted-foreground hover:bg-muted"
                 title="Regenerate AI Summary"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${regeneratingSummary ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${regeneratingSummary ? "animate-spin" : ""}`}
+                />
                 {regeneratingSummary ? "Regenerating..." : "Regenerate Summary"}
               </Button>
               <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
@@ -361,7 +384,11 @@ export default function EntryDetailPage() {
                 onClick={editWithKronus}
                 className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
               >
-                <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                <img
+                  src="/chronus-logo.png"
+                  alt="Kronus"
+                  className="mr-2 h-4 w-4 rounded-full object-cover"
+                />
                 Edit with Kronus
               </Button>
             </>
@@ -371,22 +398,25 @@ export default function EntryDetailPage() {
 
       {/* Content */}
       <ScrollArea className="flex-1 bg-[var(--journal-paper)]">
-        <div className="mx-auto max-w-4xl p-6 bg-[#FEFDFB] rounded-lg border border-[#E5E0D8] shadow-sm">
+        <div className="mx-auto max-w-4xl rounded-lg border border-[#E5E0D8] bg-[#FEFDFB] p-6 shadow-sm">
           {/* Meta */}
           <div className="mb-6 space-y-3">
-            <div className="mb-2 flex items-center gap-3 flex-wrap">
-              <Badge variant="outline" className="font-mono bg-[var(--tartarus-teal-soft)] border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal-dim)]">
+            <div className="mb-2 flex flex-wrap items-center gap-3">
+              <Badge
+                variant="outline"
+                className="border-[var(--tartarus-teal-dim)] bg-[var(--tartarus-teal-soft)] font-mono text-[var(--tartarus-teal-dim)]"
+              >
                 {entry.commit_hash}
               </Badge>
               {/* Code Author - who wrote the commit */}
-              <span className="text-[#2A2520] flex items-center gap-1.5 text-sm font-medium">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-[#2A2520]">
                 <GitBranch className="h-3 w-3 text-[var(--tartarus-teal-dim)]" />
                 <span className="text-[#5C5550]">Commit by:</span>
                 {editMode ? (
                   <Input
                     value={editData.code_author || entry.code_author || entry.author}
                     onChange={(e) => setEditData({ ...editData, code_author: e.target.value })}
-                    className="h-6 w-32 text-xs border-[#E5E0D8] bg-white"
+                    className="h-6 w-32 border-[#E5E0D8] bg-white text-xs"
                     placeholder="Code author"
                   />
                 ) : (
@@ -394,29 +424,32 @@ export default function EntryDetailPage() {
                 )}
               </span>
               {/* Journal Entry Author - who documented/analyzed it */}
-              <span className="text-[#5C5550] flex items-center gap-1.5 text-sm">
+              <span className="flex items-center gap-1.5 text-sm text-[#5C5550]">
                 <Edit className="h-3 w-3 text-[var(--tartarus-gold-dim)]" />
                 <span>Entry by:</span>
                 {editMode ? (
                   <Input
                     value={editData.author || entry.author}
                     onChange={(e) => setEditData({ ...editData, author: e.target.value })}
-                    className="h-6 w-32 text-xs border-[#E5E0D8] bg-white"
+                    className="h-6 w-32 border-[#E5E0D8] bg-white text-xs"
                   />
                 ) : (
                   <span className="font-medium text-[#2A2520]">{entry.author}</span>
                 )}
               </span>
-              <span className="text-[#5C5550] flex items-center gap-1 text-sm">
+              <span className="flex items-center gap-1 text-sm text-[#5C5550]">
                 <Calendar className="h-3 w-3" />
                 {new Date(entry.date).toLocaleString()}
               </span>
             </div>
             {entry.team_members && JSON.parse(entry.team_members || "[]").length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[#2A2520] text-xs font-medium">Team:</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-[#2A2520]">Team:</span>
                 {JSON.parse(entry.team_members).map((member: string, idx: number) => (
-                  <Badge key={idx} className="bg-[var(--tartarus-gold-soft)] text-[var(--tartarus-gold-dim)] border-[var(--tartarus-gold-dim)] text-xs">
+                  <Badge
+                    key={idx}
+                    className="border-[var(--tartarus-gold-dim)] bg-[var(--tartarus-gold-soft)] text-xs text-[var(--tartarus-gold-dim)]"
+                  >
                     {member}
                   </Badge>
                 ))}
@@ -424,14 +457,25 @@ export default function EntryDetailPage() {
             )}
             {editMode && (
               <div className="flex items-center gap-2">
-                <span className="text-[#2A2520] text-xs font-medium">Team members (comma-separated):</span>
+                <span className="text-xs font-medium text-[#2A2520]">
+                  Team members (comma-separated):
+                </span>
                 <Input
-                  value={typeof editData.team_members === "string" ? editData.team_members.replace(/[\[\]"]/g, "") : (entry.team_members ? JSON.parse(entry.team_members || "[]").join(", ") : "")}
+                  value={
+                    typeof editData.team_members === "string"
+                      ? editData.team_members.replace(/[\[\]"]/g, "")
+                      : entry.team_members
+                        ? JSON.parse(entry.team_members || "[]").join(", ")
+                        : ""
+                  }
                   onChange={(e) => {
-                    const members = e.target.value.split(",").map(m => m.trim()).filter(Boolean);
+                    const members = e.target.value
+                      .split(",")
+                      .map((m) => m.trim())
+                      .filter(Boolean);
                     setEditData({ ...editData, team_members: JSON.stringify(members) });
                   }}
-                  className="h-7 flex-1 max-w-xs text-xs border-[#E5E0D8] bg-white"
+                  className="h-7 max-w-xs flex-1 border-[#E5E0D8] bg-white text-xs"
                   placeholder="Team member names"
                 />
               </div>
@@ -439,33 +483,39 @@ export default function EntryDetailPage() {
             {/* Technologies/Tags - editable in edit mode */}
             {editMode ? (
               <div className="mt-3 space-y-2">
-                <div className="flex flex-wrap gap-1 min-h-[32px] p-2 border border-[#E5E0D8] rounded-md bg-[#FAF8F2]">
-                  {(editData.technologies || entry.technologies || "").split(",").filter(t => t.trim()).map((tech, idx) => {
-                    const colors = [
-                      "bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal-dim)] border-[var(--tartarus-teal-dim)]",
-                      "bg-[var(--tartarus-gold-soft)] text-[var(--tartarus-gold-dim)] border-[var(--tartarus-gold-dim)]",
-                      "bg-[#E8F5F5] text-[#008B8B] border-[#008B8B]",
-                      "bg-[#FFF8E7] text-[#B8860B] border-[#B8860B]",
-                    ];
-                    return (
-                      <Badge key={tech.trim()} className={`${colors[idx % colors.length]} text-xs border font-medium gap-1`}>
-                        {tech.trim()}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const techs = (editData.technologies || entry.technologies || "")
-                              .split(",")
-                              .map(t => t.trim())
-                              .filter(t => t && t !== tech.trim());
-                            setEditData({ ...editData, technologies: techs.join(", ") });
-                          }}
-                          className="ml-1 hover:text-red-600 focus:outline-none"
+                <div className="flex min-h-[32px] flex-wrap gap-1 rounded-md border border-[#E5E0D8] bg-[#FAF8F2] p-2">
+                  {(editData.technologies || entry.technologies || "")
+                    .split(",")
+                    .filter((t) => t.trim())
+                    .map((tech, idx) => {
+                      const colors = [
+                        "bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal-dim)] border-[var(--tartarus-teal-dim)]",
+                        "bg-[var(--tartarus-gold-soft)] text-[var(--tartarus-gold-dim)] border-[var(--tartarus-gold-dim)]",
+                        "bg-[#E8F5F5] text-[#008B8B] border-[#008B8B]",
+                        "bg-[#FFF8E7] text-[#B8860B] border-[#B8860B]",
+                      ];
+                      return (
+                        <Badge
+                          key={tech.trim()}
+                          className={`${colors[idx % colors.length]} gap-1 border text-xs font-medium`}
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    );
-                  })}
+                          {tech.trim()}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const techs = (editData.technologies || entry.technologies || "")
+                                .split(",")
+                                .map((t) => t.trim())
+                                .filter((t) => t && t !== tech.trim());
+                              setEditData({ ...editData, technologies: techs.join(", ") });
+                            }}
+                            className="ml-1 hover:text-red-600 focus:outline-none"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
                   {!(editData.technologies || entry.technologies) && (
                     <span className="text-sm text-[#A0998A]">No technologies</span>
                   )}
@@ -481,16 +531,19 @@ export default function EntryDetailPage() {
                         if (tag) {
                           const current = (editData.technologies || entry.technologies || "")
                             .split(",")
-                            .map(t => t.trim())
+                            .map((t) => t.trim())
                             .filter(Boolean);
                           if (!current.includes(tag)) {
-                            setEditData({ ...editData, technologies: [...current, tag].join(", ") });
+                            setEditData({
+                              ...editData,
+                              technologies: [...current, tag].join(", "),
+                            });
                           }
                           setNewTech("");
                         }
                       }
                     }}
-                    className="h-8 flex-1 max-w-xs text-xs border-[#E5E0D8] bg-white"
+                    className="h-8 max-w-xs flex-1 border-[#E5E0D8] bg-white text-xs"
                     placeholder="Add technology..."
                   />
                   <Button
@@ -502,7 +555,7 @@ export default function EntryDetailPage() {
                       if (tag) {
                         const current = (editData.technologies || entry.technologies || "")
                           .split(",")
-                          .map(t => t.trim())
+                          .map((t) => t.trim())
                           .filter(Boolean);
                         if (!current.includes(tag)) {
                           setEditData({ ...editData, technologies: [...current, tag].join(", ") });
@@ -517,22 +570,27 @@ export default function EntryDetailPage() {
                   </Button>
                 </div>
               </div>
-            ) : entry.technologies && (
-              <div className="mt-3 flex flex-wrap gap-1">
-                {entry.technologies.split(",").map((tech, idx) => {
-                  const colors = [
-                    "bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal-dim)] border-[var(--tartarus-teal-dim)]",
-                    "bg-[var(--tartarus-gold-soft)] text-[var(--tartarus-gold-dim)] border-[var(--tartarus-gold-dim)]",
-                    "bg-[#E8F5F5] text-[#008B8B] border-[#008B8B]",
-                    "bg-[#FFF8E7] text-[#B8860B] border-[#B8860B]",
-                  ];
-                  return (
-                    <Badge key={tech.trim()} className={`${colors[idx % colors.length]} text-xs border font-medium`}>
-                      {tech.trim()}
-                    </Badge>
-                  );
-                })}
-              </div>
+            ) : (
+              entry.technologies && (
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {entry.technologies.split(",").map((tech, idx) => {
+                    const colors = [
+                      "bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal-dim)] border-[var(--tartarus-teal-dim)]",
+                      "bg-[var(--tartarus-gold-soft)] text-[var(--tartarus-gold-dim)] border-[var(--tartarus-gold-dim)]",
+                      "bg-[#E8F5F5] text-[#008B8B] border-[#008B8B]",
+                      "bg-[#FFF8E7] text-[#B8860B] border-[#B8860B]",
+                    ];
+                    return (
+                      <Badge
+                        key={tech.trim()}
+                        className={`${colors[idx % colors.length]} border text-xs font-medium`}
+                      >
+                        {tech.trim()}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )
             )}
           </div>
 
@@ -550,7 +608,7 @@ export default function EntryDetailPage() {
 
             <TabsContent value="content" className="space-y-6">
               {/* Why */}
-              <Card className="bg-[#FEFDFB] border-[#E5E0D8] shadow-sm">
+              <Card className="border-[#E5E0D8] bg-[#FEFDFB] shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Why</CardTitle>
                 </CardHeader>
@@ -562,15 +620,20 @@ export default function EntryDetailPage() {
                       rows={4}
                     />
                   ) : (
-                    <div className="prose prose-sm max-w-none text-[#2A2520] prose-headings:text-[#2A2520] prose-p:text-[#3D3833] prose-strong:text-[#1A1510] prose-strong:font-semibold prose-code:text-[#5C5550] prose-code:bg-[#F5F3F0] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-normal prose-pre:bg-[#F0EDE8] prose-pre:text-[#2A2520]">
-                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{entry.why}</ReactMarkdown>
+                    <div className="prose prose-sm prose-headings:text-[#2A2520] prose-p:text-[#3D3833] prose-strong:text-[#1A1510] prose-strong:font-semibold prose-code:text-[#5C5550] prose-code:bg-[#F5F3F0] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-normal prose-pre:bg-[#F0EDE8] prose-pre:text-[#2A2520] max-w-none text-[#2A2520]">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {entry.why}
+                      </ReactMarkdown>
                     </div>
                   )}
                 </CardContent>
               </Card>
 
               {/* What Changed */}
-              <Card className="bg-[#FEFDFB] border-[#E5E0D8] shadow-sm">
+              <Card className="border-[#E5E0D8] bg-[#FEFDFB] shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">What Changed</CardTitle>
                 </CardHeader>
@@ -582,8 +645,11 @@ export default function EntryDetailPage() {
                       rows={6}
                     />
                   ) : (
-                    <div className="prose prose-sm max-w-none text-[#2A2520] prose-headings:text-[#2A2520] prose-p:text-[#3D3833] prose-strong:text-[#1A1510] prose-strong:font-semibold prose-code:text-[#5C5550] prose-code:bg-[#F5F3F0] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-normal prose-pre:bg-[#F0EDE8] prose-pre:text-[#2A2520]">
-                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                    <div className="prose prose-sm prose-headings:text-[#2A2520] prose-p:text-[#3D3833] prose-strong:text-[#1A1510] prose-strong:font-semibold prose-code:text-[#5C5550] prose-code:bg-[#F5F3F0] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-normal prose-pre:bg-[#F0EDE8] prose-pre:text-[#2A2520] max-w-none text-[#2A2520]">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
                         {formatTechnicalContent(entry.what_changed)}
                       </ReactMarkdown>
                     </div>
@@ -592,7 +658,7 @@ export default function EntryDetailPage() {
               </Card>
 
               {/* Decisions */}
-              <Card className="bg-[#FEFDFB] border-[#E5E0D8] shadow-sm">
+              <Card className="border-[#E5E0D8] bg-[#FEFDFB] shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Decisions</CardTitle>
                 </CardHeader>
@@ -604,8 +670,11 @@ export default function EntryDetailPage() {
                       rows={6}
                     />
                   ) : (
-                    <div className="prose prose-sm max-w-none text-[#2A2520] prose-headings:text-[#2A2520] prose-p:text-[#3D3833] prose-strong:text-[#1A1510] prose-strong:font-semibold prose-code:text-[#5C5550] prose-code:bg-[#F5F3F0] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-normal prose-pre:bg-[#F0EDE8] prose-pre:text-[#2A2520] prose-li:text-[#3D3833] prose-li:my-2">
-                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                    <div className="prose prose-sm prose-headings:text-[#2A2520] prose-p:text-[#3D3833] prose-strong:text-[#1A1510] prose-strong:font-semibold prose-code:text-[#5C5550] prose-code:bg-[#F5F3F0] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-normal prose-pre:bg-[#F0EDE8] prose-pre:text-[#2A2520] prose-li:text-[#3D3833] prose-li:my-2 max-w-none text-[#2A2520]">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
                         {formatDecisions(entry.decisions)}
                       </ReactMarkdown>
                     </div>
@@ -614,7 +683,7 @@ export default function EntryDetailPage() {
               </Card>
 
               {/* Technologies */}
-              <Card className="bg-[#FEFDFB] border-[#E5E0D8] shadow-sm">
+              <Card className="border-[#E5E0D8] bg-[#FEFDFB] shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Technologies</CardTitle>
                 </CardHeader>
@@ -627,8 +696,13 @@ export default function EntryDetailPage() {
                       placeholder="Comma-separated list of technologies"
                     />
                   ) : (
-                    <div className="prose prose-sm max-w-none text-[#2A2520] prose-headings:text-[#2A2520] prose-p:text-[#3D3833] prose-strong:text-[#1A1510] prose-strong:font-semibold prose-code:text-[#5C5550] prose-code:bg-[#F5F3F0] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-normal prose-pre:bg-[#F0EDE8] prose-pre:text-[#2A2520]">
-                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{entry.technologies}</ReactMarkdown>
+                    <div className="prose prose-sm prose-headings:text-[#2A2520] prose-p:text-[#3D3833] prose-strong:text-[#1A1510] prose-strong:font-semibold prose-code:text-[#5C5550] prose-code:bg-[#F5F3F0] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:font-normal prose-pre:bg-[#F0EDE8] prose-pre:text-[#2A2520] max-w-none text-[#2A2520]">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {entry.technologies}
+                      </ReactMarkdown>
                     </div>
                   )}
                 </CardContent>
@@ -636,9 +710,9 @@ export default function EntryDetailPage() {
 
               {/* Kronus Wisdom */}
               {(entry.kronus_wisdom || editMode) && (
-                <Card className="border-[var(--tartarus-teal)] border-l-4 bg-[var(--tartarus-teal-soft)]">
+                <Card className="border-l-4 border-[var(--tartarus-teal)] bg-[var(--tartarus-teal-soft)]">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-[var(--tartarus-teal-dim)] flex items-center gap-2 text-base">
+                    <CardTitle className="flex items-center gap-2 text-base text-[var(--tartarus-teal-dim)]">
                       <img src="/chronus-logo.png" alt="Kronus" className="h-5 w-5 rounded-full" />
                       Kronus Wisdom
                     </CardTitle>
@@ -654,8 +728,13 @@ export default function EntryDetailPage() {
                         placeholder="Optional philosophical reflection..."
                       />
                     ) : (
-                      <div className="prose prose-sm max-w-none prose-headings:text-[var(--tartarus-teal-dim)] prose-p:text-[var(--tartarus-teal-dim)] prose-p:italic prose-strong:text-[var(--tartarus-teal-dim)]">
-                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{entry.kronus_wisdom}</ReactMarkdown>
+                      <div className="prose prose-sm prose-headings:text-[var(--tartarus-teal-dim)] prose-p:text-[var(--tartarus-teal-dim)] prose-p:italic prose-strong:text-[var(--tartarus-teal-dim)] max-w-none">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                        >
+                          {entry.kronus_wisdom}
+                        </ReactMarkdown>
                       </div>
                     )}
                   </CardContent>
@@ -664,7 +743,7 @@ export default function EntryDetailPage() {
             </TabsContent>
 
             <TabsContent value="raw">
-              <Card className="bg-[#FEFDFB] border-[#E5E0D8] shadow-sm">
+              <Card className="border-[#E5E0D8] bg-[#FEFDFB] shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Raw Agent Report</CardTitle>
                 </CardHeader>
@@ -678,7 +757,7 @@ export default function EntryDetailPage() {
 
             {entry.attachments && entry.attachments.length > 0 && (
               <TabsContent value="attachments">
-                <Card className="bg-[#FEFDFB] border-[#E5E0D8] shadow-sm">
+                <Card className="border-[#E5E0D8] bg-[#FEFDFB] shadow-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Paperclip className="h-4 w-4" />

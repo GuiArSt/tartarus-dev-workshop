@@ -30,11 +30,7 @@ export async function GET() {
     const db = getDrizzleDb();
 
     // ===== WRITINGS =====
-    const writings = db
-      .select()
-      .from(documents)
-      .where(eq(documents.type, "writing"))
-      .all();
+    const writings = db.select().from(documents).where(eq(documents.type, "writing")).all();
 
     let writingsTokens = 0;
     for (const doc of writings) {
@@ -44,10 +40,7 @@ export async function GET() {
     }
 
     // ===== PORTFOLIO PROJECTS =====
-    const projects = db
-      .select()
-      .from(portfolioProjects)
-      .all();
+    const projects = db.select().from(portfolioProjects).all();
 
     let projectsTokens = 0;
     for (const p of projects) {
@@ -61,16 +54,20 @@ export async function GET() {
 
     let skillsTokens = 0;
     for (const s of allSkills) {
-      const level = s.magnitude === 4 ? "Expert" : s.magnitude === 3 ? "Professional" : s.magnitude === 2 ? "Apprentice" : "Beginner";
+      const level =
+        s.magnitude === 4
+          ? "Expert"
+          : s.magnitude === 3
+            ? "Professional"
+            : s.magnitude === 2
+              ? "Apprentice"
+              : "Beginner";
       const content = `- **${s.name}** (${level}): ${s.description}`;
       skillsTokens += estimateTokens(content);
     }
 
     // ===== WORK EXPERIENCE =====
-    const experience = db
-      .select()
-      .from(workExperience)
-      .all();
+    const experience = db.select().from(workExperience).all();
 
     let experienceTokens = 0;
     for (const job of experience) {
@@ -94,11 +91,7 @@ export async function GET() {
     }
 
     // ===== JOURNAL ENTRIES =====
-    const entries = db
-      .select()
-      .from(journalEntries)
-      .orderBy(desc(journalEntries.date))
-      .all(); // All entries - no limit
+    const entries = db.select().from(journalEntries).orderBy(desc(journalEntries.date)).all(); // All entries - no limit
 
     let journalTokens = 0;
     for (const entry of entries) {
@@ -110,8 +103,8 @@ export async function GET() {
     const COMPLETED_PROJECT_STATES = ["completed", "canceled"];
 
     let allLinProjects: any[] = [];
-    let activeLinProjects: any[] = [];
-    let completedLinProjects: any[] = [];
+    const activeLinProjects: any[] = [];
+    const completedLinProjects: any[] = [];
     let linearProjectsTokensActive = 0;
     let linearProjectsTokensAll = 0;
 
@@ -143,11 +136,18 @@ export async function GET() {
     }
 
     // ===== LINEAR ISSUES (from cached database) =====
-    const COMPLETED_ISSUE_STATES = ["done", "completed", "canceled", "cancelled", "closed", "archived"];
+    const COMPLETED_ISSUE_STATES = [
+      "done",
+      "completed",
+      "canceled",
+      "cancelled",
+      "closed",
+      "archived",
+    ];
 
     let allLinIssues: any[] = [];
-    let activeLinIssues: any[] = [];
-    let completedLinIssues: any[] = [];
+    const activeLinIssues: any[] = [];
+    const completedLinIssues: any[] = [];
     let linearIssuesTokensActive = 0;
     let linearIssuesTokensAll = 0;
 
@@ -158,7 +158,7 @@ export async function GET() {
       // Separate active vs completed
       for (const issue of allLinIssues) {
         const stateName = (issue.stateName || "").toLowerCase();
-        const isCompleted = COMPLETED_ISSUE_STATES.some(s => stateName.includes(s));
+        const isCompleted = COMPLETED_ISSUE_STATES.some((s) => stateName.includes(s));
 
         if (isCompleted) {
           completedLinIssues.push(issue);
@@ -248,9 +248,6 @@ export async function GET() {
   } catch (error: any) {
     const agentConfig = getAgentConfig();
     console.error(`Failed to fetch ${agentConfig.name} stats:`, error);
-    return NextResponse.json(
-      { error: error.message || "Failed to fetch stats" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || "Failed to fetch stats" }, { status: 500 });
   }
 }

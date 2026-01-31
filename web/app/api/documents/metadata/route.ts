@@ -10,19 +10,17 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const db = getDrizzleDb();
 
   // Fetch all documents with metadata
-  const documentRows = await db
-    .select({ metadata: documents.metadata })
-    .from(documents);
+  const documentRows = await db.select({ metadata: documents.metadata }).from(documents);
 
   // Extract all unique values
   const tagSet = new Set<string>();
   const typeSet = new Set<string>();
   const alsoShownInSet = new Set<string>();
-  
+
   for (const doc of documentRows) {
     try {
       const metadata = JSON.parse(doc.metadata || "{}") as Record<string, unknown>;
-      
+
       // Extract tags
       const tags = metadata.tags;
       if (Array.isArray(tags)) {
@@ -32,19 +30,19 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
           }
         }
       }
-      
+
       // Extract metadata.type (secondary category)
       const type = metadata.type;
       if (typeof type === "string" && type.trim().length > 0) {
         typeSet.add(type.trim());
       }
-      
+
       // Extract writtenDate (normalize from legacy year field)
       const writtenDate = metadata.writtenDate || metadata.year;
       if (typeof writtenDate === "string" && writtenDate.trim().length > 0) {
         // Note: writtenDate values are not added to a set since they're dates, not categories
       }
-      
+
       // Extract alsoShownIn
       const alsoShownIn = metadata.alsoShownIn;
       if (Array.isArray(alsoShownIn)) {

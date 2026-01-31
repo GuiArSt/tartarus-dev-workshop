@@ -4,11 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -52,20 +48,20 @@ import { formatDateShort } from "@/lib/utils";
 // Helper to clean technology strings from markdown formatting
 function cleanTechnologies(techString: string): string[] {
   const cleaned = techString
-    .replace(/\*\*[^*]+:\*\*\s*/g, '')
-    .replace(/\*\*/g, '')
-    .replace(/\([^)]+\)/g, '')
-    .replace(/\n/g, ', ')
+    .replace(/\*\*[^*]+:\*\*\s*/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/\([^)]+\)/g, "")
+    .replace(/\n/g, ", ")
     .split(/[,\n]/)
-    .map(tech => tech.trim())
-    .filter(tech => {
+    .map((tech) => tech.trim())
+    .filter((tech) => {
       if (!tech || tech.length === 0) return false;
-      if (tech === ':') return false;
-      if (tech.includes('.py') || tech.includes('.sql')) return false;
+      if (tech === ":") return false;
+      if (tech.includes(".py") || tech.includes(".sql")) return false;
       if (tech.length > 40) return false;
       return true;
     })
-    .map(tech => tech.replace(/^[-•]\s*/, ''));
+    .map((tech) => tech.replace(/^[-•]\s*/, ""));
   return [...new Set(cleaned)];
 }
 
@@ -150,22 +146,28 @@ function SummarySection({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className={`rounded-lg border ${variantStyles[variant]} transition-colors overflow-hidden`}>
+      <div
+        className={`rounded-lg border ${variantStyles[variant]} overflow-hidden transition-colors`}
+      >
         <CollapsibleTrigger asChild>
-          <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--tartarus-elevated)] transition-colors text-left group">
+          <button className="group flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--tartarus-elevated)]">
             {isOpen ? (
               <ChevronDown className="h-3 w-3 text-[var(--tartarus-teal)] transition-transform" />
             ) : (
-              <ChevronRight className="h-3 w-3 text-[var(--tartarus-ivory-muted)] group-hover:text-[var(--tartarus-teal)] transition-colors" />
+              <ChevronRight className="h-3 w-3 text-[var(--tartarus-ivory-muted)] transition-colors group-hover:text-[var(--tartarus-teal)]" />
             )}
-            <Icon className={`h-4 w-4 ${isOpen ? "text-[var(--tartarus-teal)]" : "text-[var(--tartarus-ivory-muted)]"}`} />
-            <span className={`text-sm font-medium ${isOpen ? "text-[var(--tartarus-ivory)]" : "text-[var(--tartarus-ivory-muted)]"}`}>
+            <Icon
+              className={`h-4 w-4 ${isOpen ? "text-[var(--tartarus-teal)]" : "text-[var(--tartarus-ivory-muted)]"}`}
+            />
+            <span
+              className={`text-sm font-medium ${isOpen ? "text-[var(--tartarus-ivory)]" : "text-[var(--tartarus-ivory-muted)]"}`}
+            >
               {title}
             </span>
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="px-3 pb-3 pt-1 border-t border-[var(--tartarus-border)]/50">
+          <div className="border-t border-[var(--tartarus-border)]/50 px-3 pt-1 pb-3">
             {children}
           </div>
         </CollapsibleContent>
@@ -177,7 +179,7 @@ function SummarySection({
 // Markdown renderer with Kronus styling
 function KronusMarkdown({ children }: { children: string }) {
   return (
-    <div className="prose prose-sm max-w-none text-[var(--tartarus-ivory-muted)] prose-strong:text-[var(--tartarus-ivory)] prose-headings:text-[var(--tartarus-ivory)] prose-h2:text-sm prose-h3:text-xs prose-code:text-[var(--tartarus-teal)] prose-code:bg-[var(--tartarus-elevated)] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-a:text-[var(--tartarus-teal)] prose-li:text-[var(--tartarus-ivory-muted)] prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
+    <div className="prose prose-sm prose-strong:text-[var(--tartarus-ivory)] prose-headings:text-[var(--tartarus-ivory)] prose-h2:text-sm prose-h3:text-xs prose-code:text-[var(--tartarus-teal)] prose-code:bg-[var(--tartarus-elevated)] prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-a:text-[var(--tartarus-teal)] prose-li:text-[var(--tartarus-ivory-muted)] prose-ul:my-1 prose-ol:my-1 prose-li:my-0 max-w-none text-[var(--tartarus-ivory-muted)]">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
     </div>
   );
@@ -219,39 +221,42 @@ export function ProjectSummaryCard({
 
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
-      <Card className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] overflow-hidden">
+      <Card className="overflow-hidden border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
         {/* Project Header - Always visible */}
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-[var(--tartarus-elevated)] transition-colors py-4">
+          <CardHeader className="cursor-pointer py-4 transition-colors hover:bg-[var(--tartarus-elevated)]">
             <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
                   {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-[var(--tartarus-teal)] flex-shrink-0" />
+                    <ChevronDown className="h-4 w-4 flex-shrink-0 text-[var(--tartarus-teal)]" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-[var(--tartarus-ivory-muted)] flex-shrink-0" />
+                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-[var(--tartarus-ivory-muted)]" />
                   )}
-                  <FolderGit2 className="h-5 w-5 text-[var(--tartarus-teal)] flex-shrink-0" />
-                  <CardTitle className="text-lg text-[var(--tartarus-ivory)] truncate">
+                  <FolderGit2 className="h-5 w-5 flex-shrink-0 text-[var(--tartarus-teal)]" />
+                  <CardTitle className="truncate text-lg text-[var(--tartarus-ivory)]">
                     {project.repository}
                   </CardTitle>
                   {hasEntry0 ? (
-                    <Badge variant="outline" className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] flex-shrink-0 text-xs">
-                      <BookOpen className="h-3 w-3 mr-1" />
+                    <Badge
+                      variant="outline"
+                      className="flex-shrink-0 border-[var(--tartarus-teal-dim)] text-xs text-[var(--tartarus-teal)]"
+                    >
+                      <BookOpen className="mr-1 h-3 w-3" />
                       Living Doc
                     </Badge>
                   ) : (
-                    <Badge className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)] flex-shrink-0 text-xs">
+                    <Badge className="flex-shrink-0 bg-[var(--tartarus-teal-soft)] text-xs text-[var(--tartarus-teal)]">
                       {project.entry_count} entries
                     </Badge>
                   )}
                   {project.status && (
-                    <Badge className="bg-[var(--tartarus-gold-soft)] text-[var(--tartarus-gold)] flex-shrink-0 text-xs">
+                    <Badge className="flex-shrink-0 bg-[var(--tartarus-gold-soft)] text-xs text-[var(--tartarus-gold)]">
                       {project.status.split(" ").slice(0, 2).join(" ")}
                     </Badge>
                   )}
                   {isNew && (
-                    <Badge className="bg-[var(--tartarus-gold-soft)] text-[var(--tartarus-gold)] flex-shrink-0 text-xs">
+                    <Badge className="flex-shrink-0 bg-[var(--tartarus-gold-soft)] text-xs text-[var(--tartarus-gold)]">
                       New
                     </Badge>
                   )}
@@ -259,19 +264,29 @@ export function ProjectSummaryCard({
 
                 {/* Quick summary - truncated */}
                 <CardDescription className="mt-2 ml-10 line-clamp-2 text-[var(--tartarus-ivory-muted)]">
-                  {project.summary?.substring(0, 180)}{project.summary && project.summary.length > 180 ? "..." : ""}
+                  {project.summary?.substring(0, 180)}
+                  {project.summary && project.summary.length > 180 ? "..." : ""}
                 </CardDescription>
 
                 {/* Tech badges - quick view */}
                 {project.technologies && (
-                  <div className="flex flex-wrap gap-1 mt-2 ml-10">
-                    {cleanTechnologies(project.technologies).slice(0, 5).map((tech) => (
-                      <Badge key={tech} variant="outline" className="text-xs border-[var(--tartarus-border)] text-[var(--tartarus-ivory-muted)]">
-                        {tech.split(" ")[0]}
-                      </Badge>
-                    ))}
+                  <div className="mt-2 ml-10 flex flex-wrap gap-1">
+                    {cleanTechnologies(project.technologies)
+                      .slice(0, 5)
+                      .map((tech) => (
+                        <Badge
+                          key={tech}
+                          variant="outline"
+                          className="border-[var(--tartarus-border)] text-xs text-[var(--tartarus-ivory-muted)]"
+                        >
+                          {tech.split(" ")[0]}
+                        </Badge>
+                      ))}
                     {cleanTechnologies(project.technologies).length > 5 && (
-                      <Badge variant="outline" className="text-xs border-[var(--tartarus-border)] text-[var(--tartarus-ivory-faded)]">
+                      <Badge
+                        variant="outline"
+                        className="border-[var(--tartarus-border)] text-xs text-[var(--tartarus-ivory-faded)]"
+                      >
                         +{cleanTechnologies(project.technologies).length - 5}
                       </Badge>
                     )}
@@ -280,7 +295,7 @@ export function ProjectSummaryCard({
               </div>
 
               {/* Action buttons */}
-              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+              <div className="ml-2 flex flex-shrink-0 items-center gap-1">
                 {/* Index Summary Toggle */}
                 {project.summary && (
                   <Button
@@ -290,10 +305,14 @@ export function ProjectSummaryCard({
                       e.stopPropagation();
                       setShowIndexSummary(!showIndexSummary);
                     }}
-                    className={`h-8 w-8 ${showIndexSummary ? "text-[var(--tartarus-teal)]" : "text-[var(--tartarus-ivory-muted)]"} hover:text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]`}
+                    className={`h-8 w-8 ${showIndexSummary ? "text-[var(--tartarus-teal)]" : "text-[var(--tartarus-ivory-muted)]"} hover:bg-[var(--tartarus-teal-soft)] hover:text-[var(--tartarus-teal)]`}
                     title="Toggle Index Summary"
                   >
-                    {showIndexSummary ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showIndexSummary ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </Button>
                 )}
                 {project.git_url && (
@@ -314,7 +333,7 @@ export function ProjectSummaryCard({
                   size="sm"
                   onClick={onAnalyze}
                   disabled={analyzing || project.entry_count === 0}
-                  className={`h-8 ${isNew || needsAnalysis ? "text-[var(--tartarus-gold)] hover:text-[var(--tartarus-gold-bright)] hover:bg-[var(--tartarus-gold-soft)]" : "text-[var(--tartarus-teal)] hover:text-[var(--tartarus-teal-bright)] hover:bg-[var(--tartarus-teal-soft)]"}`}
+                  className={`h-8 ${isNew || needsAnalysis ? "text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)] hover:text-[var(--tartarus-gold-bright)]" : "text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)] hover:text-[var(--tartarus-teal-bright)]"}`}
                 >
                   {analyzing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -329,9 +348,13 @@ export function ProjectSummaryCard({
                   variant="ghost"
                   size="sm"
                   onClick={onEdit}
-                  className="h-8 text-[var(--tartarus-gold)] hover:text-[var(--tartarus-gold-bright)] hover:bg-[var(--tartarus-gold-soft)]"
+                  className="h-8 text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)] hover:text-[var(--tartarus-gold-bright)]"
                 >
-                  <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 rounded-full object-cover" />
+                  <img
+                    src="/chronus-logo.png"
+                    alt="Kronus"
+                    className="h-4 w-4 rounded-full object-cover"
+                  />
                   <span className="ml-1.5 hidden sm:inline">Edit</span>
                 </Button>
                 {onDelete && (
@@ -341,7 +364,7 @@ export function ProjectSummaryCard({
                         variant="ghost"
                         size="icon"
                         onClick={(e) => e.stopPropagation()}
-                        className="h-8 w-8 text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-error)] hover:bg-[var(--tartarus-error-soft)]"
+                        className="h-8 w-8 text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-error-soft)] hover:text-[var(--tartarus-error)]"
                       >
                         {deleting ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -350,7 +373,7 @@ export function ProjectSummaryCard({
                         )}
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
+                    <AlertDialogContent className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
                       <AlertDialogHeader>
                         <AlertDialogTitle className="text-[var(--tartarus-ivory)]">
                           Delete Project: {project.repository}
@@ -358,19 +381,22 @@ export function ProjectSummaryCard({
                         <AlertDialogDescription className="text-[var(--tartarus-ivory-muted)]">
                           This will delete the Living Document for this repository.
                           {project.entry_count > 0 && (
-                            <div className="mt-4 p-3 rounded-lg bg-[var(--tartarus-elevated)] border border-[var(--tartarus-border)]">
+                            <div className="mt-4 rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] p-3">
                               <div className="flex items-start gap-3">
                                 <Checkbox
                                   id="delete-entries"
                                   checked={deleteEntries}
                                   onCheckedChange={(checked) => setDeleteEntries(checked === true)}
-                                  className="mt-0.5 border-[var(--tartarus-error)] data-[state=checked]:bg-[var(--tartarus-error)] data-[state=checked]:border-[var(--tartarus-error)]"
+                                  className="mt-0.5 border-[var(--tartarus-error)] data-[state=checked]:border-[var(--tartarus-error)] data-[state=checked]:bg-[var(--tartarus-error)]"
                                 />
-                                <label htmlFor="delete-entries" className="text-sm cursor-pointer">
-                                  <span className="text-[var(--tartarus-error)] font-medium">Also delete {project.entry_count} journal entries</span>
+                                <label htmlFor="delete-entries" className="cursor-pointer text-sm">
+                                  <span className="font-medium text-[var(--tartarus-error)]">
+                                    Also delete {project.entry_count} journal entries
+                                  </span>
                                   <br />
-                                  <span className="text-[var(--tartarus-ivory-faded)] text-xs">
-                                    This cannot be undone. All entries and attachments will be permanently removed.
+                                  <span className="text-xs text-[var(--tartarus-ivory-faded)]">
+                                    This cannot be undone. All entries and attachments will be
+                                    permanently removed.
                                   </span>
                                 </label>
                               </div>
@@ -385,15 +411,16 @@ export function ProjectSummaryCard({
                         <Button
                           onClick={handleDelete}
                           disabled={deleting}
-                          className={deleteEntries
-                            ? "bg-[var(--tartarus-error)] hover:bg-[var(--tartarus-error)]/90 text-white"
-                            : "bg-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-bright)] text-[var(--tartarus-void)]"
+                          className={
+                            deleteEntries
+                              ? "bg-[var(--tartarus-error)] text-white hover:bg-[var(--tartarus-error)]/90"
+                              : "bg-[var(--tartarus-teal)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-teal-bright)]"
                           }
                         >
                           {deleting ? (
-                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                           ) : (
-                            <Trash2 className="h-4 w-4 mr-1.5" />
+                            <Trash2 className="mr-1.5 h-4 w-4" />
                           )}
                           {deleteEntries ? "Delete All" : "Delete Summary"}
                         </Button>
@@ -408,10 +435,9 @@ export function ProjectSummaryCard({
 
         {/* Expanded Content */}
         <CollapsibleContent>
-          <CardContent className="border-t border-[var(--tartarus-border)] pt-4 space-y-4">
-
+          <CardContent className="space-y-4 border-t border-[var(--tartarus-border)] pt-4">
             {/* Quick Stats Bar - Minimal, non-redundant info */}
-            <div className="flex items-center gap-4 text-xs text-[var(--tartarus-ivory-muted)] flex-wrap">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--tartarus-ivory-muted)]">
               {project.last_entry_date && (
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
@@ -419,7 +445,10 @@ export function ProjectSummaryCard({
                 </span>
               )}
               {project.linear_project_id && (
-                <Badge variant="outline" className="text-xs border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)]">
+                <Badge
+                  variant="outline"
+                  className="border-[var(--tartarus-teal-dim)] text-xs text-[var(--tartarus-teal)]"
+                >
                   Linear
                 </Badge>
               )}
@@ -427,13 +456,13 @@ export function ProjectSummaryCard({
 
             {/* Index Summary Panel - AI-generated summary for Kronus indexing */}
             {showIndexSummary && project.summary && (
-              <div className="p-3 rounded-lg bg-[var(--tartarus-teal-soft)] border border-[var(--tartarus-teal-dim)]">
-                <div className="flex items-center gap-2 mb-2 text-xs text-[var(--tartarus-teal)]">
+              <div className="rounded-lg border border-[var(--tartarus-teal-dim)] bg-[var(--tartarus-teal-soft)] p-3">
+                <div className="mb-2 flex items-center gap-2 text-xs text-[var(--tartarus-teal)]">
                   <Brain className="h-3 w-3" />
                   <span className="font-medium">Index Summary</span>
                   <span className="text-[var(--tartarus-ivory-muted)]">(for Kronus)</span>
                 </div>
-                <p className="text-sm text-[var(--tartarus-ivory-dim)] leading-relaxed">
+                <p className="text-sm leading-relaxed text-[var(--tartarus-ivory-dim)]">
                   {project.summary}
                 </p>
               </div>
@@ -441,13 +470,13 @@ export function ProjectSummaryCard({
 
             {/* Living Document - Full project documentation (Entry 0) */}
             {hasEntry0 && (
-              <div className="rounded-lg border border-[var(--tartarus-teal-dim)]/30 bg-gradient-to-r from-[var(--tartarus-teal)]/5 to-transparent overflow-hidden">
+              <div className="overflow-hidden rounded-lg border border-[var(--tartarus-teal-dim)]/30 bg-gradient-to-r from-[var(--tartarus-teal)]/5 to-transparent">
                 <button
                   onClick={() => setShowEntry0(!showEntry0)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--tartarus-teal)]/5 transition-colors"
+                  className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-[var(--tartarus-teal)]/5"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-[var(--tartarus-teal)]/20 flex items-center justify-center">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tartarus-teal)]/20">
                       <BookOpen className="h-4 w-4 text-[var(--tartarus-teal)]" />
                     </div>
                     <div className="text-left">
@@ -474,15 +503,14 @@ export function ProjectSummaryCard({
                 </button>
 
                 {showEntry0 && (
-                  <div className="px-4 pb-4 pt-2 border-t border-[var(--tartarus-teal-dim)]/20 space-y-3">
+                  <div className="space-y-3 border-t border-[var(--tartarus-teal-dim)]/20 px-4 pt-2 pb-4">
                     {/* Grid of Entry 0 sections */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                       {/* File Structure - Full width, code style */}
                       {project.file_structure && (
                         <div className="lg:col-span-2">
                           <SummarySection title="File Structure" icon={FolderGit2} variant="code">
-                            <pre className="text-xs text-[var(--tartarus-ivory-muted)] font-mono whitespace-pre-wrap overflow-x-auto">
+                            <pre className="overflow-x-auto font-mono text-xs whitespace-pre-wrap text-[var(--tartarus-ivory-muted)]">
                               {project.file_structure}
                             </pre>
                           </SummarySection>
@@ -548,7 +576,7 @@ export function ProjectSummaryCard({
                       {/* Commands - Code style */}
                       {project.commands && (
                         <SummarySection title="Commands" icon={Terminal} variant="code">
-                          <pre className="text-xs text-[var(--tartarus-ivory-muted)] font-mono whitespace-pre-wrap">
+                          <pre className="font-mono text-xs whitespace-pre-wrap text-[var(--tartarus-ivory-muted)]">
                             {project.commands}
                           </pre>
                         </SummarySection>
@@ -557,7 +585,12 @@ export function ProjectSummaryCard({
                       {/* Notes & Gotchas - Warning style, full width */}
                       {project.extended_notes && (
                         <div className="lg:col-span-2">
-                          <SummarySection title="Notes & Gotchas" icon={AlertCircle} variant="warning" defaultOpen>
+                          <SummarySection
+                            title="Notes & Gotchas"
+                            icon={AlertCircle}
+                            variant="warning"
+                            defaultOpen
+                          >
                             <KronusMarkdown>{project.extended_notes}</KronusMarkdown>
                           </SummarySection>
                         </div>
@@ -570,17 +603,20 @@ export function ProjectSummaryCard({
 
             {/* Legacy Summary - for projects without structured Entry 0 */}
             {!hasEntry0 && (project.purpose || project.architecture || project.key_decisions) && (
-              <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)]/50 overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--tartarus-border)]/50">
+              <div className="overflow-hidden rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)]/50">
+                <div className="flex items-center gap-2 border-b border-[var(--tartarus-border)]/50 px-4 py-2">
                   <Scroll className="h-4 w-4 text-[var(--tartarus-ivory-muted)]" />
                   <span className="text-xs font-medium text-[var(--tartarus-ivory-muted)]">
                     Legacy Summary
                   </span>
-                  <Badge variant="outline" className="text-xs border-[var(--tartarus-ivory-faded)] text-[var(--tartarus-ivory-faded)]">
+                  <Badge
+                    variant="outline"
+                    className="border-[var(--tartarus-ivory-faded)] text-xs text-[var(--tartarus-ivory-faded)]"
+                  >
                     Pre-Entry 0
                   </Badge>
                 </div>
-                <div className="p-4 space-y-3">
+                <div className="space-y-3 p-4">
                   {project.purpose && (
                     <SummarySection title="Purpose" icon={Target} defaultOpen>
                       <KronusMarkdown>{project.purpose}</KronusMarkdown>
@@ -603,8 +639,8 @@ export function ProjectSummaryCard({
             {/* Needs Analysis Prompt */}
             {needsAnalysis && (
               <div className="rounded-lg border border-dashed border-[var(--tartarus-gold-dim)] bg-[var(--tartarus-gold)]/5 p-4 text-center">
-                <BookOpen className="h-6 w-6 text-[var(--tartarus-gold)] mx-auto mb-2" />
-                <p className="text-sm text-[var(--tartarus-ivory-muted)] mb-2">
+                <BookOpen className="mx-auto mb-2 h-6 w-6 text-[var(--tartarus-gold)]" />
+                <p className="mb-2 text-sm text-[var(--tartarus-ivory-muted)]">
                   This project has {project.entry_count} entries but no Living Document yet.
                 </p>
                 <Button
@@ -614,9 +650,9 @@ export function ProjectSummaryCard({
                   className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
                 >
                   {analyzing ? (
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                   ) : (
-                    <BookOpen className="h-4 w-4 mr-1.5" />
+                    <BookOpen className="mr-1.5 h-4 w-4" />
                   )}
                   Generate Living Document
                 </Button>

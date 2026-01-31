@@ -22,11 +22,32 @@ import remarkBreaks from "remark-breaks";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { Edit, Save, X, ArrowLeft, Tag, Plus, FileText, Settings, Check, ImagePlus, Trash2, Image, Loader2, Eye, EyeOff, Brain, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import {
+  Edit,
+  Save,
+  X,
+  ArrowLeft,
+  Tag,
+  Plus,
+  FileText,
+  Settings,
+  Check,
+  ImagePlus,
+  Trash2,
+  Image,
+  Loader2,
+  Eye,
+  EyeOff,
+  Brain,
+  ChevronDown,
+  ChevronRight,
+  RefreshCw,
+} from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import { compressImage, formatBytes } from "@/lib/image-compression";
 import { formatFlexibleDate } from "@/lib/utils";
+import { PromptDisplay } from "@/components/prompts/PromptDisplay";
 
 interface MediaAsset {
   id: number;
@@ -77,11 +98,13 @@ export default function DocumentDetailPage() {
   const [editedTitle, setEditedTitle] = useState("");
   const [editedTags, setEditedTags] = useState<string[]>([]);
   const [editedType, setEditedType] = useState("");
-  const [editedPrimaryType, setEditedPrimaryType] = useState<"writing" | "prompt" | "note">("writing");
+  const [editedPrimaryType, setEditedPrimaryType] = useState<"writing" | "prompt" | "note">(
+    "writing"
+  );
   const [editedAlsoShownIn, setEditedAlsoShownIn] = useState<string[]>([]);
   const [editedWrittenDate, setEditedWrittenDate] = useState("");
   const [newTag, setNewTag] = useState("");
-  
+
   // Prompt-specific fields
   const [editedPurpose, setEditedPurpose] = useState("");
   const [editedRole, setEditedRole] = useState<"system" | "user" | "assistant" | "chat">("system");
@@ -97,10 +120,10 @@ export default function DocumentDetailPage() {
 
   // Index summary visibility
   const [showIndexSummary, setShowIndexSummary] = useState(false);
-  
+
   // Prompt metadata visibility
   const [showPromptMetadata, setShowPromptMetadata] = useState(false);
-  
+
   // Regenerate summary state
   const [regeneratingSummary, setRegeneratingSummary] = useState(false);
 
@@ -216,14 +239,27 @@ export default function DocumentDetailPage() {
     setEditedAlsoShownIn(doc.metadata?.alsoShownIn || []);
     // Support both new writtenDate and legacy year field
     setEditedWrittenDate(doc.metadata?.writtenDate || doc.metadata?.year || "");
-    
+
     // Prompt-specific fields - load if type is prompt OR if alsoShownIn includes "prompt"
-    const isPromptOrShownAsPrompt = doc.type === "prompt" || doc.metadata?.alsoShownIn?.includes("prompt");
+    const isPromptOrShownAsPrompt =
+      doc.type === "prompt" || doc.metadata?.alsoShownIn?.includes("prompt");
     if (isPromptOrShownAsPrompt || doc.metadata?.purpose || doc.metadata?.role) {
       setEditedPurpose(doc.metadata?.purpose || "");
       setEditedRole(doc.metadata?.role || "system");
-      setEditedInputSchema(doc.metadata?.inputSchema ? (typeof doc.metadata.inputSchema === 'string' ? doc.metadata.inputSchema : JSON.stringify(doc.metadata.inputSchema, null, 2)) : "");
-      setEditedOutputSchema(doc.metadata?.outputSchema ? (typeof doc.metadata.outputSchema === 'string' ? doc.metadata.outputSchema : JSON.stringify(doc.metadata.outputSchema, null, 2)) : "");
+      setEditedInputSchema(
+        doc.metadata?.inputSchema
+          ? typeof doc.metadata.inputSchema === "string"
+            ? doc.metadata.inputSchema
+            : JSON.stringify(doc.metadata.inputSchema, null, 2)
+          : ""
+      );
+      setEditedOutputSchema(
+        doc.metadata?.outputSchema
+          ? typeof doc.metadata.outputSchema === "string"
+            ? doc.metadata.outputSchema
+            : JSON.stringify(doc.metadata.outputSchema, null, 2)
+          : ""
+      );
       setEditedConfig(doc.metadata?.config ? JSON.stringify(doc.metadata.config, null, 2) : "");
     } else {
       setEditedPurpose("");
@@ -244,7 +280,8 @@ export default function DocumentDetailPage() {
       let parsedConfig: Record<string, unknown> | null = null;
 
       // Check if this is a prompt or shown in prompts tab
-      const isPromptOrShownAsPrompt = editedPrimaryType === "prompt" || editedAlsoShownIn.includes("prompt");
+      const isPromptOrShownAsPrompt =
+        editedPrimaryType === "prompt" || editedAlsoShownIn.includes("prompt");
 
       if (isPromptOrShownAsPrompt) {
         if (editedInputSchema.trim()) {
@@ -257,7 +294,7 @@ export default function DocumentDetailPage() {
             return;
           }
         }
-        
+
         if (editedOutputSchema.trim()) {
           try {
             JSON.parse(editedOutputSchema); // Validate JSON
@@ -268,7 +305,7 @@ export default function DocumentDetailPage() {
             return;
           }
         }
-        
+
         if (editedConfig.trim()) {
           try {
             parsedConfig = JSON.parse(editedConfig); // Parse and validate JSON
@@ -279,7 +316,7 @@ export default function DocumentDetailPage() {
           }
         }
       }
-      
+
       const res = await fetch(`/api/documents/${slug}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -295,20 +332,22 @@ export default function DocumentDetailPage() {
             year: undefined, // Remove legacy field
             alsoShownIn: editedAlsoShownIn.length > 0 ? editedAlsoShownIn : undefined,
             // Prompt-specific fields (if type is prompt OR shown in prompts tab)
-            ...(isPromptOrShownAsPrompt ? {
-              purpose: editedPurpose.trim() || null,
-              role: editedRole || "system",
-              inputSchema: parsedInputSchema,
-              outputSchema: parsedOutputSchema,
-              config: parsedConfig,
-            } : {
-              // Remove prompt fields if not a prompt and not shown as prompt
-              purpose: undefined,
-              role: undefined,
-              inputSchema: undefined,
-              outputSchema: undefined,
-              config: undefined,
-            }),
+            ...(isPromptOrShownAsPrompt
+              ? {
+                  purpose: editedPurpose.trim() || null,
+                  role: editedRole || "system",
+                  inputSchema: parsedInputSchema,
+                  outputSchema: parsedOutputSchema,
+                  config: parsedConfig,
+                }
+              : {
+                  // Remove prompt fields if not a prompt and not shown as prompt
+                  purpose: undefined,
+                  role: undefined,
+                  inputSchema: undefined,
+                  outputSchema: undefined,
+                  config: undefined,
+                }),
           },
         }),
       });
@@ -395,7 +434,7 @@ export default function DocumentDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col p-6 bg-[var(--tartarus-void)]">
+      <div className="flex h-full flex-col bg-[var(--tartarus-void)] p-6">
         <Skeleton className="mb-4 h-8 w-1/3 bg-[var(--tartarus-elevated)]" />
         <Skeleton className="h-64 w-full bg-[var(--tartarus-elevated)]" />
       </div>
@@ -413,31 +452,42 @@ export default function DocumentDetailPage() {
   return (
     <div className="flex h-full flex-col bg-[var(--tartarus-void)]">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between px-6 border-b border-[var(--tartarus-border)]">
+      <header className="flex h-14 items-center justify-between border-b border-[var(--tartarus-border)] px-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/repository")}
-            className="text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-ivory)] hover:bg-[var(--tartarus-elevated)]"
+            className="text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)] hover:text-[var(--tartarus-ivory)]"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
           <h1 className="text-lg font-semibold text-[var(--tartarus-ivory)]">{document.title}</h1>
-          <Badge className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">{document.type}</Badge>
+          <Badge className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
+            {document.type}
+          </Badge>
           {document.metadata?.type && (
-            <Badge variant="outline" className="border-[var(--tartarus-border)] text-[var(--tartarus-ivory-muted)]">
+            <Badge
+              variant="outline"
+              className="border-[var(--tartarus-border)] text-[var(--tartarus-ivory-muted)]"
+            >
               {document.metadata.type}
             </Badge>
           )}
           {document.type === "prompt" && document.metadata?.purpose && (
-            <Badge variant="outline" className="border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)] text-xs">
+            <Badge
+              variant="outline"
+              className="border-[var(--tartarus-gold-dim)] text-xs text-[var(--tartarus-gold)]"
+            >
               {document.metadata.purpose}
             </Badge>
           )}
           {document.type === "prompt" && document.metadata?.role && (
-            <Badge variant="outline" className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] text-xs capitalize">
+            <Badge
+              variant="outline"
+              className="border-[var(--tartarus-teal-dim)] text-xs text-[var(--tartarus-teal)] capitalize"
+            >
               {document.metadata.role}
             </Badge>
           )}
@@ -487,7 +537,9 @@ export default function DocumentDetailPage() {
                 className="text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)]"
                 title="Regenerate AI Summary"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${regeneratingSummary ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${regeneratingSummary ? "animate-spin" : ""}`}
+                />
                 {regeneratingSummary ? "Regenerating..." : "Regenerate Summary"}
               </Button>
               <Button
@@ -502,9 +554,13 @@ export default function DocumentDetailPage() {
               <Button
                 size="sm"
                 onClick={editWithKronus}
-                className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)] font-medium"
+                className="bg-[var(--tartarus-gold)] font-medium text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
               >
-                <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                <img
+                  src="/chronus-logo.png"
+                  alt="Kronus"
+                  className="mr-2 h-4 w-4 rounded-full object-cover"
+                />
                 Edit with Kronus
               </Button>
             </>
@@ -514,13 +570,13 @@ export default function DocumentDetailPage() {
 
       {/* Index Summary Panel */}
       {showIndexSummary && document.summary && (
-        <div className="mx-6 mt-4 p-4 rounded-lg bg-[var(--tartarus-teal-soft)] border border-[var(--tartarus-teal-dim)]">
-          <div className="flex items-center gap-2 mb-2 text-xs text-[var(--tartarus-teal)]">
+        <div className="mx-6 mt-4 rounded-lg border border-[var(--tartarus-teal-dim)] bg-[var(--tartarus-teal-soft)] p-4">
+          <div className="mb-2 flex items-center gap-2 text-xs text-[var(--tartarus-teal)]">
             <Brain className="h-3 w-3" />
             <span className="font-medium">Index Summary</span>
             <span className="text-[var(--tartarus-ivory-muted)]">(for Kronus)</span>
           </div>
-          <p className="text-sm text-[var(--tartarus-ivory-dim)] leading-relaxed">
+          <p className="text-sm leading-relaxed text-[var(--tartarus-ivory-dim)]">
             {document.summary}
           </p>
         </div>
@@ -528,42 +584,49 @@ export default function DocumentDetailPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto">
-          <Card className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] shadow-lg">
+        <div className="mx-auto max-w-4xl">
+          <Card className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-lg">
             <CardHeader>
               {/* Title */}
-              <div className="flex items-center justify-between mb-4">
+              <div className="mb-4 flex items-center justify-between">
                 {isEditing ? (
-                  <div className="flex-1 mr-4">
-                    <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Title</Label>
+                  <div className="mr-4 flex-1">
+                    <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                      Title
+                    </Label>
                     <Input
                       value={editedTitle}
                       onChange={(e) => setEditedTitle(e.target.value)}
-                      className="text-xl font-semibold bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                      className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-xl font-semibold text-[var(--tartarus-ivory)]"
                     />
                   </div>
                 ) : (
                   <CardTitle className="text-[var(--tartarus-ivory)]">{document.title}</CardTitle>
                 )}
-                <div className="text-sm shrink-0 flex flex-col items-end gap-0.5">
+                <div className="flex shrink-0 flex-col items-end gap-0.5 text-sm">
                   {/* Written date - when the piece was originally created (gold) */}
                   {(document.metadata?.writtenDate || document.metadata?.year) && (
                     <span className="text-[var(--tartarus-gold)]">
-                      Written: {formatFlexibleDate(document.metadata?.writtenDate || document.metadata?.year)}
+                      Written:{" "}
+                      {formatFlexibleDate(
+                        document.metadata?.writtenDate || document.metadata?.year
+                      )}
                     </span>
                   )}
                   {/* Added date - when it was added to the system (muted) */}
-                  <span className="text-[var(--tartarus-ivory-faded)] text-xs">
+                  <span className="text-xs text-[var(--tartarus-ivory-faded)]">
                     Added: {formatFlexibleDate(document.created_at)}
                   </span>
                 </div>
               </div>
 
               {/* Type & Tags Section */}
-              <div className="pt-4 border-t border-[var(--tartarus-border)]">
-                <div className="flex items-center gap-2 mb-3">
+              <div className="border-t border-[var(--tartarus-border)] pt-4">
+                <div className="mb-3 flex items-center gap-2">
                   <FileText className="h-4 w-4 text-[var(--tartarus-ivory-muted)]" />
-                  <span className="text-sm font-medium text-[var(--tartarus-ivory-muted)]">Type & Tags</span>
+                  <span className="text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                    Type & Tags
+                  </span>
                 </div>
 
                 {isEditing ? (
@@ -572,56 +635,72 @@ export default function DocumentDetailPage() {
                     <div className="grid grid-cols-2 gap-4">
                       {/* Primary Type (writing/prompt/note) */}
                       <div>
-                        <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Primary Tab</Label>
-                        <Select value={editedPrimaryType} onValueChange={(v) => {
-                          const newType = v as "writing" | "prompt" | "note";
-                          setEditedPrimaryType(newType);
-                          // Reset prompt-specific fields if changing away from prompt
-                          if (newType !== "prompt") {
-                            setEditedPurpose("");
-                            setEditedRole("system");
-                            setEditedInputSchema("");
-                            setEditedOutputSchema("");
-                            setEditedConfig("");
-                          } else if (document?.type !== "prompt") {
-                            // Initialize prompt fields if changing TO prompt
-                            setEditedPurpose("");
-                            setEditedRole("system");
-                            setEditedInputSchema("");
-                            setEditedOutputSchema("");
-                            setEditedConfig("");
-                          }
-                        }}>
-                          <SelectTrigger className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
+                        <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                          Primary Tab
+                        </Label>
+                        <Select
+                          value={editedPrimaryType}
+                          onValueChange={(v) => {
+                            const newType = v as "writing" | "prompt" | "note";
+                            setEditedPrimaryType(newType);
+                            // Reset prompt-specific fields if changing away from prompt
+                            if (newType !== "prompt") {
+                              setEditedPurpose("");
+                              setEditedRole("system");
+                              setEditedInputSchema("");
+                              setEditedOutputSchema("");
+                              setEditedConfig("");
+                            } else if (document?.type !== "prompt") {
+                              // Initialize prompt fields if changing TO prompt
+                              setEditedPurpose("");
+                              setEditedRole("system");
+                              setEditedInputSchema("");
+                              setEditedOutputSchema("");
+                              setEditedConfig("");
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-9 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
-                            <SelectItem value="writing" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
+                          <SelectContent className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
+                            <SelectItem
+                              value="writing"
+                              className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]"
+                            >
                               Writings
                             </SelectItem>
-                            <SelectItem value="prompt" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
+                            <SelectItem
+                              value="prompt"
+                              className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]"
+                            >
                               Prompts
                             </SelectItem>
-                            <SelectItem value="note" className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
+                            <SelectItem
+                              value="note"
+                              className="text-[var(--tartarus-ivory)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]"
+                            >
                               Notes
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                        <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                        <p className="mt-1 text-[10px] text-[var(--tartarus-ivory-faded)]">
                           Which tab this document appears in by default
                         </p>
                       </div>
 
                       {/* Written Date */}
                       <div>
-                        <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Date Written</Label>
+                        <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                          Date Written
+                        </Label>
                         <Input
                           value={editedWrittenDate}
                           onChange={(e) => setEditedWrittenDate(e.target.value)}
                           placeholder="2024, 2024-03, or 2024-03-15"
-                          className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                          className="h-9 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                         />
-                        <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                        <p className="mt-1 text-[10px] text-[var(--tartarus-ivory-faded)]">
                           When originally written (year, year-month, or full date)
                         </p>
                       </div>
@@ -629,13 +708,21 @@ export default function DocumentDetailPage() {
 
                     {/* Subtype (essay, poem, etc.) */}
                     <div>
-                      <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Category/Subtype</Label>
-                      <Select value={editedType || "_none_"} onValueChange={(v) => setEditedType(v === "_none_" ? "" : v)}>
-                        <SelectTrigger className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
+                      <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                        Category/Subtype
+                      </Label>
+                      <Select
+                        value={editedType || "_none_"}
+                        onValueChange={(v) => setEditedType(v === "_none_" ? "" : v)}
+                      >
+                        <SelectTrigger className="h-9 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]">
                           <SelectValue placeholder="Select a type..." />
                         </SelectTrigger>
-                        <SelectContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
-                          <SelectItem value="_none_" className="text-[var(--tartarus-ivory-muted)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]">
+                        <SelectContent className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
+                          <SelectItem
+                            value="_none_"
+                            className="text-[var(--tartarus-ivory-muted)] focus:bg-[var(--tartarus-teal-soft)] focus:text-[var(--tartarus-teal)]"
+                          >
                             No type
                           </SelectItem>
                           {documentTypes.map((dt) => (
@@ -647,21 +734,24 @@ export default function DocumentDetailPage() {
                               <span className="flex items-center gap-2">
                                 <span className="font-medium">{dt.name}</span>
                                 {dt.description && (
-                                  <span className="text-xs text-[var(--tartarus-ivory-faded)]">- {dt.description.substring(0, 40)}{dt.description.length > 40 ? "..." : ""}</span>
+                                  <span className="text-xs text-[var(--tartarus-ivory-faded)]">
+                                    - {dt.description.substring(0, 40)}
+                                    {dt.description.length > 40 ? "..." : ""}
+                                  </span>
                                 )}
                               </span>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                      <p className="mt-1 text-[10px] text-[var(--tartarus-ivory-faded)]">
                         Categorization (essay, poem, system-prompt, etc.)
                       </p>
                     </div>
 
                     {/* Also Show In - Cross-tab visibility */}
                     <div>
-                      <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">
+                      <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
                         Also show in other tabs
                       </Label>
                       <div className="flex flex-wrap gap-4">
@@ -670,7 +760,7 @@ export default function DocumentDetailPage() {
                           .map((tabType) => (
                             <label
                               key={tabType}
-                              className="flex items-center gap-2 cursor-pointer text-sm"
+                              className="flex cursor-pointer items-center gap-2 text-sm"
                             >
                               <Checkbox
                                 checked={editedAlsoShownIn.includes(tabType)}
@@ -678,33 +768,39 @@ export default function DocumentDetailPage() {
                                   if (checked) {
                                     setEditedAlsoShownIn([...editedAlsoShownIn, tabType]);
                                   } else {
-                                    setEditedAlsoShownIn(editedAlsoShownIn.filter((t) => t !== tabType));
+                                    setEditedAlsoShownIn(
+                                      editedAlsoShownIn.filter((t) => t !== tabType)
+                                    );
                                   }
                                 }}
-                                className="border-[var(--tartarus-border)] data-[state=checked]:bg-[var(--tartarus-teal)] data-[state=checked]:border-[var(--tartarus-teal)]"
+                                className="border-[var(--tartarus-border)] data-[state=checked]:border-[var(--tartarus-teal)] data-[state=checked]:bg-[var(--tartarus-teal)]"
                               />
                               <span className="text-[var(--tartarus-ivory-muted)] capitalize">
-                                {tabType === "writing" ? "Writings" : tabType === "prompt" ? "Prompts" : "Notes"}
+                                {tabType === "writing"
+                                  ? "Writings"
+                                  : tabType === "prompt"
+                                    ? "Prompts"
+                                    : "Notes"}
                               </span>
                             </label>
                           ))}
                       </div>
-                      <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                      <p className="mt-1 text-[10px] text-[var(--tartarus-ivory-faded)]">
                         Document will appear in selected tabs in addition to its primary tab.
                       </p>
                     </div>
 
                     {/* Tags Editor */}
                     <div>
-                      <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block flex items-center gap-1">
+                      <Label className="mb-1.5 block flex items-center gap-1 text-xs text-[var(--tartarus-ivory-muted)]">
                         <Tag className="h-3 w-3" /> Tags
                       </Label>
-                      <div className="flex flex-wrap gap-1.5 mb-2">
+                      <div className="mb-2 flex flex-wrap gap-1.5">
                         {editedTags.map((tag) => (
                           <Badge
                             key={tag}
                             variant="secondary"
-                            className="bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)] pr-1"
+                            className="bg-[var(--tartarus-teal-soft)] pr-1 text-[var(--tartarus-teal)]"
                           >
                             {tag}
                             <button
@@ -721,7 +817,7 @@ export default function DocumentDetailPage() {
                           value={newTag}
                           onChange={(e) => setNewTag(e.target.value)}
                           placeholder="Add new tag..."
-                          className="h-8 text-sm flex-1 max-w-xs bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                          className="h-8 max-w-xs flex-1 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               e.preventDefault();
@@ -735,7 +831,7 @@ export default function DocumentDetailPage() {
                           className="h-8 border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] hover:bg-[var(--tartarus-teal-soft)]"
                           onClick={addTag}
                         >
-                          <Plus className="h-3 w-3 mr-1" />
+                          <Plus className="mr-1 h-3 w-3" />
                           Add
                         </Button>
                       </div>
@@ -743,80 +839,108 @@ export default function DocumentDetailPage() {
 
                     {/* Prompt-Specific Fields - show if type is prompt OR shown in prompts tab */}
                     {(editedPrimaryType === "prompt" || editedAlsoShownIn.includes("prompt")) && (
-                      <div className="space-y-4 pt-4 border-t border-[var(--tartarus-border)]">
-                        <h3 className="text-sm font-medium text-[var(--tartarus-ivory)]">Prompt Configuration</h3>
-                        
+                      <div className="space-y-4 border-t border-[var(--tartarus-border)] pt-4">
+                        <h3 className="text-sm font-medium text-[var(--tartarus-ivory)]">
+                          Prompt Configuration
+                        </h3>
+
                         {/* Purpose */}
                         <div>
-                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Purpose</Label>
+                          <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                            Purpose
+                          </Label>
                           <Input
                             value={editedPurpose}
                             onChange={(e) => setEditedPurpose(e.target.value)}
                             placeholder="What this prompt is for (e.g., 'System prompt for Kronus oracle mode')"
-                            className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                            className="h-9 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                           />
-                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                          <p className="mt-1 text-[10px] text-[var(--tartarus-ivory-faded)]">
                             Brief description of what this prompt does
                           </p>
                         </div>
 
                         {/* Role */}
                         <div>
-                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Role</Label>
-                          <Select value={editedRole} onValueChange={(v) => setEditedRole(v as "system" | "user" | "assistant" | "chat")}>
-                            <SelectTrigger className="h-9 bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]">
+                          <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                            Role
+                          </Label>
+                          <Select
+                            value={editedRole}
+                            onValueChange={(v) =>
+                              setEditedRole(v as "system" | "user" | "assistant" | "chat")
+                            }
+                          >
+                            <SelectTrigger className="h-9 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-[var(--tartarus-surface)] border-[var(--tartarus-border)]">
-                              <SelectItem value="system" className="text-[var(--tartarus-ivory)]">System</SelectItem>
-                              <SelectItem value="user" className="text-[var(--tartarus-ivory)]">User</SelectItem>
-                              <SelectItem value="assistant" className="text-[var(--tartarus-ivory)]">Assistant</SelectItem>
-                              <SelectItem value="chat" className="text-[var(--tartarus-ivory)]">Chat (Multi-turn)</SelectItem>
+                            <SelectContent className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
+                              <SelectItem value="system" className="text-[var(--tartarus-ivory)]">
+                                System
+                              </SelectItem>
+                              <SelectItem value="user" className="text-[var(--tartarus-ivory)]">
+                                User
+                              </SelectItem>
+                              <SelectItem
+                                value="assistant"
+                                className="text-[var(--tartarus-ivory)]"
+                              >
+                                Assistant
+                              </SelectItem>
+                              <SelectItem value="chat" className="text-[var(--tartarus-ivory)]">
+                                Chat (Multi-turn)
+                              </SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                          <p className="mt-1 text-[10px] text-[var(--tartarus-ivory-faded)]">
                             Message role type for this prompt
                           </p>
                         </div>
 
                         {/* Input Schema */}
                         <div>
-                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Input Schema (JSON)</Label>
+                          <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                            Input Schema (JSON)
+                          </Label>
                           <Textarea
                             value={editedInputSchema}
                             onChange={(e) => setEditedInputSchema(e.target.value)}
                             placeholder='{"type":"object","properties":{"question":{"type":"string"}}}'
-                            className="min-h-[80px] font-mono text-xs bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                            className="min-h-[80px] border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] font-mono text-xs text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                           />
-                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                          <p className="mt-1 text-[10px] text-[var(--tartarus-ivory-faded)]">
                             Zod schema for input validation (JSON format)
                           </p>
                         </div>
 
                         {/* Output Schema */}
                         <div>
-                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Output Schema (JSON)</Label>
+                          <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                            Output Schema (JSON)
+                          </Label>
                           <Textarea
                             value={editedOutputSchema}
                             onChange={(e) => setEditedOutputSchema(e.target.value)}
                             placeholder='{"type":"object","properties":{"answer":{"type":"string"}}}'
-                            className="min-h-[80px] font-mono text-xs bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                            className="min-h-[80px] border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] font-mono text-xs text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                           />
-                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                          <p className="mt-1 text-[10px] text-[var(--tartarus-ivory-faded)]">
                             Zod schema for expected output (JSON format)
                           </p>
                         </div>
 
                         {/* Config */}
                         <div>
-                          <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Configuration (JSON)</Label>
+                          <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                            Configuration (JSON)
+                          </Label>
                           <Textarea
                             value={editedConfig}
                             onChange={(e) => setEditedConfig(e.target.value)}
                             placeholder='{"model":"claude-sonnet-4","temperature":0.7,"max_tokens":2000}'
-                            className="min-h-[80px] font-mono text-xs bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                            className="min-h-[80px] border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] font-mono text-xs text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                           />
-                          <p className="text-[10px] text-[var(--tartarus-ivory-faded)] mt-1">
+                          <p className="mt-1 text-[10px] text-[var(--tartarus-ivory-faded)]">
                             Configuration metadata (model, temperature, max_tokens, etc.)
                           </p>
                         </div>
@@ -829,7 +953,10 @@ export default function DocumentDetailPage() {
                     {document.metadata?.type && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-[var(--tartarus-ivory-muted)]">Type:</span>
-                        <Badge variant="outline" className="border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)]">
+                        <Badge
+                          variant="outline"
+                          className="border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)]"
+                        >
                           {document.metadata.type}
                         </Badge>
                       </div>
@@ -843,9 +970,13 @@ export default function DocumentDetailPage() {
                           <Badge
                             key={tab}
                             variant="outline"
-                            className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] capitalize text-xs"
+                            className="border-[var(--tartarus-teal-dim)] text-xs text-[var(--tartarus-teal)] capitalize"
                           >
-                            {tab === "writing" ? "Writings" : tab === "prompt" ? "Prompts" : "Notes"}
+                            {tab === "writing"
+                              ? "Writings"
+                              : tab === "prompt"
+                                ? "Prompts"
+                                : "Notes"}
                           </Badge>
                         ))}
                       </div>
@@ -853,7 +984,7 @@ export default function DocumentDetailPage() {
 
                     {/* Display Tags */}
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs text-[var(--tartarus-ivory-muted)] mr-1">Tags:</span>
+                      <span className="mr-1 text-xs text-[var(--tartarus-ivory-muted)]">Tags:</span>
                       {document.metadata?.tags && document.metadata.tags.length > 0 ? (
                         document.metadata.tags.map((tag: string) => (
                           <Badge
@@ -865,10 +996,11 @@ export default function DocumentDetailPage() {
                           </Badge>
                         ))
                       ) : (
-                        <span className="text-sm text-[var(--tartarus-ivory-faded)] italic">No tags</span>
+                        <span className="text-sm text-[var(--tartarus-ivory-faded)] italic">
+                          No tags
+                        </span>
                       )}
                     </div>
-
                   </div>
                 )}
               </div>
@@ -877,23 +1009,30 @@ export default function DocumentDetailPage() {
             <CardContent>
               {isEditing ? (
                 <div>
-                  <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block">Content</Label>
+                  <Label className="mb-1.5 block text-xs text-[var(--tartarus-ivory-muted)]">
+                    Content
+                  </Label>
                   <Textarea
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
-                    className="min-h-[500px] font-mono text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                    className="min-h-[500px] border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] font-mono text-sm text-[var(--tartarus-ivory)]"
                   />
                 </div>
               ) : (
                 <>
-                  {/* Main Content - Prompt Text */}
-                  <div className="prose prose-sm max-w-none prose-invert prose-headings:text-[var(--tartarus-ivory)] prose-p:text-[var(--tartarus-ivory)] prose-strong:text-[var(--tartarus-ivory)] prose-a:text-[var(--tartarus-teal)]">
-                    {document.type === "prompt" ? (
-                      <pre className="whitespace-pre-wrap break-words bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] p-4 rounded-lg border border-[var(--tartarus-border)] font-mono text-sm leading-relaxed">{document.content}</pre>
-                    ) : (
-                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]} rehypePlugins={[rehypeKatex]}>{document.content}</ReactMarkdown>
-                    )}
-                  </div>
+                  {/* Main Content - Prompt Text or Markdown */}
+                  {document.type === "prompt" ? (
+                    <PromptDisplay content={document.content} />
+                  ) : (
+                    <div className="prose prose-sm prose-invert prose-headings:text-[var(--tartarus-ivory)] prose-p:text-[var(--tartarus-ivory)] prose-strong:text-[var(--tartarus-ivory)] prose-a:text-[var(--tartarus-teal)] max-w-none">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                      >
+                        {document.content}
+                      </ReactMarkdown>
+                    </div>
+                  )}
 
                   {/* Collapsible Prompt Metadata Section - Show for prompts, alsoShownIn prompts, OR writings with prompt metadata */}
                   {(document.type === "prompt" ||
@@ -903,102 +1042,131 @@ export default function DocumentDetailPage() {
                     document.metadata?.inputSchema ||
                     document.metadata?.outputSchema ||
                     document.metadata?.config) && (
-                    <div className="mt-6 pt-6 border-t border-[var(--tartarus-border)]">
+                    <div className="mt-6 border-t border-[var(--tartarus-border)] pt-6">
                       <Collapsible open={showPromptMetadata} onOpenChange={setShowPromptMetadata}>
-                        <div className="rounded-lg border border-[var(--tartarus-border)] hover:border-[var(--tartarus-teal-dim)] transition-colors overflow-hidden">
+                        <div className="overflow-hidden rounded-lg border border-[var(--tartarus-border)] transition-colors hover:border-[var(--tartarus-teal-dim)]">
                           <CollapsibleTrigger asChild>
-                            <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--tartarus-elevated)] transition-colors text-left group">
+                            <button className="group flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--tartarus-elevated)]">
                               {showPromptMetadata ? (
                                 <ChevronDown className="h-4 w-4 text-[var(--tartarus-teal)] transition-transform" />
                               ) : (
-                                <ChevronRight className="h-4 w-4 text-[var(--tartarus-ivory-muted)] group-hover:text-[var(--tartarus-teal)] transition-colors" />
+                                <ChevronRight className="h-4 w-4 text-[var(--tartarus-ivory-muted)] transition-colors group-hover:text-[var(--tartarus-teal)]" />
                               )}
-                              <Settings className={`h-4 w-4 ${showPromptMetadata ? "text-[var(--tartarus-teal)]" : "text-[var(--tartarus-ivory-muted)]"}`} />
-                              <span className={`text-sm font-medium ${showPromptMetadata ? "text-[var(--tartarus-ivory)]" : "text-[var(--tartarus-ivory-muted)]"}`}>
+                              <Settings
+                                className={`h-4 w-4 ${showPromptMetadata ? "text-[var(--tartarus-teal)]" : "text-[var(--tartarus-ivory-muted)]"}`}
+                              />
+                              <span
+                                className={`text-sm font-medium ${showPromptMetadata ? "text-[var(--tartarus-ivory)]" : "text-[var(--tartarus-ivory-muted)]"}`}
+                              >
                                 Prompt Configuration & Metadata
                               </span>
                               {/* Show count of available fields */}
-                              {(document.metadata?.purpose || document.metadata?.role || document.metadata?.inputSchema || document.metadata?.outputSchema || document.metadata?.config) && (
-                                <Badge variant="outline" className="ml-auto border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] text-xs">
-                                  {[
-                                    document.metadata?.purpose,
-                                    document.metadata?.role,
-                                    document.metadata?.inputSchema,
-                                    document.metadata?.outputSchema,
-                                    document.metadata?.config
-                                  ].filter(Boolean).length} fields
+                              {(document.metadata?.purpose ||
+                                document.metadata?.role ||
+                                document.metadata?.inputSchema ||
+                                document.metadata?.outputSchema ||
+                                document.metadata?.config) && (
+                                <Badge
+                                  variant="outline"
+                                  className="ml-auto border-[var(--tartarus-teal-dim)] text-xs text-[var(--tartarus-teal)]"
+                                >
+                                  {
+                                    [
+                                      document.metadata?.purpose,
+                                      document.metadata?.role,
+                                      document.metadata?.inputSchema,
+                                      document.metadata?.outputSchema,
+                                      document.metadata?.config,
+                                    ].filter(Boolean).length
+                                  }{" "}
+                                  fields
                                 </Badge>
                               )}
                             </button>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="px-3 pb-3 pt-3 border-t border-[var(--tartarus-border)]/50 space-y-4">
+                            <div className="space-y-4 border-t border-[var(--tartarus-border)]/50 px-3 pt-3 pb-3">
                               {/* Purpose */}
                               {document.metadata?.purpose ? (
                                 <div>
-                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] block mb-1.5 font-medium">Purpose:</span>
-                                  <p className="text-sm text-[var(--tartarus-ivory)] leading-relaxed">{document.metadata.purpose}</p>
+                                  <span className="mb-1.5 block text-xs font-medium text-[var(--tartarus-ivory-muted)]">
+                                    Purpose:
+                                  </span>
+                                  <p className="text-sm leading-relaxed text-[var(--tartarus-ivory)]">
+                                    {document.metadata.purpose}
+                                  </p>
                                 </div>
                               ) : null}
-                              
+
                               {/* Role */}
                               {document.metadata?.role ? (
                                 <div>
-                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] block mb-1.5 font-medium">Role:</span>
-                                  <Badge variant="outline" className="border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)] capitalize text-xs">
+                                  <span className="mb-1.5 block text-xs font-medium text-[var(--tartarus-ivory-muted)]">
+                                    Role:
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className="border-[var(--tartarus-teal-dim)] text-xs text-[var(--tartarus-teal)] capitalize"
+                                  >
                                     {document.metadata.role}
                                   </Badge>
                                 </div>
                               ) : null}
-                              
+
                               {/* Input Schema */}
                               {document.metadata?.inputSchema ? (
                                 <div>
-                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block font-medium">Input Schema:</span>
-                                  <pre className="text-xs font-mono bg-[var(--tartarus-deep)] p-3 rounded border border-[var(--tartarus-border)] overflow-x-auto text-[var(--tartarus-ivory)] leading-relaxed">
-                                    {typeof document.metadata.inputSchema === 'string' 
-                                      ? document.metadata.inputSchema 
+                                  <span className="mb-1.5 block text-xs font-medium text-[var(--tartarus-ivory-muted)]">
+                                    Input Schema:
+                                  </span>
+                                  <pre className="overflow-x-auto rounded border border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] p-3 font-mono text-xs leading-relaxed text-[var(--tartarus-ivory)]">
+                                    {typeof document.metadata.inputSchema === "string"
+                                      ? document.metadata.inputSchema
                                       : JSON.stringify(document.metadata.inputSchema, null, 2)}
                                   </pre>
                                 </div>
                               ) : null}
-                              
+
                               {/* Output Schema */}
                               {document.metadata?.outputSchema ? (
                                 <div>
-                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block font-medium">Output Schema:</span>
-                                  <pre className="text-xs font-mono bg-[var(--tartarus-deep)] p-3 rounded border border-[var(--tartarus-border)] overflow-x-auto text-[var(--tartarus-ivory)] leading-relaxed">
-                                    {typeof document.metadata.outputSchema === 'string' 
-                                      ? document.metadata.outputSchema 
+                                  <span className="mb-1.5 block text-xs font-medium text-[var(--tartarus-ivory-muted)]">
+                                    Output Schema:
+                                  </span>
+                                  <pre className="overflow-x-auto rounded border border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] p-3 font-mono text-xs leading-relaxed text-[var(--tartarus-ivory)]">
+                                    {typeof document.metadata.outputSchema === "string"
+                                      ? document.metadata.outputSchema
                                       : JSON.stringify(document.metadata.outputSchema, null, 2)}
                                   </pre>
                                 </div>
                               ) : null}
-                              
+
                               {/* Configuration */}
                               {document.metadata?.config ? (
                                 <div>
-                                  <span className="text-xs text-[var(--tartarus-ivory-muted)] mb-1.5 block font-medium">Configuration:</span>
-                                  <pre className="text-xs font-mono bg-[var(--tartarus-deep)] p-3 rounded border border-[var(--tartarus-border)] overflow-x-auto text-[var(--tartarus-ivory)] leading-relaxed">
-                                    {typeof document.metadata.config === 'string' 
-                                      ? document.metadata.config 
+                                  <span className="mb-1.5 block text-xs font-medium text-[var(--tartarus-ivory-muted)]">
+                                    Configuration:
+                                  </span>
+                                  <pre className="overflow-x-auto rounded border border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] p-3 font-mono text-xs leading-relaxed text-[var(--tartarus-ivory)]">
+                                    {typeof document.metadata.config === "string"
+                                      ? document.metadata.config
                                       : JSON.stringify(document.metadata.config, null, 2)}
                                   </pre>
                                 </div>
                               ) : null}
-                              
+
                               {/* Prompt configuration hint - show if no metadata fields exist yet */}
                               {!document.metadata?.purpose &&
-                               !document.metadata?.role &&
-                               !document.metadata?.inputSchema &&
-                               !document.metadata?.outputSchema &&
-                               !document.metadata?.config && (
-                                <p className="text-xs text-[var(--tartarus-ivory-faded)] italic">
-                                  {document.type === "prompt"
-                                    ? "Legacy prompt - no structured configuration available. Edit to add purpose, role, schemas, and config."
-                                    : "This document appears in the Prompts tab. Edit to add prompt metadata (purpose, role, schemas, config)."}
-                                </p>
-                              )}
+                                !document.metadata?.role &&
+                                !document.metadata?.inputSchema &&
+                                !document.metadata?.outputSchema &&
+                                !document.metadata?.config && (
+                                  <p className="text-xs text-[var(--tartarus-ivory-faded)] italic">
+                                    {document.type === "prompt"
+                                      ? "Legacy prompt - no structured configuration available. Edit to add purpose, role, schemas, and config."
+                                      : "This document appears in the Prompts tab. Edit to add prompt metadata (purpose, role, schemas, config)."}
+                                  </p>
+                                )}
                             </div>
                           </CollapsibleContent>
                         </div>
@@ -1011,7 +1179,7 @@ export default function DocumentDetailPage() {
 
             {/* Attachments Section */}
             <div className="border-t border-[var(--tartarus-border)] p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Image className="h-4 w-4 text-[var(--tartarus-ivory-muted)]" />
                   <span className="text-sm font-medium text-[var(--tartarus-ivory)]">
@@ -1036,12 +1204,12 @@ export default function DocumentDetailPage() {
                   >
                     {uploadingMedia ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Uploading...
                       </>
                     ) : (
                       <>
-                        <ImagePlus className="h-4 w-4 mr-2" />
+                        <ImagePlus className="mr-2 h-4 w-4" />
                         Add Image
                       </>
                     )}
@@ -1054,17 +1222,19 @@ export default function DocumentDetailPage() {
                   <Loader2 className="h-6 w-6 animate-spin text-[var(--tartarus-ivory-muted)]" />
                 </div>
               ) : attachments.length === 0 ? (
-                <div className="text-center py-8 text-[var(--tartarus-ivory-faded)]">
-                  <Image className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                <div className="py-8 text-center text-[var(--tartarus-ivory-faded)]">
+                  <Image className="mx-auto mb-2 h-12 w-12 opacity-30" />
                   <p className="text-sm">No images attached yet</p>
-                  <p className="text-xs mt-1">Click "Add Image" to attach artwork, diagrams, or photos</p>
+                  <p className="mt-1 text-xs">
+                    Click "Add Image" to attach artwork, diagrams, or photos
+                  </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                   {attachments.map((asset) => (
                     <div
                       key={asset.id}
-                      className="group relative aspect-square rounded-lg overflow-hidden border border-[var(--tartarus-border)] bg-[var(--tartarus-deep)]"
+                      className="group relative aspect-square overflow-hidden rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-deep)]"
                     >
                       <img
                         src={asset.supabase_url || asset.drive_url || `/api/media/${asset.id}/raw`}
@@ -1072,21 +1242,23 @@ export default function DocumentDetailPage() {
                         className="h-full w-full object-cover"
                       />
                       {/* Overlay with info and actions */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                      <div className="absolute inset-0 flex flex-col justify-between bg-black/60 p-2 opacity-0 transition-opacity group-hover:opacity-100">
                         <div className="flex justify-end">
                           <button
                             onClick={() => handleDeleteAttachment(asset.id)}
-                            className="p-1.5 rounded-full bg-red-500/80 hover:bg-red-500 text-white transition-colors"
+                            className="rounded-full bg-red-500/80 p-1.5 text-white transition-colors hover:bg-red-500"
                             title="Remove attachment"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                         <div className="text-white">
-                          <p className="text-xs font-medium truncate">{asset.filename}</p>
-                          <p className="text-[10px] text-white/70">{formatBytes(asset.file_size)}</p>
+                          <p className="truncate text-xs font-medium">{asset.filename}</p>
+                          <p className="text-[10px] text-white/70">
+                            {formatBytes(asset.file_size)}
+                          </p>
                           {asset.drive_url && (
-                            <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-[var(--tartarus-gold)]/20 text-[var(--tartarus-gold)]">
+                            <span className="mt-1 inline-block rounded bg-[var(--tartarus-gold)]/20 px-1.5 py-0.5 text-[9px] text-[var(--tartarus-gold)]">
                               Archived
                             </span>
                           )}

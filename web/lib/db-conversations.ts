@@ -23,6 +23,8 @@ export interface Conversation {
   id: number;
   title: string;
   messages: ChatMessage[];
+  summary?: string | null;
+  summary_updated_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,10 +38,24 @@ export function initConversationsTable(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       messages TEXT NOT NULL,
+      summary TEXT,
+      summary_updated_at TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migration: Add summary columns if they don't exist
+  try {
+    db.prepare("SELECT summary FROM chat_conversations LIMIT 1").get();
+  } catch (error: any) {
+    if (error.message?.includes("no such column")) {
+      db.exec(`
+        ALTER TABLE chat_conversations ADD COLUMN summary TEXT;
+        ALTER TABLE chat_conversations ADD COLUMN summary_updated_at TEXT;
+      `);
+    }
+  }
 }
 
 // Save a new conversation
@@ -66,11 +82,25 @@ export function updateConversation(id: number, title: string, messages: ChatMess
 
   db.prepare(
     `
-    UPDATE chat_conversations 
+    UPDATE chat_conversations
     SET title = ?, messages = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `
   ).run(title, JSON.stringify(messages), id);
+}
+
+// Update only the title without touching updated_at (for summary generation)
+export function updateConversationTitle(id: number, title: string): void {
+  const db = getDatabase();
+  initConversationsTable();
+
+  db.prepare(
+    `
+    UPDATE chat_conversations
+    SET title = ?
+    WHERE id = ?
+  `
+  ).run(title, id);
 }
 
 // Get a conversation by ID
@@ -101,7 +131,7 @@ export function listConversations(
   const rows = db
     .prepare(
       `
-    SELECT id, title, created_at, updated_at
+    SELECT id, title, summary, summary_updated_at, created_at, updated_at
     FROM chat_conversations
     ORDER BY updated_at DESC
     LIMIT ? OFFSET ?
@@ -132,7 +162,7 @@ export function searchConversations(query: string, limit = 20): Omit<Conversatio
   const rows = db
     .prepare(
       `
-    SELECT id, title, created_at, updated_at
+    SELECT id, title, summary, summary_updated_at, created_at, updated_at
     FROM chat_conversations
     WHERE title LIKE ? OR messages LIKE ?
     ORDER BY updated_at DESC
@@ -142,4 +172,71 @@ export function searchConversations(query: string, limit = 20): Omit<Conversatio
     .all(`%${query}%`, `%${query}%`, limit) as any[];
 
   return rows;
+}
+
+// Update conversation summary
+export function updateConversationSummary(id: number, summary: string): boolean {
+  const db = getDatabase();
+  initConversationsTable();
+
+  const result = db
+    .prepare(
+      `
+    UPDATE chat_conversations
+    SET summary = ?, summary_updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `
+    )
+    .run(summary, id);
+
+  return result.changes > 0;
+}
+
+// Get conversations without summaries (for backfill)
+export function getConversationsWithoutSummary(limit = 5): Conversation[] {
+  const db = getDatabase();
+  initConversationsTable();
+
+  const rows = db
+    .prepare(
+      `
+    SELECT *
+    FROM chat_conversations
+    WHERE summary IS NULL
+    ORDER BY updated_at DESC
+    LIMIT ?
+  `
+    )
+    .all(limit) as any[];
+
+  return rows.map((row) => ({
+    ...row,
+    messages: JSON.parse(row.messages),
+  }));
+}
+
+// Check if conversation has changes since last summary
+export function conversationHasChanges(id: number): boolean {
+  const db = getDatabase();
+  initConversationsTable();
+
+  const row = db
+    .prepare(
+      `
+    SELECT
+      updated_at,
+      summary_updated_at
+    FROM chat_conversations
+    WHERE id = ?
+  `
+    )
+    .get(id) as any;
+
+  if (!row) return false;
+
+  // No summary yet = has changes
+  if (!row.summary_updated_at) return true;
+
+  // Compare dates - if updated_at > summary_updated_at, there are changes
+  return new Date(row.updated_at) > new Date(row.summary_updated_at);
 }

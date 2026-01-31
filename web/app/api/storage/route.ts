@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getSupabaseAdmin,
-  isSupabaseAdminConfigured,
-  STORAGE_BUCKET,
-} from "@/lib/supabase/server";
+import { getSupabaseAdmin, isSupabaseAdminConfigured, STORAGE_BUCKET } from "@/lib/supabase/server";
 import { withErrorHandler } from "@/lib/api-handler";
 import { requireQuery } from "@/lib/validations";
 import { ValidationError, ExternalServiceError } from "@/lib/errors";

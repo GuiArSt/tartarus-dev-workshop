@@ -53,15 +53,15 @@ export interface SoulConfig {
 }
 
 export const DEFAULT_SOUL_CONFIG: SoulConfig = {
-  writings: true,           // Only writings by default - the soul's creative voice
+  writings: true, // Only writings by default - the soul's creative voice
   portfolioProjects: false, // Can be enabled via Soul Config
-  skills: false,            // Can be enabled via Soul Config
-  workExperience: false,    // Can be enabled via Soul Config
-  education: false,         // Can be enabled via Soul Config
-  journalEntries: false,    // Can be enabled via Soul Config
+  skills: false, // Can be enabled via Soul Config
+  workExperience: false, // Can be enabled via Soul Config
+  education: false, // Can be enabled via Soul Config
+  journalEntries: false, // Can be enabled via Soul Config
   // Linear context - disabled by default
-  linearProjects: false,    // Can be enabled via Soul Config
-  linearIssues: false,      // Can be enabled via Soul Config
+  linearProjects: false, // Can be enabled via Soul Config
+  linearIssues: false, // Can be enabled via Soul Config
   linearIncludeCompleted: false, // Only active items when enabled
 };
 
@@ -75,7 +75,7 @@ export function loadKronusSoul(): string {
 
   const agentConfig = getAgentConfig();
   const soulPathEnv = process.env.SOUL_XML_PATH || agentConfig.soulPath;
-  
+
   const possiblePaths = [
     soulPathEnv ? path.resolve(soulPathEnv.replace(/^~/, os.homedir())) : null,
     path.join(process.cwd(), "..", agentConfig.soulPath),
@@ -129,7 +129,9 @@ function estimateTokens(text: string): number {
  * The Repository IS the soul's flesh - it defines who the creator is,
  * what they've built, what they know, and what they've expressed.
  */
-export async function loadRepositoryForSoul(config: SoulConfig = DEFAULT_SOUL_CONFIG): Promise<{ content: string; tokenEstimate: number }> {
+export async function loadRepositoryForSoul(
+  config: SoulConfig = DEFAULT_SOUL_CONFIG
+): Promise<{ content: string; tokenEstimate: number }> {
   try {
     const db = getDrizzleDb();
     const sections: string[] = [];
@@ -137,11 +139,7 @@ export async function loadRepositoryForSoul(config: SoulConfig = DEFAULT_SOUL_CO
 
     // ===== WRITINGS =====
     if (config.writings) {
-      const writings = db
-        .select()
-        .from(documents)
-        .where(eq(documents.type, "writing"))
-        .all();
+      const writings = db.select().from(documents).where(eq(documents.type, "writing")).all();
 
       if (writings.length > 0) {
         const writingsSection = writings.map((doc) => {
@@ -237,7 +235,14 @@ ${projectsSection.join("\n\n---\n\n")}`;
             const sorted = categorySkills.sort((a, b) => b.magnitude - a.magnitude);
             const skillList = sorted
               .map((s) => {
-                const level = s.magnitude === 4 ? "Expert" : s.magnitude === 3 ? "Professional" : s.magnitude === 2 ? "Apprentice" : "Beginner";
+                const level =
+                  s.magnitude === 4
+                    ? "Expert"
+                    : s.magnitude === 3
+                      ? "Professional"
+                      : s.magnitude === 2
+                        ? "Apprentice"
+                        : "Beginner";
                 return `- **${s.name}** (${level}): ${s.description}`;
               })
               .join("\n");
@@ -292,11 +297,7 @@ ${expSection.join("\n\n---\n\n")}`;
 
     // ===== EDUCATION =====
     if (config.education) {
-      const edu = db
-        .select()
-        .from(education)
-        .orderBy(desc(education.dateStart))
-        .all();
+      const edu = db.select().from(education).orderBy(desc(education.dateStart)).all();
 
       if (edu.length > 0) {
         const eduSection = edu.map((e) => {
@@ -320,20 +321,17 @@ ${eduSection.join("\n\n---\n\n")}`;
 
     // ===== JOURNAL ENTRIES =====
     if (config.journalEntries) {
-      const entries = db
-        .select()
-        .from(journalEntries)
-        .orderBy(desc(journalEntries.date))
-        .all(); // All entries - no limit
+      const entries = db.select().from(journalEntries).orderBy(desc(journalEntries.date)).all(); // All entries - no limit
 
       if (entries.length > 0) {
         const entriesSection = entries.map((entry) => {
           const techs = entry.technologies || "N/A";
           const commitDate = formatDateShort(entry.date);
           const addedDate = entry.createdAt ? formatDateShort(entry.createdAt) : null;
-          const dateStr = addedDate && addedDate !== commitDate
-            ? `Committed: ${commitDate} | Documented: ${addedDate}`
-            : `Date: ${commitDate}`;
+          const dateStr =
+            addedDate && addedDate !== commitDate
+              ? `Committed: ${commitDate} | Documented: ${addedDate}`
+              : `Date: ${commitDate}`;
 
           return `### ${entry.repository} - ${entry.commitHash.substring(0, 7)}
 **${dateStr}** | **Branch:** ${entry.branch}
@@ -364,25 +362,21 @@ ${entriesSection.join("\n\n---\n\n")}`;
     if (config.linearProjects) {
       try {
         const db = getDrizzleDb();
-        
+
         // Fetch all non-deleted projects from cache
         let projects = await db
           .select()
           .from(linearProjects)
           .where(eq(linearProjects.isDeleted, false));
-        
+
         // Filter by completion status if needed
         if (!config.linearIncludeCompleted) {
-          projects = projects.filter(
-            (p) => p.state !== "completed" && p.state !== "canceled"
-          );
+          projects = projects.filter((p) => p.state !== "completed" && p.state !== "canceled");
         }
 
         if (projects.length > 0) {
           const projectsSection = projects.map((project) => {
-            const progress = project.progress
-              ? `${Math.round(project.progress * 100)}%`
-              : "N/A";
+            const progress = project.progress ? `${Math.round(project.progress * 100)}%` : "N/A";
             const targetDate = project.targetDate || "No target";
             const lead = project.leadName || "Unassigned";
 
@@ -414,20 +408,17 @@ ${projectsSection.join("\n\n---\n\n")}`;
       try {
         const db = getDrizzleDb();
         const defaultUserId = process.env.LINEAR_USER_ID;
-        
+
         // Fetch issues from cache - filter by assignee if LINEAR_USER_ID is set
         let issues = await db
           .select()
           .from(linearIssues)
           .where(
             defaultUserId
-              ? and(
-                  eq(linearIssues.isDeleted, false),
-                  eq(linearIssues.assigneeId, defaultUserId)
-                )
+              ? and(eq(linearIssues.isDeleted, false), eq(linearIssues.assigneeId, defaultUserId))
               : eq(linearIssues.isDeleted, false)
           );
-        
+
         // Filter by completion status if needed
         if (!config.linearIncludeCompleted) {
           issues = issues.filter((i) => {
@@ -470,7 +461,7 @@ ${projectsSection.join("\n\n---\n\n")}`;
                 .map((issue) => {
                   return `- **${issue.identifier}**: ${issue.title}
   Priority: ${priorityLabel(issue.priority)} | State: ${issue.stateName || "Unknown"}
-  ${issue.description ? `${issue.description.substring(0, 150)}${issue.description.length > 150 ? "..." : ""}` : ""}`;
+  ${issue.description || ""}`;
                 })
                 .join("\n\n");
 
@@ -511,7 +502,9 @@ ${sections.join("\n\n" + "=".repeat(60) + "\n\n")}
 
     const tokenEstimate = estimateTokens(repository);
     const agentConfig = getAgentConfig();
-    console.log(`[${agentConfig.name}] Repository loaded: ${totalChars} chars, ~${tokenEstimate} tokens (config: ${JSON.stringify(config)})`);
+    console.log(
+      `[${agentConfig.name}] Repository loaded: ${totalChars} chars, ~${tokenEstimate} tokens (config: ${JSON.stringify(config)})`
+    );
 
     return { content: repository, tokenEstimate };
   } catch (error) {
@@ -537,7 +530,9 @@ function formatTodayDate(): string {
  * Get the system prompt for Agent chat
  * Generated fresh based on soul config - NOT cached
  */
-export async function getKronusSystemPrompt(config: SoulConfig = DEFAULT_SOUL_CONFIG): Promise<string> {
+export async function getKronusSystemPrompt(
+  config: SoulConfig = DEFAULT_SOUL_CONFIG
+): Promise<string> {
   const agentConfig = getAgentConfig();
   const soul = loadKronusSoul();
   const { content: repository, tokenEstimate } = await loadRepositoryForSoul(config);
@@ -554,6 +549,9 @@ export async function getKronusSystemPrompt(config: SoulConfig = DEFAULT_SOUL_CO
 You have access to tools for:
 1. **Journal Management**: Create, read, update entries and project summaries
 2. **Linear Integration**: List/create/update issues and projects
+   - **linear_get_issue**: Fetch full issue details from local cache by identifier (e.g., 'ENG-1234'). Use this to read complete descriptions.
+   - **linear_get_project**: Fetch full project details from local cache by ID. Use this to read complete project content.
+   - Note: These read from the synced local database, NOT the Linear API. Use them when you need full details beyond what's in the system prompt.
 3. **Repository**: Access to all writings, prompts, skills, experience, and education
    - **repository_search_documents**: Search writings and prompts (filter by type, search keywords, pagination)
    - **repository_get_document**: Read a specific document by ID or slug
@@ -697,7 +695,9 @@ const example = "code";
 ${repository}`;
 
   const totalTokens = estimateTokens(systemPrompt);
-  console.log(`[${agentConfig.name}] System prompt assembled: ~${totalTokens} tokens total (repository: ~${tokenEstimate})`);
+  console.log(
+    `[${agentConfig.name}] System prompt assembled: ~${totalTokens} tokens total (repository: ~${tokenEstimate})`
+  );
 
   return systemPrompt;
 }

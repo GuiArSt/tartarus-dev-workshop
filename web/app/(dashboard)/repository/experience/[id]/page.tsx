@@ -9,7 +9,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Edit, Save, X, Briefcase, MapPin, Calendar, Building2, ChevronRight, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  Save,
+  X,
+  Briefcase,
+  MapPin,
+  Calendar,
+  Building2,
+  ChevronRight,
+  Upload,
+} from "lucide-react";
 
 interface Achievement {
   category?: string;
@@ -98,7 +109,11 @@ export default function ExperienceDetailPage() {
 
   const editWithKronus = () => {
     if (!experience) return;
-    const achievementsSummary = experience.achievements?.slice(0, 3).map(a => `- ${a.description}`).join("\n") || "";
+    const achievementsSummary =
+      experience.achievements
+        ?.slice(0, 3)
+        .map((a) => `- ${a.description}`)
+        .join("\n") || "";
     const context = `I want to UPDATE this work experience in my CV. Please help me modify it using the repository tools.
 
 **Current Experience:**
@@ -123,19 +138,23 @@ What would you like to change?`;
   const isCurrent = !experience?.dateEnd;
 
   // Group achievements by category
-  const achievementsByCategory = experience?.achievements?.reduce((acc, ach) => {
-    const cat = ach.category || "General";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(ach);
-    return acc;
-  }, {} as Record<string, Achievement[]>) || {};
+  const achievementsByCategory =
+    experience?.achievements?.reduce(
+      (acc, ach) => {
+        const cat = ach.category || "General";
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(ach);
+        return acc;
+      },
+      {} as Record<string, Achievement[]>
+    ) || {};
 
   // Get logo to display
   const displayLogo = isEditing ? editedExp.logo : experience?.logo;
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col p-6 bg-[var(--tartarus-void)]">
+      <div className="flex h-full flex-col bg-[var(--tartarus-void)] p-6">
         <Skeleton className="mb-4 h-8 w-1/3 bg-[var(--tartarus-elevated)]" />
         <Skeleton className="h-96 w-full bg-[var(--tartarus-elevated)]" />
       </div>
@@ -153,13 +172,13 @@ What would you like to change?`;
   return (
     <div className="flex h-full flex-col bg-[var(--tartarus-void)]">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between px-6 border-b border-[var(--tartarus-border)]">
+      <header className="flex h-14 items-center justify-between border-b border-[var(--tartarus-border)] px-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/repository?tab=cv")}
-            className="text-[var(--tartarus-ivory-muted)] hover:text-[var(--tartarus-ivory)] hover:bg-[var(--tartarus-elevated)]"
+            className="text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)] hover:text-[var(--tartarus-ivory)]"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -175,7 +194,10 @@ What would you like to change?`;
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setIsEditing(false); setEditedExp(experience); }}
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditedExp(experience);
+                }}
                 className="border-[var(--tartarus-border)] text-[var(--tartarus-ivory-muted)] hover:bg-[var(--tartarus-elevated)]"
               >
                 <X className="mr-2 h-4 w-4" />
@@ -207,7 +229,11 @@ What would you like to change?`;
                 onClick={editWithKronus}
                 className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
               >
-                <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                <img
+                  src="/chronus-logo.png"
+                  alt="Kronus"
+                  className="mr-2 h-4 w-4 rounded-full object-cover"
+                />
                 Edit with Kronus
               </Button>
             </>
@@ -217,17 +243,19 @@ What would you like to change?`;
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="mx-auto max-w-4xl">
           {/* Hero Card */}
-          <Card className="overflow-hidden border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-lg mb-6">
+          <Card className="mb-6 overflow-hidden border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-lg">
             {/* Header with gradient */}
-            <div className={`h-40 bg-gradient-to-r ${isCurrent ? "from-[var(--tartarus-gold-dim)] to-[var(--tartarus-surface)]" : "from-[var(--tartarus-deep)] to-[var(--tartarus-surface)]"} relative border-b border-[var(--tartarus-border)]`}>
-              <div className="absolute bottom-4 left-6 right-6">
+            <div
+              className={`h-40 bg-gradient-to-r ${isCurrent ? "from-[var(--tartarus-gold-dim)] to-[var(--tartarus-surface)]" : "from-[var(--tartarus-deep)] to-[var(--tartarus-surface)]"} relative border-b border-[var(--tartarus-border)]`}
+            >
+              <div className="absolute right-6 bottom-4 left-6">
                 <div className="flex items-end justify-between">
                   <div className="flex items-center gap-4">
                     {/* Logo Container - Clickable when editing */}
                     <div
-                      className={`h-20 w-20 rounded-xl bg-[var(--tartarus-elevated)] border border-[var(--tartarus-border)] shadow-lg flex items-center justify-center relative group ${isEditing ? "cursor-pointer" : ""}`}
+                      className={`group relative flex h-20 w-20 items-center justify-center rounded-xl border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] shadow-lg ${isEditing ? "cursor-pointer" : ""}`}
                       onClick={() => isEditing && fileInputRef.current?.click()}
                     >
                       {displayLogo ? (
@@ -237,12 +265,14 @@ What would you like to change?`;
                           className="h-14 w-14 object-contain"
                         />
                       ) : (
-                        <Briefcase className={`h-10 w-10 ${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-ivory-muted)]"}`} />
+                        <Briefcase
+                          className={`h-10 w-10 ${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-ivory-muted)]"}`}
+                        />
                       )}
 
                       {/* Upload overlay when editing */}
                       {isEditing && (
-                        <div className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
                           <Upload className="h-6 w-6 text-white" />
                         </div>
                       )}
@@ -260,27 +290,35 @@ What would you like to change?`;
                         <Input
                           value={editedExp.title || ""}
                           onChange={(e) => setEditedExp({ ...editedExp, title: e.target.value })}
-                          className="text-2xl font-bold bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] mb-1"
+                          className="mb-1 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-2xl font-bold text-[var(--tartarus-ivory)]"
                         />
                       ) : (
-                        <h2 className="text-2xl font-bold text-[var(--tartarus-ivory)]">{experience.title}</h2>
+                        <h2 className="text-2xl font-bold text-[var(--tartarus-ivory)]">
+                          {experience.title}
+                        </h2>
                       )}
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="mt-1 flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-[var(--tartarus-ivory-muted)]" />
                         {isEditing ? (
                           <Input
                             value={editedExp.company || ""}
-                            onChange={(e) => setEditedExp({ ...editedExp, company: e.target.value })}
-                            className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] h-7 text-sm"
+                            onChange={(e) =>
+                              setEditedExp({ ...editedExp, company: e.target.value })
+                            }
+                            className="h-7 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)]"
                           />
                         ) : (
-                          <span className={`${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-ivory-muted)]"}`}>{experience.company}</span>
+                          <span
+                            className={`${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-ivory-muted)]"}`}
+                          >
+                            {experience.company}
+                          </span>
                         )}
                       </div>
                     </div>
                   </div>
                   {isCurrent && (
-                    <Badge className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] font-semibold">
+                    <Badge className="bg-[var(--tartarus-gold)] font-semibold text-[var(--tartarus-void)]">
                       Currently Working
                     </Badge>
                   )}
@@ -292,49 +330,55 @@ What would you like to change?`;
               {/* Logo URL (when editing) */}
               {isEditing && (
                 <div className="mb-6">
-                  <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">
+                  <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
                     Logo URL (or click image above to upload)
                   </Label>
                   <Input
                     value={editedExp.logo || ""}
                     onChange={(e) => setEditedExp({ ...editedExp, logo: e.target.value })}
                     placeholder="https://... or upload above"
-                    className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                    className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                   />
                 </div>
               )}
 
               {/* Meta Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 pb-6 border-b border-[var(--tartarus-border)]">
+              <div className="mb-6 grid grid-cols-2 gap-4 border-b border-[var(--tartarus-border)] pb-6 md:grid-cols-4">
                 <div>
-                  <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1 block">Department</Label>
+                  <Label className="mb-1 block text-xs text-[var(--tartarus-ivory-muted)]">
+                    Department
+                  </Label>
                   {isEditing ? (
                     <Input
                       value={editedExp.department || ""}
                       onChange={(e) => setEditedExp({ ...editedExp, department: e.target.value })}
                       placeholder="e.g., Engineering"
-                      className="h-8 text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                   ) : (
-                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">{experience.department || "—"}</p>
+                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">
+                      {experience.department || "—"}
+                    </p>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1 block flex items-center gap-1">
+                  <Label className="mb-1 block flex items-center gap-1 text-xs text-[var(--tartarus-ivory-muted)]">
                     <MapPin className="h-3 w-3" /> Location
                   </Label>
                   {isEditing ? (
                     <Input
                       value={editedExp.location || ""}
                       onChange={(e) => setEditedExp({ ...editedExp, location: e.target.value })}
-                      className="h-8 text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                      className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)]"
                     />
                   ) : (
-                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">{experience.location}</p>
+                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">
+                      {experience.location}
+                    </p>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1 block flex items-center gap-1">
+                  <Label className="mb-1 block flex items-center gap-1 text-xs text-[var(--tartarus-ivory-muted)]">
                     <Calendar className="h-3 w-3" /> Start Date
                   </Label>
                   {isEditing ? (
@@ -342,40 +386,50 @@ What would you like to change?`;
                       value={editedExp.dateStart || ""}
                       onChange={(e) => setEditedExp({ ...editedExp, dateStart: e.target.value })}
                       placeholder="e.g., 2022-01"
-                      className="h-8 text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                   ) : (
-                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">{experience.dateStart}</p>
+                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">
+                      {experience.dateStart}
+                    </p>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-[var(--tartarus-ivory-muted)] mb-1 block flex items-center gap-1">
+                  <Label className="mb-1 block flex items-center gap-1 text-xs text-[var(--tartarus-ivory-muted)]">
                     <Calendar className="h-3 w-3" /> End Date
                   </Label>
                   {isEditing ? (
                     <Input
                       value={editedExp.dateEnd || ""}
-                      onChange={(e) => setEditedExp({ ...editedExp, dateEnd: e.target.value || null })}
+                      onChange={(e) =>
+                        setEditedExp({ ...editedExp, dateEnd: e.target.value || null })
+                      }
                       placeholder="Leave empty for current"
-                      className="h-8 text-sm bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="h-8 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-sm text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                   ) : (
-                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">{experience.dateEnd || "Present"}</p>
+                    <p className="text-sm font-medium text-[var(--tartarus-ivory)]">
+                      {experience.dateEnd || "Present"}
+                    </p>
                   )}
                 </div>
               </div>
 
               {/* Tagline */}
               <div className="mb-6">
-                <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">Tagline</Label>
+                <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                  Tagline
+                </Label>
                 {isEditing ? (
                   <Input
                     value={editedExp.tagline || ""}
                     onChange={(e) => setEditedExp({ ...editedExp, tagline: e.target.value })}
-                    className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)]"
+                    className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)]"
                   />
                 ) : (
-                  <p className={`text-lg italic ${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-ivory-muted)]"}`}>
+                  <p
+                    className={`text-lg italic ${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-ivory-muted)]"}`}
+                  >
                     "{experience.tagline}"
                   </p>
                 )}
@@ -384,16 +438,20 @@ What would you like to change?`;
               {/* Note */}
               {(experience.note || isEditing) && (
                 <div className="mb-6">
-                  <Label className="text-sm font-medium text-[var(--tartarus-ivory-muted)] mb-2 block">Note</Label>
+                  <Label className="mb-2 block text-sm font-medium text-[var(--tartarus-ivory-muted)]">
+                    Note
+                  </Label>
                   {isEditing ? (
                     <Textarea
                       value={editedExp.note || ""}
                       onChange={(e) => setEditedExp({ ...editedExp, note: e.target.value })}
                       placeholder="Additional context..."
-                      className="bg-[var(--tartarus-deep)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+                      className="border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
                     />
                   ) : experience.note ? (
-                    <div className={`p-4 rounded-lg border ${isCurrent ? "bg-[var(--tartarus-gold-soft)] border-[var(--tartarus-gold-dim)]" : "bg-[var(--tartarus-elevated)] border-[var(--tartarus-border)]"}`}>
+                    <div
+                      className={`rounded-lg border p-4 ${isCurrent ? "border-[var(--tartarus-gold-dim)] bg-[var(--tartarus-gold-soft)]" : "border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)]"}`}
+                    >
                       <p className="text-sm text-[var(--tartarus-ivory)]">{experience.note}</p>
                     </div>
                   ) : null}
@@ -407,9 +465,14 @@ What would you like to change?`;
             <Card className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg text-[var(--tartarus-ivory)]">
-                  <ChevronRight className={`h-5 w-5 ${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-teal)]"}`} />
+                  <ChevronRight
+                    className={`h-5 w-5 ${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-teal)]"}`}
+                  />
                   Key Achievements
-                  <Badge variant="secondary" className="ml-2 bg-[var(--tartarus-elevated)] text-[var(--tartarus-ivory-muted)]">
+                  <Badge
+                    variant="secondary"
+                    className="ml-2 bg-[var(--tartarus-elevated)] text-[var(--tartarus-ivory-muted)]"
+                  >
                     {experience.achievements.length}
                   </Badge>
                 </CardTitle>
@@ -417,24 +480,33 @@ What would you like to change?`;
               <CardContent className="space-y-6">
                 {Object.entries(achievementsByCategory).map(([category, achievements]) => (
                   <div key={category}>
-                    <h4 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-teal)]"}`}>
+                    <h4
+                      className={`mb-3 text-sm font-semibold tracking-wide uppercase ${isCurrent ? "text-[var(--tartarus-gold)]" : "text-[var(--tartarus-teal)]"}`}
+                    >
                       {category}
                     </h4>
                     <div className="space-y-3">
                       {achievements.map((ach, i) => (
                         <div
                           key={i}
-                          className={`p-4 rounded-lg border ${isCurrent ? "bg-[var(--tartarus-gold-soft)] border-[var(--tartarus-gold-dim)]" : "bg-[var(--tartarus-elevated)] border-[var(--tartarus-border)]"}`}
+                          className={`rounded-lg border p-4 ${isCurrent ? "border-[var(--tartarus-gold-dim)] bg-[var(--tartarus-gold-soft)]" : "border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)]"}`}
                         >
                           <p className="text-sm text-[var(--tartarus-ivory)]">{ach.description}</p>
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
                             {ach.metrics && (
-                              <Badge variant="outline" className={`text-xs ${isCurrent ? "border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)]" : "border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)]"}`}>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${isCurrent ? "border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)]" : "border-[var(--tartarus-teal-dim)] text-[var(--tartarus-teal)]"}`}
+                              >
                                 {ach.metrics}
                               </Badge>
                             )}
                             {ach.tags?.map((tag) => (
-                              <Badge key={tag} variant="secondary" className="text-xs bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory-muted)]">
+                              <Badge
+                                key={tag}
+                                variant="secondary"
+                                className="bg-[var(--tartarus-deep)] text-xs text-[var(--tartarus-ivory-muted)]"
+                              >
                                 {tag}
                               </Badge>
                             ))}

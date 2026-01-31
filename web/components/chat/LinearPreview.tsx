@@ -4,14 +4,7 @@ import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
-import {
-  AlertCircle,
-  Calendar,
-  Flag,
-  FolderKanban,
-  User,
-  FileText,
-} from "lucide-react";
+import { AlertCircle, Calendar, Flag, FolderKanban, User, FileText } from "lucide-react";
 
 // Tartarus-themed colors for Linear previews
 const COLORS = {
@@ -61,52 +54,46 @@ interface LinearProjectPreviewProps {
 // Markdown components for Linear-style rendering
 const linearMarkdownComponents = {
   h1: ({ children }: any) => (
-    <h1 className="text-xl font-semibold mt-4 mb-2 text-white border-b border-white/10 pb-2">
+    <h1 className="mt-4 mb-2 border-b border-white/10 pb-2 text-xl font-semibold text-white">
       {children}
     </h1>
   ),
   h2: ({ children }: any) => (
-    <h2 className="text-lg font-semibold mt-4 mb-2 text-white/90">
-      {children}
-    </h2>
+    <h2 className="mt-4 mb-2 text-lg font-semibold text-white/90">{children}</h2>
   ),
   h3: ({ children }: any) => (
-    <h3 className="text-base font-semibold mt-3 mb-1 text-white/80">
-      {children}
-    </h3>
+    <h3 className="mt-3 mb-1 text-base font-semibold text-white/80">{children}</h3>
   ),
-  p: ({ children }: any) => (
-    <p className="my-2 text-white/70 leading-relaxed">{children}</p>
-  ),
+  p: ({ children }: any) => <p className="my-2 leading-relaxed text-white/70">{children}</p>,
   ul: ({ children }: any) => (
-    <ul className="my-2 ml-4 space-y-1 list-disc text-white/70">{children}</ul>
+    <ul className="my-2 ml-4 list-disc space-y-1 text-white/70">{children}</ul>
   ),
   ol: ({ children }: any) => (
-    <ol className="my-2 ml-4 space-y-1 list-decimal text-white/70">{children}</ol>
+    <ol className="my-2 ml-4 list-decimal space-y-1 text-white/70">{children}</ol>
   ),
   li: ({ children }: any) => <li className="text-white/70">{children}</li>,
   code: ({ inline, children }: any) =>
     inline ? (
-      <code className="px-1.5 py-0.5 rounded bg-[var(--tartarus-elevated)] text-[var(--tartarus-teal)] font-mono text-sm">
+      <code className="rounded bg-[var(--tartarus-elevated)] px-1.5 py-0.5 font-mono text-sm text-[var(--tartarus-teal)]">
         {children}
       </code>
     ) : (
-      <code className="block p-3 rounded bg-[var(--tartarus-void)] text-[var(--tartarus-ivory-dim)] font-mono text-sm overflow-x-auto">
+      <code className="block overflow-x-auto rounded bg-[var(--tartarus-void)] p-3 font-mono text-sm text-[var(--tartarus-ivory-dim)]">
         {children}
       </code>
     ),
   pre: ({ children }: any) => (
-    <pre className="my-3 rounded-lg bg-[var(--tartarus-void)] overflow-x-auto">{children}</pre>
+    <pre className="my-3 overflow-x-auto rounded-lg bg-[var(--tartarus-void)]">{children}</pre>
   ),
   blockquote: ({ children }: any) => (
-    <blockquote className="my-3 pl-4 border-l-2 border-[var(--tartarus-teal-dim)] text-[var(--tartarus-ivory-muted)] italic">
+    <blockquote className="my-3 border-l-2 border-[var(--tartarus-teal-dim)] pl-4 text-[var(--tartarus-ivory-muted)] italic">
       {children}
     </blockquote>
   ),
   a: ({ href, children }: any) => (
     <a
       href={href}
-      className="text-[var(--tartarus-teal)] hover:text-[var(--tartarus-gold)] underline underline-offset-2"
+      className="text-[var(--tartarus-teal)] underline underline-offset-2 hover:text-[var(--tartarus-gold)]"
       target="_blank"
       rel="noopener noreferrer"
     >
@@ -121,7 +108,7 @@ const linearMarkdownComponents = {
         className="max-w-full rounded-lg border border-white/10"
         style={{ maxHeight: "300px", objectFit: "contain" }}
       />
-      {alt && <p className="text-xs text-white/40 mt-1">{alt}</p>}
+      {alt && <p className="mt-1 text-xs text-white/40">{alt}</p>}
     </div>
   ),
   hr: () => <hr className="my-4 border-white/10" />,
@@ -155,24 +142,24 @@ export const LinearIssuePreview = memo(function LinearIssuePreview({
 
   return (
     <div
-      className="rounded-lg overflow-hidden"
+      className="overflow-hidden rounded-lg"
       style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}` }}
     >
       {/* Header */}
       <div
-        className="px-4 py-3 flex items-center gap-3"
+        className="flex items-center gap-3 px-4 py-3"
         style={{ backgroundColor: COLORS.surface, borderBottom: `1px solid ${COLORS.border}` }}
       >
-        <div className="w-6 h-6 rounded flex items-center justify-center bg-[var(--tartarus-teal-soft)]">
-          <AlertCircle className="w-4 h-4 text-[var(--tartarus-teal)]" />
+        <div className="flex h-6 w-6 items-center justify-center rounded bg-[var(--tartarus-teal-soft)]">
+          <AlertCircle className="h-4 w-4 text-[var(--tartarus-teal)]" />
         </div>
-        <span className="text-xs font-medium text-white/40 uppercase tracking-wide">
+        <span className="text-xs font-medium tracking-wide text-white/40 uppercase">
           New Issue Preview
         </span>
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-4">
+      <div className="space-y-4 p-4">
         {/* Title */}
         <h2 className="text-lg font-semibold text-white">{title}</h2>
 
@@ -180,7 +167,7 @@ export const LinearIssuePreview = memo(function LinearIssuePreview({
         <div className="flex flex-wrap gap-3 text-sm">
           {/* Priority badge */}
           <div
-            className="flex items-center gap-1.5 px-2 py-1 rounded"
+            className="flex items-center gap-1.5 rounded px-2 py-1"
             style={{ backgroundColor: `${priorityConfig.color}20` }}
           >
             <span>{priorityConfig.icon}</span>
@@ -189,24 +176,24 @@ export const LinearIssuePreview = memo(function LinearIssuePreview({
 
           {/* Team */}
           {teamId && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 text-white/60">
-              <FolderKanban className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 rounded bg-white/5 px-2 py-1 text-white/60">
+              <FolderKanban className="h-3.5 w-3.5" />
               <span className="font-mono text-xs">{teamId.substring(0, 8)}...</span>
             </div>
           )}
 
           {/* Project */}
           {projectId && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--tartarus-teal-soft)] text-[var(--tartarus-teal)]">
-              <FileText className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 rounded bg-[var(--tartarus-teal-soft)] px-2 py-1 text-[var(--tartarus-teal)]">
+              <FileText className="h-3.5 w-3.5" />
               <span className="font-mono text-xs">{projectId.substring(0, 8)}...</span>
             </div>
           )}
 
           {/* Assignee */}
           {assigneeId && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 text-white/60">
-              <User className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 rounded bg-white/5 px-2 py-1 text-white/60">
+              <User className="h-3.5 w-3.5" />
               <span className="font-mono text-xs">{assigneeId.substring(0, 8)}...</span>
             </div>
           )}
@@ -214,15 +201,12 @@ export const LinearIssuePreview = memo(function LinearIssuePreview({
 
         {/* Description */}
         {description && (
-          <div className="pt-3 border-t border-white/10">
-            <p className="text-xs font-medium text-white/40 uppercase tracking-wide mb-2">
+          <div className="border-t border-white/10 pt-3">
+            <p className="mb-2 text-xs font-medium tracking-wide text-white/40 uppercase">
               Description
             </p>
             <div className="prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={linearMarkdownComponents}
-              >
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={linearMarkdownComponents}>
                 {description}
               </ReactMarkdown>
             </div>
@@ -247,24 +231,24 @@ export const LinearProjectPreview = memo(function LinearProjectPreview({
 }: LinearProjectPreviewProps) {
   return (
     <div
-      className="rounded-lg overflow-hidden"
+      className="overflow-hidden rounded-lg"
       style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}` }}
     >
       {/* Header */}
       <div
-        className="px-4 py-3 flex items-center gap-3"
+        className="flex items-center gap-3 px-4 py-3"
         style={{ backgroundColor: COLORS.surface, borderBottom: `1px solid ${COLORS.border}` }}
       >
-        <div className="w-6 h-6 rounded flex items-center justify-center bg-[var(--tartarus-teal-soft)]">
-          <FolderKanban className="w-4 h-4 text-[var(--tartarus-teal)]" />
+        <div className="flex h-6 w-6 items-center justify-center rounded bg-[var(--tartarus-teal-soft)]">
+          <FolderKanban className="h-4 w-4 text-[var(--tartarus-teal)]" />
         </div>
-        <span className="text-xs font-medium text-white/40 uppercase tracking-wide">
+        <span className="text-xs font-medium tracking-wide text-white/40 uppercase">
           New Project Preview
         </span>
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-4">
+      <div className="space-y-4 p-4">
         {/* Name */}
         <h2 className="text-lg font-semibold text-white">{name}</h2>
 
@@ -272,32 +256,34 @@ export const LinearProjectPreview = memo(function LinearProjectPreview({
         <div className="flex flex-wrap gap-3 text-sm">
           {/* Teams */}
           {teamIds && teamIds.length > 0 && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 text-white/60">
-              <FolderKanban className="w-3.5 h-3.5" />
-              <span>{teamIds.length} team{teamIds.length > 1 ? "s" : ""}</span>
+            <div className="flex items-center gap-1.5 rounded bg-white/5 px-2 py-1 text-white/60">
+              <FolderKanban className="h-3.5 w-3.5" />
+              <span>
+                {teamIds.length} team{teamIds.length > 1 ? "s" : ""}
+              </span>
             </div>
           )}
 
           {/* Lead */}
           {leadId && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 text-white/60">
-              <User className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 rounded bg-white/5 px-2 py-1 text-white/60">
+              <User className="h-3.5 w-3.5" />
               <span className="font-mono text-xs">{leadId.substring(0, 8)}...</span>
             </div>
           )}
 
           {/* Start date */}
           {startDate && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--tartarus-success-soft)] text-[var(--tartarus-success)]">
-              <Calendar className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 rounded bg-[var(--tartarus-success-soft)] px-2 py-1 text-[var(--tartarus-success)]">
+              <Calendar className="h-3.5 w-3.5" />
               <span>Start: {startDate}</span>
             </div>
           )}
 
           {/* Target date */}
           {targetDate && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--tartarus-warning-soft)] text-[var(--tartarus-warning)]">
-              <Flag className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 rounded bg-[var(--tartarus-warning-soft)] px-2 py-1 text-[var(--tartarus-warning)]">
+              <Flag className="h-3.5 w-3.5" />
               <span>Target: {targetDate}</span>
             </div>
           )}
@@ -305,25 +291,22 @@ export const LinearProjectPreview = memo(function LinearProjectPreview({
 
         {/* Description (plain text) */}
         {description && (
-          <div className="pt-3 border-t border-white/10">
-            <p className="text-xs font-medium text-white/40 uppercase tracking-wide mb-2">
+          <div className="border-t border-white/10 pt-3">
+            <p className="mb-2 text-xs font-medium tracking-wide text-white/40 uppercase">
               Description
             </p>
-            <p className="text-white/70 text-sm">{description}</p>
+            <p className="text-sm text-white/70">{description}</p>
           </div>
         )}
 
         {/* Content (rich text/markdown) */}
         {content && (
-          <div className="pt-3 border-t border-white/10">
-            <p className="text-xs font-medium text-white/40 uppercase tracking-wide mb-2">
+          <div className="border-t border-white/10 pt-3">
+            <p className="mb-2 text-xs font-medium tracking-wide text-white/40 uppercase">
               Content
             </p>
             <div className="prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={linearMarkdownComponents}
-              >
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={linearMarkdownComponents}>
                 {content}
               </ReactMarkdown>
             </div>

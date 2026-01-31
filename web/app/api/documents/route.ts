@@ -2,8 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { getDrizzleDb, documents } from "@/lib/db/drizzle";
 import { withErrorHandler } from "@/lib/api-handler";
-import { requireQuery, requireBody, documentQuerySchema, createDocumentSchema } from "@/lib/validations";
+import {
+  requireQuery,
+  requireBody,
+  documentQuerySchema,
+  createDocumentSchema,
+} from "@/lib/validations";
 import { ConflictError, DatabaseError } from "@/lib/errors";
+import {
+  normalizePromptContent,
+  detectPromptRole,
+  isInChatFormat,
+} from "@/lib/prompts/chat-format";
 
 type DocumentRow = typeof documents.$inferSelect;
 
@@ -110,13 +120,20 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
  * Create a new document
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  const { title, content, type, language, metadata, slug: providedSlug } = await requireBody(createDocumentSchema, request);
+  const {
+    title,
+    content,
+    type,
+    language,
+    metadata,
+    slug: providedSlug,
+  } = await requireBody(createDocumentSchema, request);
   const db = getDrizzleDb();
 
   const slug = providedSlug || slugify(title);
-  
+
   // Normalize: migrate legacy 'year' field to 'writtenDate' if needed
-  const normalizedMetadata = { ...metadata };
+  const normalizedMetadata: Record<string, unknown> = { ...metadata };
   if (normalizedMetadata.year && !normalizedMetadata.writtenDate) {
     normalizedMetadata.writtenDate = normalizedMetadata.year;
     delete normalizedMetadata.year;
@@ -124,7 +141,19 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     // If both exist, prefer writtenDate and remove year
     delete normalizedMetadata.year;
   }
-  
+
+  // For prompts: normalize content to chat format and auto-detect role
+  let normalizedContent = content;
+  if (type === "prompt") {
+    // Ensure content is in chat format (wrap in ## System if not)
+    normalizedContent = normalizePromptContent(content);
+
+    // Auto-detect role from content structure if not provided
+    if (!normalizedMetadata.role) {
+      normalizedMetadata.role = detectPromptRole(normalizedContent);
+    }
+  }
+
   // Check if slug already exists
   const [existing] = await db
     .select({ id: documents.id })
@@ -136,20 +165,19 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 
   try {
-    await db.insert(documents).values({
-      slug,
-      type,
-      title,
-      content,
-      language,
-      metadata: JSON.stringify(normalizedMetadata),
-    }).run();
+    await db
+      .insert(documents)
+      .values({
+        slug,
+        type,
+        title,
+        content: normalizedContent,
+        language,
+        metadata: JSON.stringify(normalizedMetadata),
+      })
+      .run();
 
-    const [document] = await db
-      .select()
-      .from(documents)
-      .where(eq(documents.slug, slug))
-      .limit(1);
+    const [document] = await db.select().from(documents).where(eq(documents.slug, slug)).limit(1);
 
     if (!document) {
       throw new DatabaseError("Failed to retrieve created document");

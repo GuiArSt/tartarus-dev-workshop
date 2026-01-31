@@ -3,12 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Crown, Scale, MessageCircle } from "lucide-react";
 
 export type TranslationTone = "formal" | "neutral" | "slang";
@@ -54,10 +49,7 @@ export function ToneSelector({ value, onChange, className }: ToneSelectorProps) 
                 <Button
                   variant={isSelected ? "default" : "outline"}
                   size="sm"
-                  className={cn(
-                    "gap-1.5",
-                    isSelected && "ring-2 ring-primary ring-offset-2"
-                  )}
+                  className={cn("gap-1.5", isSelected && "ring-primary ring-2 ring-offset-2")}
                   onClick={() => onChange(tone.value)}
                 >
                   <Icon className="h-4 w-4" />

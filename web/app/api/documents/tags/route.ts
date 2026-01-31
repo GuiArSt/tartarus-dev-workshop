@@ -10,18 +10,16 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
   const db = getDrizzleDb();
 
   // Fetch all documents with metadata
-  const documentRows = await db
-    .select({ metadata: documents.metadata })
-    .from(documents);
+  const documentRows = await db.select({ metadata: documents.metadata }).from(documents);
 
   // Extract all unique tags
   const tagSet = new Set<string>();
-  
+
   for (const doc of documentRows) {
     try {
       const metadata = JSON.parse(doc.metadata || "{}") as Record<string, unknown>;
       const tags = metadata.tags;
-      
+
       if (Array.isArray(tags)) {
         for (const tag of tags) {
           if (typeof tag === "string" && tag.trim().length > 0) {

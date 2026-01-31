@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /**
  * Zod schemas for validation
@@ -6,45 +6,85 @@ import { z } from 'zod';
 
 // Input schema: What the agent sends to the MCP
 export const AgentInputSchema = z.object({
-  commit_hash: z.string().min(7).describe('Git commit SHA (minimum 7 chars)'),
-  repository: z.string().min(1).describe('Repository/project name'),
-  branch: z.string().min(1).describe('Git branch name'),
-  author: z.string().min(1).describe('Git commit author'),
-  date: z.string().describe('Commit date (ISO 8601 format)'),
-  raw_agent_report: z.string().min(10).describe('Agent\'s full context dump'),
+  commit_hash: z.string().min(7).describe("Git commit SHA (minimum 7 chars)"),
+  repository: z.string().min(1).describe("Repository/project name"),
+  branch: z.string().min(1).describe("Git branch name"),
+  author: z.string().min(1).describe("Git commit author"),
+  date: z.string().describe("Commit date (ISO 8601 format)"),
+  raw_agent_report: z.string().min(10).describe("Agent's full context dump"),
 });
 
 // File change schema for tracking what files were modified
 export const FileChangeSchema = z.object({
-  path: z.string().describe('Full file path'),
-  action: z.enum(['created', 'modified', 'deleted', 'renamed']).describe('Type of change'),
-  diff_summary: z.string().optional().describe('Brief summary of the change (not full diff)'),
-  old_path: z.string().optional().describe('For renames: the previous file path'),
+  path: z.string().describe("Full file path"),
+  action: z
+    .enum(["created", "modified", "deleted", "renamed"])
+    .describe("Type of change"),
+  diff_summary: z
+    .string()
+    .optional()
+    .describe("Brief summary of the change (not full diff)"),
+  old_path: z
+    .string()
+    .optional()
+    .describe("For renames: the previous file path"),
 });
 
 // AI output schema: What Kronus generates from the report
 export const AIOutputSchema = z.object({
-  why: z.string().min(10).describe('Why are we doing this change'),
-  what_changed: z.string().min(10).describe('What exactly has been changed'),
-  decisions: z.string().min(10).describe('Decisions made and reasoning'),
-  technologies: z.string().min(3).describe('Technologies/frameworks discussed'),
-  kronus_wisdom: z.string().nullable().optional().describe('Poem, lesson, or wisdom from Kronus'),
-  files_changed: z.array(FileChangeSchema).nullable().optional().describe('STRONGLY REQUESTED: List of files that were created, modified, deleted, or renamed. Extract from the agent report.'),
-  summary: z.string().min(10).describe('MANDATORY: Dense 3-sentence summary for indexing. Sentence 1: What changed and why. Sentence 2: Key technical details. Sentence 3: Impact or status.'),
+  why: z.string().min(10).describe("Why are we doing this change"),
+  what_changed: z.string().min(10).describe("What exactly has been changed"),
+  decisions: z.string().min(10).describe("Decisions made and reasoning"),
+  technologies: z.string().min(3).describe("Technologies/frameworks discussed"),
+  kronus_wisdom: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("Poem, lesson, or wisdom from Kronus"),
+  files_changed: z
+    .array(FileChangeSchema)
+    .nullable()
+    .optional()
+    .describe(
+      "STRONGLY REQUESTED: List of files that were created, modified, deleted, or renamed. Extract from the agent report.",
+    ),
+  summary: z
+    .string()
+    .min(10)
+    .describe(
+      "MANDATORY: Dense 3-sentence summary for indexing. Sentence 1: What changed and why. Sentence 2: Key technical details. Sentence 3: Impact or status.",
+    ),
 });
 
 // Project summary schema: Overview of the entire repository
 export const ProjectSummaryInputSchema = z.object({
-  repository: z.string().min(1).describe('Repository/project name'),
-  git_url: z.string().url().optional().describe('Git repository URL (optional - for linking to source)'),
-  summary: z.string().min(10).describe('High-level project summary'),
-  purpose: z.string().min(10).describe('Why this project exists'),
-  architecture: z.string().min(10).describe('Overall architecture and structure'),
-  key_decisions: z.string().min(10).describe('Major architectural decisions'),
-  technologies: z.string().min(3).describe('Core technologies used'),
-  status: z.string().min(3).describe('Current project status'),
-  linear_project_id: z.string().optional().describe('Optional Linear project ID to link this repository to a Linear project'),
-  linear_issue_id: z.string().optional().describe('Optional Linear issue ID to link this repository to a Linear issue'),
+  repository: z.string().min(1).describe("Repository/project name"),
+  git_url: z
+    .string()
+    .url()
+    .optional()
+    .describe("Git repository URL (optional - for linking to source)"),
+  summary: z.string().min(10).describe("High-level project summary"),
+  purpose: z.string().min(10).describe("Why this project exists"),
+  architecture: z
+    .string()
+    .min(10)
+    .describe("Overall architecture and structure"),
+  key_decisions: z.string().min(10).describe("Major architectural decisions"),
+  technologies: z.string().min(3).describe("Core technologies used"),
+  status: z.string().min(3).describe("Current project status"),
+  linear_project_id: z
+    .string()
+    .optional()
+    .describe(
+      "Optional Linear project ID to link this repository to a Linear project",
+    ),
+  linear_issue_id: z
+    .string()
+    .optional()
+    .describe(
+      "Optional Linear issue ID to link this repository to a Linear issue",
+    ),
 });
 
 /**
@@ -63,10 +103,10 @@ export type ProjectSummaryInput = z.infer<typeof ProjectSummaryInputSchema>;
  * File change tracking for journal entries
  */
 export interface FileChange {
-  path: string;           // Full file path (required)
-  action: 'created' | 'modified' | 'deleted' | 'renamed';
-  diff_summary?: string;  // Brief summary of change (not full diff)
-  old_path?: string;      // For renames
+  path: string; // Full file path (required)
+  action: "created" | "modified" | "deleted" | "renamed";
+  diff_summary?: string; // Brief summary of change (not full diff)
+  old_path?: string; // For renames
 }
 
 export interface JournalEntry {
@@ -194,11 +234,24 @@ export interface AttachmentInsert {
  * Zod schema for attachment upload
  */
 export const AttachmentInputSchema = z.object({
-  commit_hash: z.string().min(7).describe('Git commit SHA (minimum 7 chars)'),
-  filename: z.string().min(1).describe('Filename with extension (e.g., diagram.png, architecture.mmd)'),
-  mime_type: z.string().min(3).describe('MIME type (e.g., image/png, image/svg+xml, text/plain for Mermaid)'),
-  description: z.string().optional().describe('Optional description of what the attachment shows (e.g., "System architecture diagram", "Before/after comparison")'),
-  data_base64: z.string().min(1).describe('Base64-encoded file data'),
+  commit_hash: z.string().min(7).describe("Git commit SHA (minimum 7 chars)"),
+  filename: z
+    .string()
+    .min(1)
+    .describe("Filename with extension (e.g., diagram.png, architecture.mmd)"),
+  mime_type: z
+    .string()
+    .min(3)
+    .describe(
+      "MIME type (e.g., image/png, image/svg+xml, text/plain for Mermaid)",
+    ),
+  description: z
+    .string()
+    .optional()
+    .describe(
+      'Optional description of what the attachment shows (e.g., "System architecture diagram", "Before/after comparison")',
+    ),
+  data_base64: z.string().min(1).describe("Base64-encoded file data"),
 });
 
 export type AttachmentInput = z.infer<typeof AttachmentInputSchema>;
@@ -207,21 +260,45 @@ export type AttachmentInput = z.infer<typeof AttachmentInputSchema>;
  * Media Library - Unified access to entry_attachments + media_assets
  */
 export const MediaLibraryInputSchema = z.object({
-  repository: z.string().optional().describe('Filter by repository name (searches commit_hash links)'),
-  commit_hash: z.string().min(7).optional().describe('Filter by specific commit hash'),
-  destination: z.enum(['journal', 'repository', 'media', 'portfolio', 'all']).optional().default('all')
-    .describe('Filter by asset destination/category'),
-  mime_type_prefix: z.string().optional().describe('Filter by MIME type prefix (e.g., "image/", "application/pdf")'),
-  tags: z.array(z.string()).optional().describe('Filter by tags (media_assets only)'),
-  limit: z.number().optional().default(50).describe('Max items to return (default: 50, max: 100)'),
-  offset: z.number().optional().default(0).describe('Pagination offset'),
-  include_metadata: z.boolean().optional().default(true).describe('Include full metadata (alt, prompt, model, dimensions)'),
+  repository: z
+    .string()
+    .optional()
+    .describe("Filter by repository name (searches commit_hash links)"),
+  commit_hash: z
+    .string()
+    .min(7)
+    .optional()
+    .describe("Filter by specific commit hash"),
+  destination: z
+    .enum(["journal", "repository", "media", "portfolio", "all"])
+    .optional()
+    .default("all")
+    .describe("Filter by asset destination/category"),
+  mime_type_prefix: z
+    .string()
+    .optional()
+    .describe('Filter by MIME type prefix (e.g., "image/", "application/pdf")'),
+  tags: z
+    .array(z.string())
+    .optional()
+    .describe("Filter by tags (media_assets only)"),
+  limit: z
+    .number()
+    .optional()
+    .default(50)
+    .describe("Max items to return (default: 50, max: 100)"),
+  offset: z.number().optional().default(0).describe("Pagination offset"),
+  include_metadata: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Include full metadata (alt, prompt, model, dimensions)"),
 });
 
 export type MediaLibraryInput = z.infer<typeof MediaLibraryInputSchema>;
 
 export interface UnifiedMediaItem {
-  source: 'entry_attachments' | 'media_assets';
+  source: "entry_attachments" | "media_assets";
   source_id: number;
   filename: string;
   mime_type: string;
@@ -255,7 +332,7 @@ export interface MediaLibraryResponse {
   download_enabled: boolean;
   items: Array<{
     id: string; // "attachment:123" or "media:456"
-    source: 'entry_attachments' | 'media_assets';
+    source: "entry_attachments" | "media_assets";
     source_id: number;
     filename: string;
     mime_type: string;

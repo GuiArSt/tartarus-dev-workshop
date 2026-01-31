@@ -133,17 +133,51 @@ export function initRepositorySchema() {
   `);
 
   // Seed default categories if table is empty
-  const categoryCount = db.prepare("SELECT COUNT(*) as count FROM skill_categories").get() as { count: number };
+  const categoryCount = db.prepare("SELECT COUNT(*) as count FROM skill_categories").get() as {
+    count: number;
+  };
   if (categoryCount.count === 0) {
     const defaultCategories = [
       { id: "ai-dev", name: "AI & Development", color: "violet", icon: "cpu", sortOrder: 1 },
-      { id: "design-creative", name: "Design & Creative Production", color: "pink", icon: "palette", sortOrder: 2 },
-      { id: "data-analytics", name: "Data & Analytics", color: "blue", icon: "database", sortOrder: 3 },
-      { id: "infra-devops", name: "Infrastructure & DevOps", color: "orange", icon: "server", sortOrder: 4 },
-      { id: "writing-comm", name: "Writing & Communication", color: "emerald", icon: "pen-tool", sortOrder: 5 },
-      { id: "business-leadership", name: "Business & Leadership", color: "amber", icon: "users", sortOrder: 6 },
+      {
+        id: "design-creative",
+        name: "Design & Creative Production",
+        color: "pink",
+        icon: "palette",
+        sortOrder: 2,
+      },
+      {
+        id: "data-analytics",
+        name: "Data & Analytics",
+        color: "blue",
+        icon: "database",
+        sortOrder: 3,
+      },
+      {
+        id: "infra-devops",
+        name: "Infrastructure & DevOps",
+        color: "orange",
+        icon: "server",
+        sortOrder: 4,
+      },
+      {
+        id: "writing-comm",
+        name: "Writing & Communication",
+        color: "emerald",
+        icon: "pen-tool",
+        sortOrder: 5,
+      },
+      {
+        id: "business-leadership",
+        name: "Business & Leadership",
+        color: "amber",
+        icon: "users",
+        sortOrder: 6,
+      },
     ];
-    const insertCategory = db.prepare("INSERT INTO skill_categories (id, name, color, icon, sortOrder) VALUES (?, ?, ?, ?, ?)");
+    const insertCategory = db.prepare(
+      "INSERT INTO skill_categories (id, name, color, icon, sortOrder) VALUES (?, ?, ?, ?, ?)"
+    );
     for (const cat of defaultCategories) {
       insertCategory.run(cat.id, cat.name, cat.color, cat.icon, cat.sortOrder);
     }
@@ -164,20 +198,87 @@ export function initRepositorySchema() {
   `);
 
   // Seed default document types if table is empty
-  const docTypeCount = db.prepare("SELECT COUNT(*) as count FROM document_types").get() as { count: number };
+  const docTypeCount = db.prepare("SELECT COUNT(*) as count FROM document_types").get() as {
+    count: number;
+  };
   if (docTypeCount.count === 0) {
     const defaultDocTypes = [
-      { id: "manifesto", name: "manifesto", description: "Personal manifestos and philosophical writings", color: "violet", icon: "scroll", sortOrder: 1 },
-      { id: "poem", name: "poem", description: "Poetry and verse", color: "pink", icon: "feather", sortOrder: 2 },
-      { id: "manifesto-poem", name: "manifesto-poem", description: "Poetic manifestos blending philosophy and verse", color: "indigo", icon: "sparkles", sortOrder: 3 },
-      { id: "essay", name: "essay", description: "Long-form analytical writing", color: "emerald", icon: "file-text", sortOrder: 4 },
-      { id: "reflection", name: "reflection", description: "Personal reflections and introspection", color: "amber", icon: "lightbulb", sortOrder: 5 },
-      { id: "letter", name: "letter", description: "Personal letters and correspondence", color: "rose", icon: "mail", sortOrder: 6 },
-      { id: "story", name: "story", description: "Short stories and narratives", color: "blue", icon: "book-open", sortOrder: 7 },
-      { id: "system-prompt", name: "system-prompt", description: "AI system prompts and instructions", color: "cyan", icon: "terminal", sortOrder: 8 },
-      { id: "agent-prompt", name: "agent-prompt", description: "Agent-specific prompts and configurations", color: "teal", icon: "bot", sortOrder: 9 },
+      {
+        id: "manifesto",
+        name: "manifesto",
+        description: "Personal manifestos and philosophical writings",
+        color: "violet",
+        icon: "scroll",
+        sortOrder: 1,
+      },
+      {
+        id: "poem",
+        name: "poem",
+        description: "Poetry and verse",
+        color: "pink",
+        icon: "feather",
+        sortOrder: 2,
+      },
+      {
+        id: "manifesto-poem",
+        name: "manifesto-poem",
+        description: "Poetic manifestos blending philosophy and verse",
+        color: "indigo",
+        icon: "sparkles",
+        sortOrder: 3,
+      },
+      {
+        id: "essay",
+        name: "essay",
+        description: "Long-form analytical writing",
+        color: "emerald",
+        icon: "file-text",
+        sortOrder: 4,
+      },
+      {
+        id: "reflection",
+        name: "reflection",
+        description: "Personal reflections and introspection",
+        color: "amber",
+        icon: "lightbulb",
+        sortOrder: 5,
+      },
+      {
+        id: "letter",
+        name: "letter",
+        description: "Personal letters and correspondence",
+        color: "rose",
+        icon: "mail",
+        sortOrder: 6,
+      },
+      {
+        id: "story",
+        name: "story",
+        description: "Short stories and narratives",
+        color: "blue",
+        icon: "book-open",
+        sortOrder: 7,
+      },
+      {
+        id: "system-prompt",
+        name: "system-prompt",
+        description: "AI system prompts and instructions",
+        color: "cyan",
+        icon: "terminal",
+        sortOrder: 8,
+      },
+      {
+        id: "agent-prompt",
+        name: "agent-prompt",
+        description: "Agent-specific prompts and configurations",
+        color: "teal",
+        icon: "bot",
+        sortOrder: 9,
+      },
     ];
-    const insertDocType = db.prepare("INSERT INTO document_types (id, name, description, color, icon, sortOrder) VALUES (?, ?, ?, ?, ?, ?)");
+    const insertDocType = db.prepare(
+      "INSERT INTO document_types (id, name, description, color, icon, sortOrder) VALUES (?, ?, ?, ?, ?, ?)"
+    );
     for (const dt of defaultDocTypes) {
       insertDocType.run(dt.id, dt.name, dt.description, dt.color, dt.icon, dt.sortOrder);
     }

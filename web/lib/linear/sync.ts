@@ -59,34 +59,37 @@ export interface SyncResult {
 /**
  * Sync Linear Projects to local database
  */
-export async function syncLinearProjects(includeCompleted: boolean = false): Promise<SyncResult["projects"]> {
+export async function syncLinearProjects(
+  _includeCompleted: boolean = false
+): Promise<SyncResult["projects"]> {
   const db = getDrizzleDb();
-  
+
   // Fetch from Linear API - only YOUR projects (uses LINEAR_USER_ID)
+  // Always sync ALL projects (including completed) - filtering happens in UI
   const result = await listProjects(); // Filters to projects you're a member of
   const apiProjects = result.projects || [];
-  
-  // Filter by completion if needed
-  const filteredProjects = includeCompleted
-    ? apiProjects
-    : apiProjects.filter((p: any) => p.state !== "completed" && p.state !== "canceled");
-  
+
+  // Always sync all projects - the UI filters based on includeCompleted toggle
+  const filteredProjects = apiProjects;
+
   // Get all existing project IDs and their summaries from DB
-  const existingProjects = await db.select({ id: linearProjects.id, summary: linearProjects.summary }).from(linearProjects);
-  const existingIds = new Set(existingProjects.map(p => p.id));
-  const existingSummaries = new Map(existingProjects.map(p => [p.id, p.summary]));
-  
+  const existingProjects = await db
+    .select({ id: linearProjects.id, summary: linearProjects.summary })
+    .from(linearProjects);
+  const existingIds = new Set(existingProjects.map((p) => p.id));
+  const existingSummaries = new Map(existingProjects.map((p) => [p.id, p.summary]));
+
   // Track API project IDs
   const apiIds = new Set(filteredProjects.map((p: any) => p.id));
-  
+
   let created = 0;
   let updated = 0;
-  
+
   // Upsert projects from API
   for (const project of filteredProjects) {
     const teamIds = project.members?.nodes?.map((m: any) => m.id) || [];
     const memberIds = project.members?.nodes?.map((m: any) => m.id) || [];
-    
+
     const projectData = {
       id: project.id,
       name: project.name,
@@ -106,17 +109,16 @@ export async function syncLinearProjects(includeCompleted: boolean = false): Pro
       isDeleted: false,
       deletedAt: null,
     };
-    
+
     if (existingIds.has(project.id)) {
       // Update existing - also generate summary if missing
       const hasSummary = !!existingSummaries.get(project.id);
       let summary: string | null | undefined = undefined; // undefined = don't update
 
       if (!hasSummary) {
-        const contentForSummary = [
-          project.description,
-          project.content,
-        ].filter(Boolean).join("\n\n");
+        const contentForSummary = [project.description, project.content]
+          .filter(Boolean)
+          .join("\n\n");
 
         if (contentForSummary.length > 20) {
           summary = await generateSummary("linear_project", contentForSummary, project.name);
@@ -134,10 +136,7 @@ export async function syncLinearProjects(includeCompleted: boolean = false): Pro
       updated++;
     } else {
       // Create new - generate summary for new projects
-      const contentForSummary = [
-        project.description,
-        project.content,
-      ].filter(Boolean).join("\n\n");
+      const contentForSummary = [project.description, project.content].filter(Boolean).join("\n\n");
 
       let summary: string | null = null;
       if (contentForSummary.length > 20) {
@@ -152,7 +151,7 @@ export async function syncLinearProjects(includeCompleted: boolean = false): Pro
       created++;
     }
   }
-  
+
   // Mark deleted projects (exist in DB but not in API)
   let deleted = 0;
   for (const existingId of existingIds) {
@@ -168,45 +167,44 @@ export async function syncLinearProjects(includeCompleted: boolean = false): Pro
       deleted++;
     }
   }
-  
-  const total = await db.select().from(linearProjects).then(rows => rows.length);
-  
+
+  const total = await db
+    .select()
+    .from(linearProjects)
+    .then((rows) => rows.length);
+
   return { created, updated, deleted, total };
 }
 
 /**
  * Sync Linear Issues to local database
  */
-export async function syncLinearIssues(includeCompleted: boolean = false): Promise<SyncResult["issues"]> {
+export async function syncLinearIssues(
+  _includeCompleted: boolean = false
+): Promise<SyncResult["issues"]> {
   const db = getDrizzleDb();
-  
+
   // Fetch from Linear API - only YOUR issues (uses LINEAR_USER_ID)
+  // Always sync ALL issues (including completed) - filtering happens in UI
   const result = await listIssues({ limit: 250 });
   const apiIssues = result.issues || [];
-  
-  // Filter by completion if needed
-  const filteredIssues = includeCompleted
-    ? apiIssues
-    : apiIssues.filter((i: any) => {
-        const stateName = i.state?.name?.toLowerCase() || "";
-        return (
-          !stateName.includes("done") &&
-          !stateName.includes("completed") &&
-          !stateName.includes("canceled")
-        );
-      });
-  
+
+  // Always sync all issues - the UI filters based on includeCompleted toggle
+  const filteredIssues = apiIssues;
+
   // Get all existing issue IDs and their summaries from DB
-  const existingIssues = await db.select({ id: linearIssues.id, summary: linearIssues.summary }).from(linearIssues);
-  const existingIds = new Set(existingIssues.map(i => i.id));
-  const existingSummaries = new Map(existingIssues.map(i => [i.id, i.summary]));
-  
+  const existingIssues = await db
+    .select({ id: linearIssues.id, summary: linearIssues.summary })
+    .from(linearIssues);
+  const existingIds = new Set(existingIssues.map((i) => i.id));
+  const existingSummaries = new Map(existingIssues.map((i) => [i.id, i.summary]));
+
   // Track API issue IDs
   const apiIds = new Set(filteredIssues.map((i: any) => i.id));
-  
+
   let created = 0;
   let updated = 0;
-  
+
   // Upsert issues from API
   for (const issue of filteredIssues) {
     const issueData = {
@@ -231,7 +229,7 @@ export async function syncLinearIssues(includeCompleted: boolean = false): Promi
       isDeleted: false,
       deletedAt: null,
     };
-    
+
     if (existingIds.has(issue.id)) {
       // Update existing - also generate summary if missing
       const hasSummary = !!existingSummaries.get(issue.id);
@@ -265,7 +263,7 @@ export async function syncLinearIssues(includeCompleted: boolean = false): Promi
       created++;
     }
   }
-  
+
   // Mark deleted issues (exist in DB but not in API)
   let deleted = 0;
   for (const existingId of existingIds) {
@@ -281,9 +279,12 @@ export async function syncLinearIssues(includeCompleted: boolean = false): Promi
       deleted++;
     }
   }
-  
-  const total = await db.select().from(linearIssues).then(rows => rows.length);
-  
+
+  const total = await db
+    .select()
+    .from(linearIssues)
+    .then((rows) => rows.length);
+
   return { created, updated, deleted, total };
 }
 
@@ -295,7 +296,7 @@ export async function syncLinearData(includeCompleted: boolean = false): Promise
     syncLinearProjects(includeCompleted),
     syncLinearIssues(includeCompleted),
   ]);
-  
+
   return {
     projects: projectsResult,
     issues: issuesResult,

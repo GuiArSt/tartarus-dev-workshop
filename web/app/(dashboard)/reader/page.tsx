@@ -155,17 +155,17 @@ export default function ReaderPage() {
   const fetchAttachmentsForProject = async (repository: string) => {
     if (attachments[repository]) return; // Already fetched
 
-    setAttachmentsLoading(prev => ({ ...prev, [repository]: true }));
+    setAttachmentsLoading((prev) => ({ ...prev, [repository]: true }));
     try {
       const params = new URLSearchParams({ repository });
       const response = await fetch(`/api/attachments/by-repository?${params}`);
       const data = await response.json();
-      setAttachments(prev => ({ ...prev, [repository]: data.attachments || [] }));
+      setAttachments((prev) => ({ ...prev, [repository]: data.attachments || [] }));
       // Don't auto-fetch content - wait for explicit click
     } catch (error) {
       console.error("Failed to fetch attachments:", error);
     } finally {
-      setAttachmentsLoading(prev => ({ ...prev, [repository]: false }));
+      setAttachmentsLoading((prev) => ({ ...prev, [repository]: false }));
     }
   };
 
@@ -177,7 +177,7 @@ export default function ReaderPage() {
       const data = await response.json();
       if (data.data_base64) {
         const decoded = atob(data.data_base64);
-        setAttachmentContents(prev => ({ ...prev, [attachmentId]: decoded }));
+        setAttachmentContents((prev) => ({ ...prev, [attachmentId]: decoded }));
       }
     } catch (error) {
       console.error("Failed to fetch attachment content:", error);
@@ -404,13 +404,16 @@ What changes would you like to make? You can update any field using the journal_
   return (
     <div className="flex h-full flex-col bg-[var(--tartarus-void)]">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between px-6 border-b border-[var(--tartarus-border)]">
+      <header className="flex h-14 items-center justify-between border-b border-[var(--tartarus-border)] px-6">
         <div className="flex items-center gap-3">
           <Layers className="h-5 w-5 text-[var(--tartarus-teal)]" />
           <h1 className="text-lg font-semibold text-[var(--tartarus-ivory)]">Developer Journal</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-[var(--tartarus-ivory-muted)] border-[var(--tartarus-border)]">
+          <Badge
+            variant="outline"
+            className="border-[var(--tartarus-border)] text-[var(--tartarus-ivory-muted)]"
+          >
             {projects.length} projects
           </Badge>
           <Button
@@ -418,29 +421,39 @@ What changes would you like to make? You can update any field using the journal_
             onClick={createNewProject}
             className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
           >
-            <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+            <img
+              src="/chronus-logo.png"
+              alt="Kronus"
+              className="mr-2 h-4 w-4 rounded-full object-cover"
+            />
             New Project
           </Button>
         </div>
       </header>
 
       {/* Search & Tabs */}
-      <div className="flex items-center gap-4 px-6 py-3 border-b border-[var(--tartarus-border)]">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex items-center gap-4 border-b border-[var(--tartarus-border)] px-6 py-3">
+        <div className="relative max-w-md flex-1">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--tartarus-ivory-muted)]" />
           <Input
             placeholder="Search projects and entries..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-[var(--tartarus-surface)] border-[var(--tartarus-border)] text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
+            className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] pl-9 text-[var(--tartarus-ivory)] placeholder:text-[var(--tartarus-ivory-faded)]"
           />
         </div>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-[var(--tartarus-surface)]">
-            <TabsTrigger value="projects" className="data-[state=active]:bg-[var(--tartarus-teal-soft)] data-[state=active]:text-[var(--tartarus-teal)]">
+            <TabsTrigger
+              value="projects"
+              className="data-[state=active]:bg-[var(--tartarus-teal-soft)] data-[state=active]:text-[var(--tartarus-teal)]"
+            >
               Projects
             </TabsTrigger>
-            <TabsTrigger value="timeline" className="data-[state=active]:bg-[var(--tartarus-teal-soft)] data-[state=active]:text-[var(--tartarus-teal)]">
+            <TabsTrigger
+              value="timeline"
+              className="data-[state=active]:bg-[var(--tartarus-teal-soft)] data-[state=active]:text-[var(--tartarus-teal)]"
+            >
               Timeline
             </TabsTrigger>
           </TabsList>
@@ -450,11 +463,14 @@ What changes would you like to make? You can update any field using the journal_
       {/* Content */}
       <ScrollArea className="flex-1">
         {activeTab === "projects" ? (
-          <div className="p-6 space-y-4">
+          <div className="space-y-4 p-6">
             {loading ? (
               // Loading skeletons
               Array.from({ length: 3 }).map((_, i) => (
-                <Card key={i} className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
+                <Card
+                  key={i}
+                  className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]"
+                >
                   <CardHeader>
                     <Skeleton className="h-6 w-1/3 bg-[var(--tartarus-elevated)]" />
                     <Skeleton className="h-4 w-2/3 bg-[var(--tartarus-elevated)]" />
@@ -467,7 +483,7 @@ What changes would you like to make? You can update any field using the journal_
             ) : filteredProjects.length === 0 ? (
               <div className="py-12 text-center">
                 <div className="flex flex-col items-center gap-4">
-                  <div className="h-16 w-16 rounded-full bg-[var(--tartarus-elevated)] flex items-center justify-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--tartarus-elevated)]">
                     <FolderGit2 className="h-8 w-8 text-[var(--tartarus-ivory-muted)]" />
                   </div>
                   <p className="text-[var(--tartarus-ivory-muted)]">No projects found.</p>
@@ -475,7 +491,11 @@ What changes would you like to make? You can update any field using the journal_
                     onClick={createNewProject}
                     className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
                   >
-                    <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                    <img
+                      src="/chronus-logo.png"
+                      alt="Kronus"
+                      className="mr-2 h-4 w-4 rounded-full object-cover"
+                    />
                     Create First Project
                   </Button>
                 </div>
@@ -494,9 +514,9 @@ What changes would you like to make? You can update any field using the journal_
                   deleting={deletingProject === project.repository}
                 >
                   {/* Attachments Section */}
-                  <div className="mt-4 pt-4 border-t border-[var(--tartarus-border)]">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-medium text-[var(--tartarus-ivory)] flex items-center gap-2">
+                  <div className="mt-4 border-t border-[var(--tartarus-border)] pt-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h4 className="flex items-center gap-2 text-sm font-medium text-[var(--tartarus-ivory)]">
                         <Paperclip className="h-4 w-4 text-[var(--tartarus-teal)]" />
                         Attachments
                       </h4>
@@ -508,12 +528,12 @@ What changes would you like to make? You can update any field using the journal_
                       >
                         {showAttachments.has(project.repository) ? (
                           <>
-                            <ChevronDown className="h-3 w-3 mr-1" />
+                            <ChevronDown className="mr-1 h-3 w-3" />
                             Hide
                           </>
                         ) : (
                           <>
-                            <ChevronRight className="h-3 w-3 mr-1" />
+                            <ChevronRight className="mr-1 h-3 w-3" />
                             Show
                           </>
                         )}
@@ -527,19 +547,25 @@ What changes would you like to make? You can update any field using the journal_
                             <Skeleton className="h-12 w-full bg-[var(--tartarus-elevated)]" />
                           </div>
                         ) : attachments[project.repository]?.length === 0 ? (
-                          <p className="text-xs text-[var(--tartarus-ivory-muted)] py-2">No attachments</p>
+                          <p className="py-2 text-xs text-[var(--tartarus-ivory-muted)]">
+                            No attachments
+                          </p>
                         ) : (
                           <div className="space-y-2">
-                            {attachments[project.repository]?.map(att => {
-                              const isMermaid = att.filename.endsWith('.mmd') || att.filename.endsWith('.mermaid');
-                              const isImage = att.mime_type.startsWith('image/');
+                            {attachments[project.repository]?.map((att) => {
+                              const isMermaid =
+                                att.filename.endsWith(".mmd") || att.filename.endsWith(".mermaid");
+                              const isImage = att.mime_type.startsWith("image/");
                               const isExpanded = expandedAttachments.has(att.id);
 
                               return (
-                                <div key={att.id} className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] overflow-hidden">
+                                <div
+                                  key={att.id}
+                                  className="overflow-hidden rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)]"
+                                >
                                   <button
                                     onClick={() => toggleAttachmentExpand(att.id, isMermaid)}
-                                    className="w-full flex items-center gap-2 px-3 py-2 bg-[var(--tartarus-surface)] hover:bg-[var(--tartarus-elevated)] transition-colors text-left"
+                                    className="flex w-full items-center gap-2 bg-[var(--tartarus-surface)] px-3 py-2 text-left transition-colors hover:bg-[var(--tartarus-elevated)]"
                                   >
                                     {isExpanded ? (
                                       <ChevronDown className="h-3 w-3 text-[var(--tartarus-ivory-muted)]" />
@@ -553,9 +579,13 @@ What changes would you like to make? You can update any field using the journal_
                                     ) : (
                                       <File className="h-4 w-4 text-[var(--tartarus-ivory-muted)]" />
                                     )}
-                                    <span className="text-sm text-[var(--tartarus-ivory)] flex-1">{att.filename}</span>
+                                    <span className="flex-1 text-sm text-[var(--tartarus-ivory)]">
+                                      {att.filename}
+                                    </span>
                                     {att.description && (
-                                      <span className="text-xs text-[var(--tartarus-ivory-muted)] truncate max-w-[200px]">{att.description}</span>
+                                      <span className="max-w-[200px] truncate text-xs text-[var(--tartarus-ivory-muted)]">
+                                        {att.description}
+                                      </span>
                                     )}
                                     <span className="text-xs text-[var(--tartarus-ivory-faded)]">
                                       {(att.size / 1024).toFixed(1)} KB
@@ -565,11 +595,13 @@ What changes would you like to make? You can update any field using the journal_
                                   {isExpanded && (
                                     <div className="border-t border-[var(--tartarus-border)]">
                                       {isMermaid ? (
-                                        <div className="p-4 bg-white dark:bg-slate-950">
+                                        <div className="bg-white p-4 dark:bg-slate-950">
                                           {attachmentContents[att.id] ? (
                                             <MermaidPreview code={attachmentContents[att.id]} />
                                           ) : (
-                                            <div className="text-sm text-[var(--tartarus-ivory-muted)]">Loading diagram...</div>
+                                            <div className="text-sm text-[var(--tartarus-ivory-muted)]">
+                                              Loading diagram...
+                                            </div>
                                           )}
                                         </div>
                                       ) : isImage ? (
@@ -577,7 +609,7 @@ What changes would you like to make? You can update any field using the journal_
                                           <img
                                             src={`/api/attachments/${att.id}/raw`}
                                             alt={att.description || att.filename}
-                                            className="max-w-full h-auto rounded"
+                                            className="h-auto max-w-full rounded"
                                             loading="lazy"
                                           />
                                         </div>
@@ -604,8 +636,8 @@ What changes would you like to make? You can update any field using the journal_
                   </div>
 
                   {/* Entries List */}
-                  <div className="mt-4 pt-4 border-t border-[var(--tartarus-border)]">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="mt-4 border-t border-[var(--tartarus-border)] pt-4">
+                    <div className="mb-3 flex items-center justify-between">
                       <h4 className="text-sm font-medium text-[var(--tartarus-ivory)]">
                         Journal Entries
                       </h4>
@@ -615,7 +647,7 @@ What changes would you like to make? You can update any field using the journal_
                         onClick={() => createNewEntry(project.repository)}
                         className="border-[var(--tartarus-gold-dim)] text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)]"
                       >
-                        <Plus className="h-4 w-4 mr-1" />
+                        <Plus className="mr-1 h-4 w-4" />
                         New Entry
                       </Button>
                     </div>
@@ -624,21 +656,28 @@ What changes would you like to make? You can update any field using the journal_
                       entriesLoading ? (
                         <div className="space-y-2">
                           {Array.from({ length: 3 }).map((_, i) => (
-                            <Skeleton key={i} className="h-16 w-full bg-[var(--tartarus-elevated)]" />
+                            <Skeleton
+                              key={i}
+                              className="h-16 w-full bg-[var(--tartarus-elevated)]"
+                            />
                           ))}
                         </div>
                       ) : filteredEntries.length === 0 ? (
                         <div className="py-6 text-center">
-                          <p className="text-[var(--tartarus-ivory-muted)] text-sm">No entries yet.</p>
+                          <p className="text-sm text-[var(--tartarus-ivory-muted)]">
+                            No entries yet.
+                          </p>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           {filteredEntries.slice(0, 10).map((entry) => (
                             <Link key={entry.id} href={`/reader/${entry.commit_hash}`}>
-                              <div className="group flex items-start gap-3 p-3 rounded-lg bg-[var(--tartarus-elevated)] hover:bg-[var(--tartarus-deep)] transition-colors cursor-pointer border border-[var(--tartarus-border)]">
-                                <div className="flex-1 min-w-0">
+                              <div className="group flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] p-3 transition-colors hover:bg-[var(--tartarus-deep)]">
+                                <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2 text-xs text-[var(--tartarus-ivory-muted)]">
-                                    <span className="font-mono">{entry.commit_hash.substring(0, 7)}</span>
+                                    <span className="font-mono">
+                                      {entry.commit_hash.substring(0, 7)}
+                                    </span>
                                     <span className="flex items-center gap-1">
                                       <GitBranch className="h-3 w-3" />
                                       {entry.branch}
@@ -656,29 +695,35 @@ What changes would you like to make? You can update any field using the journal_
                                   </div>
                                   {/* Index summary - AI-generated for Kronus */}
                                   {entry.summary ? (
-                                    <p className="text-sm text-[var(--tartarus-ivory)] mt-1 line-clamp-2 italic">
+                                    <p className="mt-1 line-clamp-2 text-sm text-[var(--tartarus-ivory)] italic">
                                       {entry.summary}
                                     </p>
                                   ) : (
-                                    <p className="text-sm text-[var(--tartarus-ivory)] mt-1 line-clamp-2">
+                                    <p className="mt-1 line-clamp-2 text-sm text-[var(--tartarus-ivory)]">
                                       {entry.why.replace(/[#*`]/g, "").substring(0, 150)}...
                                     </p>
                                   )}
                                   {entry.kronus_wisdom && (
-                                    <div className="flex items-center gap-1 mt-1 text-xs text-[var(--tartarus-teal)]">
+                                    <div className="mt-1 flex items-center gap-1 text-xs text-[var(--tartarus-teal)]">
                                       <Sparkles className="h-3 w-3" />
-                                      <span className="line-clamp-1 italic">{entry.kronus_wisdom.substring(0, 80)}...</span>
+                                      <span className="line-clamp-1 italic">
+                                        {entry.kronus_wisdom.substring(0, 80)}...
+                                      </span>
                                     </div>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)] text-xs px-2"
+                                    className="h-7 px-2 text-xs text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)]"
                                     onClick={(e) => editEntryWithKronus(entry, e)}
                                   >
-                                    <img src="/chronus-logo.png" alt="Kronus" className="h-3.5 w-3.5 mr-1 rounded-full object-cover" />
+                                    <img
+                                      src="/chronus-logo.png"
+                                      alt="Kronus"
+                                      className="mr-1 h-3.5 w-3.5 rounded-full object-cover"
+                                    />
                                     Edit
                                   </Button>
                                   <ChevronRight className="h-4 w-4 text-[var(--tartarus-ivory-muted)]" />
@@ -687,9 +732,13 @@ What changes would you like to make? You can update any field using the journal_
                             </Link>
                           ))}
                           {entries.length > 10 && (
-                            <div className="text-center py-2">
+                            <div className="py-2 text-center">
                               <Link href={`/reader?project=${project.repository}`}>
-                                <Button variant="ghost" size="sm" className="text-[var(--tartarus-teal)]">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-[var(--tartarus-teal)]"
+                                >
                                   View all {entries.length} entries
                                 </Button>
                               </Link>
@@ -721,15 +770,19 @@ What changes would you like to make? You can update any field using the journal_
           </div>
         ) : (
           // Timeline View - All entries chronologically
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between mb-4">
+          <div className="space-y-4 p-6">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-medium text-[var(--tartarus-ivory)]">All Entries</h2>
               <Button
                 size="sm"
                 onClick={() => createNewEntry()}
                 className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold-bright)]"
               >
-                <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-2 rounded-full object-cover" />
+                <img
+                  src="/chronus-logo.png"
+                  alt="Kronus"
+                  className="mr-2 h-4 w-4 rounded-full object-cover"
+                />
                 New Entry
               </Button>
             </div>
@@ -751,7 +804,7 @@ What changes would you like to make? You can update any field using the journal_
 // Timeline component for all entries view
 function TimelineEntries({
   searchQuery,
-  onEditEntry
+  onEditEntry,
 }: {
   searchQuery: string;
   onEditEntry: (entry: JournalEntry, e: React.MouseEvent) => void;
@@ -807,20 +860,22 @@ function TimelineEntries({
       <div className="space-y-3">
         {filteredEntries.map((entry) => (
           <Link key={entry.id} href={`/reader/${entry.commit_hash}`}>
-            <Card className="group hover:bg-[var(--tartarus-elevated)] transition-colors border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]">
+            <Card className="group border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] transition-colors hover:bg-[var(--tartarus-elevated)]">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 text-sm">
                       <FolderGit2 className="h-4 w-4 text-[var(--tartarus-teal)]" />
-                      <span className="font-medium text-[var(--tartarus-ivory)]">{entry.repository}</span>
+                      <span className="font-medium text-[var(--tartarus-ivory)]">
+                        {entry.repository}
+                      </span>
                       <span className="text-[var(--tartarus-ivory-muted)]">/</span>
-                      <span className="text-[var(--tartarus-ivory-muted)] flex items-center gap-1">
+                      <span className="flex items-center gap-1 text-[var(--tartarus-ivory-muted)]">
                         <GitBranch className="h-3 w-3" />
                         {entry.branch}
                       </span>
                     </div>
-                    <div className="text-xs text-[var(--tartarus-ivory-muted)] mt-1 flex items-center gap-3">
+                    <div className="mt-1 flex items-center gap-3 text-xs text-[var(--tartarus-ivory-muted)]">
                       <span className="font-mono">{entry.commit_hash.substring(0, 7)}</span>
                       <span className="flex items-center gap-1">
                         <User className="h-3 w-3" />
@@ -839,29 +894,35 @@ function TimelineEntries({
                     </div>
                     {/* Index summary - AI-generated for Kronus */}
                     {entry.summary ? (
-                      <p className="text-sm text-[var(--tartarus-ivory-muted)] mt-2 line-clamp-2 italic">
+                      <p className="mt-2 line-clamp-2 text-sm text-[var(--tartarus-ivory-muted)] italic">
                         {entry.summary}
                       </p>
                     ) : (
-                      <p className="text-sm text-[var(--tartarus-ivory-muted)] mt-2 line-clamp-2">
+                      <p className="mt-2 line-clamp-2 text-sm text-[var(--tartarus-ivory-muted)]">
                         {entry.why.replace(/[#*`]/g, "").substring(0, 200)}...
                       </p>
                     )}
                     {entry.kronus_wisdom && (
-                      <div className="flex items-center gap-1 mt-2 text-xs text-[var(--tartarus-teal)]">
+                      <div className="mt-2 flex items-center gap-1 text-xs text-[var(--tartarus-teal)]">
                         <Sparkles className="h-3 w-3" />
-                        <span className="line-clamp-1 italic">{entry.kronus_wisdom.substring(0, 100)}...</span>
+                        <span className="line-clamp-1 italic">
+                          {entry.kronus_wisdom.substring(0, 100)}...
+                        </span>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)] text-xs"
+                      className="h-8 text-xs text-[var(--tartarus-gold)] hover:bg-[var(--tartarus-gold-soft)]"
                       onClick={(e) => onEditEntry(entry, e)}
                     >
-                      <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 mr-1.5 rounded-full object-cover" />
+                      <img
+                        src="/chronus-logo.png"
+                        alt="Kronus"
+                        className="mr-1.5 h-4 w-4 rounded-full object-cover"
+                      />
                       Edit
                     </Button>
                     <ChevronRight className="h-5 w-5 text-[var(--tartarus-ivory-muted)]" />

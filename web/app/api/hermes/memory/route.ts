@@ -38,17 +38,23 @@ export const GET = withErrorHandler(async () => {
 
   // Get memories from normalized table
   const memories = db
-    .prepare("SELECT id, content, source_language, target_language, tags, frequency, updated_at FROM hermes_memories WHERE user_id = ? ORDER BY frequency DESC, updated_at DESC")
+    .prepare(
+      "SELECT id, content, source_language, target_language, tags, frequency, updated_at FROM hermes_memories WHERE user_id = ? ORDER BY frequency DESC, updated_at DESC"
+    )
     .all(userId) as HermesMemoryItem[];
 
   // Get dictionary from normalized table
   const dictTerms = db
-    .prepare("SELECT id, term, preserve_as, source_language FROM hermes_dictionary WHERE user_id = ?")
+    .prepare(
+      "SELECT id, term, preserve_as, source_language FROM hermes_dictionary WHERE user_id = ?"
+    )
     .all(userId) as HermesDictionaryTerm[];
 
   // Get stats
   const stats = db
-    .prepare("SELECT total_translations, total_characters_translated, language_pairs_used, updated_at FROM hermes_stats WHERE user_id = ?")
+    .prepare(
+      "SELECT total_translations, total_characters_translated, language_pairs_used, updated_at FROM hermes_stats WHERE user_id = ?"
+    )
     .get(userId) as HermesStatsRow | undefined;
 
   // Build response
@@ -103,7 +109,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     for (const item of protectedTerms) {
       const term = typeof item === "string" ? item : item.term;
       const preserveAs = typeof item === "string" ? null : item.preserveAs || null;
-      const langSource = typeof item === "string" ? sourceLanguage || null : item.sourceLanguage || null;
+      const langSource =
+        typeof item === "string" ? sourceLanguage || null : item.sourceLanguage || null;
       const result = insertTerm.run(userId, term, preserveAs, langSource);
       if (result.changes > 0) addedTerms++;
     }
@@ -164,9 +171,7 @@ export const PATCH = withErrorHandler(async (request: NextRequest) => {
       "INSERT OR IGNORE INTO hermes_dictionary (user_id, term, preserve_as, source_language) VALUES (?, ?, ?, ?)"
     ).run(userId, term, preserveAs || null, sourceLanguage || null);
   } else if (action === "remove") {
-    db.prepare(
-      "DELETE FROM hermes_dictionary WHERE user_id = ? AND term = ?"
-    ).run(userId, term);
+    db.prepare("DELETE FROM hermes_dictionary WHERE user_id = ? AND term = ?").run(userId, term);
   } else {
     throw new ValidationError("Invalid action. Use 'add' or 'remove'");
   }
@@ -201,9 +206,7 @@ export const DELETE = withErrorHandler(async () => {
   db.prepare("DELETE FROM hermes_stats WHERE user_id = ?").run(userId);
 
   // Re-insert default protected terms
-  const insertTerm = db.prepare(
-    "INSERT INTO hermes_dictionary (user_id, term) VALUES (?, ?)"
-  );
+  const insertTerm = db.prepare("INSERT INTO hermes_dictionary (user_id, term) VALUES (?, ?)");
   for (const item of defaultMemory.protectedTerms) {
     insertTerm.run(userId, item.term);
   }

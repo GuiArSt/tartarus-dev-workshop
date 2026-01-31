@@ -12,10 +12,13 @@ export function getSupabaseClient(): SupabaseClient | null {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   // New format: SUPABASE_PUBLISHABLE_KEY, fallback to legacy ANON_KEY
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    console.warn("Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
+    console.warn(
+      "Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
+    );
     return null;
   }
 
@@ -24,7 +27,9 @@ export function getSupabaseClient(): SupabaseClient | null {
 }
 
 export function isSupabaseConfigured(): boolean {
-  const hasKey = !!(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const hasKey = !!(
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
   return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && hasKey);
 }
 

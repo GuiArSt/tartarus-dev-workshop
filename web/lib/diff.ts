@@ -26,7 +26,11 @@ export interface DiffResult {
 /**
  * Add change indices to parts for navigation
  */
-function addChangeIndices(parts: DiffPart[]): { parts: DiffPart[]; changeCount: number; changeIndices: number[] } {
+function addChangeIndices(parts: DiffPart[]): {
+  parts: DiffPart[];
+  changeCount: number;
+  changeIndices: number[];
+} {
   let changeIndex = 0;
   const changeIndices: number[] = [];
 

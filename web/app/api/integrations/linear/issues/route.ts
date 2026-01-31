@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         .from(linearIssues)
         .where(inArray(linearIssues.id, issueIds));
 
-      const summaryMap = new Map(localIssues.map(i => [i.id, i.summary]));
+      const summaryMap = new Map(localIssues.map((i) => [i.id, i.summary]));
 
       // Add summaries to issues
       result.issues = result.issues.map((issue: any) => ({

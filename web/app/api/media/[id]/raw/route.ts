@@ -14,10 +14,7 @@ interface MediaRow {
  * Serve the raw image data for a media asset
  * This allows images to be embedded in markdown: ![alt](/api/media/123/raw)
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const mediaId = parseInt(id);
@@ -27,11 +24,15 @@ export async function GET(
     }
 
     const db = getDatabase();
-    const media = db.prepare(`
+    const media = db
+      .prepare(
+        `
       SELECT id, filename, mime_type, data, file_size
       FROM media_assets
       WHERE id = ?
-    `).get(mediaId) as MediaRow | undefined;
+    `
+      )
+      .get(mediaId) as MediaRow | undefined;
 
     if (!media) {
       return NextResponse.json({ error: "Media not found" }, { status: 404 });
@@ -55,9 +56,6 @@ export async function GET(
     });
   } catch (error: any) {
     console.error("Error serving media:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to serve media" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || "Failed to serve media" }, { status: 500 });
   }
 }

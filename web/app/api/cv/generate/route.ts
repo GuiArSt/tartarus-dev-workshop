@@ -13,8 +13,14 @@ import { z } from "zod";
 const SkillSchema = z.object({
   id: z.string().describe("URL-friendly skill ID (e.g., 'prompt-engineering')"),
   name: z.string().describe("Skill name"),
-  category: z.string().describe("Category (e.g., 'AI & Development', 'Design & Creative Production')"),
-  magnitude: z.number().min(1).max(4).describe("Magnitude level: 1=Beginner, 2=Apprentice, 3=Professional, 4=Expert"),
+  category: z
+    .string()
+    .describe("Category (e.g., 'AI & Development', 'Design & Creative Production')"),
+  magnitude: z
+    .number()
+    .min(1)
+    .max(4)
+    .describe("Magnitude level: 1=Beginner, 2=Apprentice, 3=Professional, 4=Expert"),
   description: z.string().describe("Detailed description of the skill and experience level"),
   tags: z.array(z.string()).optional().describe("Relevant tags"),
   firstUsed: z.string().optional().describe("Year first used (e.g., '2023')"),
@@ -31,12 +37,16 @@ const ExperienceSchema = z.object({
   dateEnd: z.string().nullable().describe("End date in YYYY-MM format or null if current"),
   tagline: z.string().describe("Brief tagline describing the role"),
   note: z.string().optional().describe("Additional notes"),
-  achievements: z.array(z.object({
-    category: z.string().optional(),
-    description: z.string(),
-    metrics: z.string().optional(),
-    tags: z.array(z.string()).optional(),
-  })).describe("List of achievements and accomplishments"),
+  achievements: z
+    .array(
+      z.object({
+        category: z.string().optional(),
+        description: z.string(),
+        metrics: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+      })
+    )
+    .describe("List of achievements and accomplishments"),
 });
 
 const EducationSchema = z.object({
@@ -59,7 +69,10 @@ export async function POST(request: NextRequest) {
     const { type, ...input } = body;
 
     if (!type || !["skill", "experience", "education"].includes(type)) {
-      return NextResponse.json({ error: "Invalid type. Must be 'skill', 'experience', or 'education'" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid type. Must be 'skill', 'experience', or 'education'" },
+        { status: 400 }
+      );
     }
 
     const anthropicKey = process.env.ANTHROPIC_API_KEY;

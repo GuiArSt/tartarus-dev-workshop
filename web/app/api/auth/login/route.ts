@@ -28,13 +28,3 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   return response;
 });
-
-
-
-
-
-
-
-
-
-

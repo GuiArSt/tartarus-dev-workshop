@@ -5,24 +5,51 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Type, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  TARTARUS,
-  popoverStyles,
-  headerStyles,
-  sectionStyles,
-} from "./config-styles";
+import { TARTARUS, popoverStyles, headerStyles, sectionStyles } from "./config-styles";
 
 // Font options for Kronus chat - mystical/oracle aesthetic
 // Uses CSS variables from Next.js font loader (defined in layout.tsx)
 export const KRONUS_FONTS = {
-  inter: { name: "Inter", family: "var(--font-geist-sans), Inter, system-ui, sans-serif", style: "Modern Clean" },
-  crimson: { name: "Crimson Pro", family: "var(--font-crimson-pro), 'Crimson Pro', Georgia, serif", style: "Classic Serif" },
-  cormorant: { name: "Cormorant", family: "var(--font-cormorant), 'Cormorant Garamond', Georgia, serif", style: "Elegant Oracle" },
-  cinzel: { name: "Cinzel", family: "var(--font-cinzel), 'Cinzel', Georgia, serif", style: "Ancient Roman" },
-  ibmPlex: { name: "IBM Plex", family: "var(--font-ibm-plex), 'IBM Plex Sans', system-ui, sans-serif", style: "Tech Minimal" },
-  sourceSerif: { name: "Source Serif", family: "var(--font-source-serif), 'Source Serif 4', Georgia, serif", style: "Readable Serif" },
-  playfair: { name: "Playfair", family: "var(--font-playfair), 'Playfair Display', Georgia, serif", style: "Editorial Luxe" },
-  spectral: { name: "Spectral", family: "var(--font-spectral), 'Spectral', Georgia, serif", style: "Literary Voice" },
+  inter: {
+    name: "Inter",
+    family: "var(--font-geist-sans), Inter, system-ui, sans-serif",
+    style: "Modern Clean",
+  },
+  crimson: {
+    name: "Crimson Pro",
+    family: "var(--font-crimson-pro), 'Crimson Pro', Georgia, serif",
+    style: "Classic Serif",
+  },
+  cormorant: {
+    name: "Cormorant",
+    family: "var(--font-cormorant), 'Cormorant Garamond', Georgia, serif",
+    style: "Elegant Oracle",
+  },
+  cinzel: {
+    name: "Cinzel",
+    family: "var(--font-cinzel), 'Cinzel', Georgia, serif",
+    style: "Ancient Roman",
+  },
+  ibmPlex: {
+    name: "IBM Plex",
+    family: "var(--font-ibm-plex), 'IBM Plex Sans', system-ui, sans-serif",
+    style: "Tech Minimal",
+  },
+  sourceSerif: {
+    name: "Source Serif",
+    family: "var(--font-source-serif), 'Source Serif 4', Georgia, serif",
+    style: "Readable Serif",
+  },
+  playfair: {
+    name: "Playfair",
+    family: "var(--font-playfair), 'Playfair Display', Georgia, serif",
+    style: "Editorial Luxe",
+  },
+  spectral: {
+    name: "Spectral",
+    family: "var(--font-spectral), 'Spectral', Georgia, serif",
+    style: "Literary Voice",
+  },
 } as const;
 
 // Font size options
@@ -80,7 +107,7 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[340px] z-[100] shadow-2xl rounded-xl p-0 overflow-hidden"
+        className="z-[100] w-[340px] overflow-hidden rounded-xl p-0 shadow-2xl"
         align="start"
         sideOffset={8}
         style={popoverStyles.container}
@@ -88,7 +115,7 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
         <div style={popoverStyles.inner}>
           {/* Header */}
           <div
-            className="px-4 py-3 flex items-center justify-between"
+            className="flex items-center justify-between px-4 py-3"
             style={{ borderBottom: `1px solid ${TARTARUS.borderSubtle}` }}
           >
             <div>
@@ -96,7 +123,7 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
               <p style={headerStyles.subtitle}>Customize chat appearance</p>
             </div>
             <span
-              className="text-[11px] px-2 py-1 rounded"
+              className="rounded px-2 py-1 text-[11px]"
               style={{
                 color: TARTARUS.textMuted,
                 backgroundColor: TARTARUS.surface,
@@ -107,7 +134,7 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
           </div>
 
           {/* Content */}
-          <div className="px-4 py-3 space-y-4">
+          <div className="space-y-4 px-4 py-3">
             {/* Font Family Section */}
             <div>
               <div style={sectionStyles.label}>Font Family</div>
@@ -120,7 +147,7 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
                     <button
                       key={fontKey}
                       onClick={() => setFont(fontKey)}
-                      className="text-left px-3 py-2.5 rounded-lg transition-all hover:bg-white/[0.03]"
+                      className="rounded-lg px-3 py-2.5 text-left transition-all hover:bg-white/[0.03]"
                       style={{
                         border: isSelected
                           ? `1px solid ${TARTARUS.teal}40`
@@ -139,7 +166,7 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
                         {font.name}
                       </span>
                       <span
-                        className="block text-[10px] mt-0.5"
+                        className="mt-0.5 block text-[10px]"
                         style={{ color: TARTARUS.textDim }}
                       >
                         {font.style}
@@ -152,8 +179,10 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
 
             {/* Font Size Section */}
             <div style={sectionStyles.divider}>
-              <div className="flex items-center justify-between mb-2">
-                <span style={sectionStyles.label} className="mb-0">Font Size</span>
+              <div className="mb-2 flex items-center justify-between">
+                <span style={sectionStyles.label} className="mb-0">
+                  Font Size
+                </span>
                 <span className="text-[11px]" style={{ color: TARTARUS.textMuted }}>
                   {currentSize.label}
                 </span>
@@ -167,7 +196,7 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
                     <button
                       key={sizeKey}
                       onClick={() => setFontSize(sizeKey)}
-                      className="flex-1 py-2 rounded-lg transition-all hover:bg-white/[0.03]"
+                      className="flex-1 rounded-lg py-2 transition-all hover:bg-white/[0.03]"
                       style={{
                         border: isSelected
                           ? `1px solid ${TARTARUS.teal}40`

@@ -151,7 +151,6 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
     }
   }, [code, zoom, activeTab, renderDiagram]);
 
-
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
     setCopied(true);
@@ -211,35 +210,41 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
   const handleZoomReset = () => setZoom(100);
 
   return (
-    <Card className="flex flex-col h-full">
-      <CardContent className="p-0 flex flex-col h-full">
+    <Card className="flex h-full flex-col">
+      <CardContent className="flex h-full flex-col p-0">
         {/* Toolbar */}
-        <div className="flex items-center justify-between gap-2 p-3 border-b flex-wrap">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
           <div className="flex items-center gap-2">
-            <FileCode className="h-5 w-5 text-primary" />
+            <FileCode className="text-primary h-5 w-5" />
             <span className="font-medium">Mermaid Diagram</span>
             {error && <Badge variant="destructive">Error</Badge>}
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Zoom Controls */}
-            <div className="flex items-center gap-1 bg-muted rounded-md p-1">
+            <div className="bg-muted flex items-center gap-1 rounded-md p-1">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomOut}>
                 <ZoomOut className="h-4 w-4" />
               </Button>
-              <span className="text-xs w-12 text-center">{zoom}%</span>
+              <span className="w-12 text-center text-xs">{zoom}%</span>
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomIn}>
                 <ZoomIn className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomReset} title="Reset zoom">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleZoomReset}
+                title="Reset zoom"
+              >
                 <Maximize2 className="h-4 w-4" />
               </Button>
             </div>
 
             {/* Theme Selector */}
             <Select value={theme} onValueChange={setTheme}>
-              <SelectTrigger className="w-[120px] h-8">
-                <Palette className="h-4 w-4 mr-1" />
+              <SelectTrigger className="h-8 w-[120px]">
+                <Palette className="mr-1 h-4 w-4" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -253,15 +258,19 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
 
             {/* Actions */}
             <Button variant="outline" size="sm" onClick={handleCopy}>
-              {copied ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
+              {copied ? (
+                <Check className="mr-1 h-4 w-4 text-green-500" />
+              ) : (
+                <Copy className="mr-1 h-4 w-4" />
+              )}
               {copied ? "Copied!" : "Copy"}
             </Button>
             <Button variant="outline" size="sm" onClick={handleDownloadSVG}>
-              <Download className="h-4 w-4 mr-1" />
+              <Download className="mr-1 h-4 w-4" />
               SVG
             </Button>
             <Button variant="outline" size="sm" onClick={handleDownloadPNG}>
-              <Download className="h-4 w-4 mr-1" />
+              <Download className="mr-1 h-4 w-4" />
               PNG
             </Button>
             {onSave && (
@@ -273,7 +282,7 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
         </div>
 
         {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col">
           <div className="border-b px-3">
             <TabsList className="h-10">
               <TabsTrigger value="preview" className="gap-2">
@@ -296,15 +305,17 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
           </div>
 
           {/* Preview Tab - Main Focus */}
-          <TabsContent value="preview" className="flex-1 m-0 p-0 overflow-hidden">
+          <TabsContent value="preview" className="m-0 flex-1 overflow-hidden p-0">
             <div
               ref={containerRef}
-              className="h-full w-full overflow-auto bg-white dark:bg-slate-950 flex items-center justify-center min-h-[400px]"
+              className="flex h-full min-h-[400px] w-full items-center justify-center overflow-auto bg-white dark:bg-slate-950"
             >
               {error ? (
-                <div className="text-center p-8">
-                  <Badge variant="destructive" className="mb-2">Syntax Error</Badge>
-                  <p className="text-sm text-muted-foreground max-w-md">{error}</p>
+                <div className="p-8 text-center">
+                  <Badge variant="destructive" className="mb-2">
+                    Syntax Error
+                  </Badge>
+                  <p className="text-muted-foreground max-w-md text-sm">{error}</p>
                 </div>
               ) : (
                 <div
@@ -318,19 +329,19 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
 
           {/* Code Tab */}
           {!readOnly && (
-            <TabsContent value="code" className="flex-1 m-0 p-4">
-              <div className="h-full flex flex-col gap-2">
+            <TabsContent value="code" className="m-0 flex-1 p-4">
+              <div className="flex h-full flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Edit the Mermaid code below</span>
+                  <span className="text-muted-foreground text-sm">Edit the Mermaid code below</span>
                   <Button variant="ghost" size="sm" onClick={renderDiagram}>
-                    <RefreshCw className="h-4 w-4 mr-1" />
+                    <RefreshCw className="mr-1 h-4 w-4" />
                     Refresh Preview
                   </Button>
                 </div>
                 <Textarea
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="flex-1 font-mono text-sm min-h-[300px] resize-none"
+                  className="min-h-[300px] flex-1 resize-none font-mono text-sm"
                   placeholder="Enter Mermaid diagram code..."
                 />
               </div>
@@ -339,20 +350,22 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
 
           {/* Templates Tab */}
           {!readOnly && (
-            <TabsContent value="templates" className="flex-1 m-0 p-4">
+            <TabsContent value="templates" className="m-0 flex-1 p-4">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {Object.entries(TEMPLATES).map(([key, value]) => (
                   <Card
                     key={key}
-                    className="cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                    className="hover:ring-primary cursor-pointer transition-all hover:ring-2"
                     onClick={() => {
                       loadTemplate(key as keyof typeof TEMPLATES);
                       setActiveTab("preview");
                     }}
                   >
                     <CardContent className="p-4">
-                      <h3 className="font-medium capitalize mb-2">{key.replace(/([A-Z])/g, " $1").trim()}</h3>
-                      <pre className="text-xs text-muted-foreground bg-muted p-2 rounded overflow-hidden max-h-24">
+                      <h3 className="mb-2 font-medium capitalize">
+                        {key.replace(/([A-Z])/g, " $1").trim()}
+                      </h3>
+                      <pre className="text-muted-foreground bg-muted max-h-24 overflow-hidden rounded p-2 text-xs">
                         {value.substring(0, 100)}...
                       </pre>
                     </CardContent>
@@ -364,18 +377,18 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
         </Tabs>
 
         {/* Zoom Slider (Bottom) */}
-        <div className="p-3 border-t flex items-center gap-4">
-          <ZoomOut className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-4 border-t p-3">
+          <ZoomOut className="text-muted-foreground h-4 w-4" />
           <Slider
             value={[zoom]}
             onValueChange={(v) => setZoom(v[0])}
             min={25}
             max={200}
             step={5}
-            className="flex-1 max-w-xs"
+            className="max-w-xs flex-1"
           />
-          <ZoomIn className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground w-12">{zoom}%</span>
+          <ZoomIn className="text-muted-foreground h-4 w-4" />
+          <span className="text-muted-foreground w-12 text-sm">{zoom}%</span>
         </div>
       </CardContent>
     </Card>

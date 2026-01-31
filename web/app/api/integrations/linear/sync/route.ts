@@ -18,7 +18,7 @@ import { eq } from "drizzle-orm";
 export async function GET() {
   try {
     const db = getDrizzleDb();
-    
+
     // Get stats from cached database
     const [allProjects, activeProjects, allIssues, activeIssues] = await Promise.all([
       db.select().from(linearProjects),
@@ -26,26 +26,28 @@ export async function GET() {
       db.select().from(linearIssues),
       db.select().from(linearIssues).where(eq(linearIssues.isDeleted, false)),
     ]);
-    
+
     // Get last sync time (most recent synced_at)
-    const lastProjectSync = allProjects.length > 0
-      ? allProjects.sort((a, b) => 
-          new Date(b.syncedAt || 0).getTime() - new Date(a.syncedAt || 0).getTime()
-        )[0]?.syncedAt
-      : null;
-    
-    const lastIssueSync = allIssues.length > 0
-      ? allIssues.sort((a, b) => 
-          new Date(b.syncedAt || 0).getTime() - new Date(a.syncedAt || 0).getTime()
-        )[0]?.syncedAt
-      : null;
-    
-    const lastSync = lastProjectSync && lastIssueSync
-      ? new Date(Math.max(
-          new Date(lastProjectSync).getTime(),
-          new Date(lastIssueSync).getTime()
-        )).toISOString()
-      : lastProjectSync || lastIssueSync || null;
+    const lastProjectSync =
+      allProjects.length > 0
+        ? allProjects.sort(
+            (a, b) => new Date(b.syncedAt || 0).getTime() - new Date(a.syncedAt || 0).getTime()
+          )[0]?.syncedAt
+        : null;
+
+    const lastIssueSync =
+      allIssues.length > 0
+        ? allIssues.sort(
+            (a, b) => new Date(b.syncedAt || 0).getTime() - new Date(a.syncedAt || 0).getTime()
+          )[0]?.syncedAt
+        : null;
+
+    const lastSync =
+      lastProjectSync && lastIssueSync
+        ? new Date(
+            Math.max(new Date(lastProjectSync).getTime(), new Date(lastIssueSync).getTime())
+          ).toISOString()
+        : lastProjectSync || lastIssueSync || null;
 
     return NextResponse.json({
       status: "cached", // Using cached database

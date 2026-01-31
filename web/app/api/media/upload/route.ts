@@ -46,14 +46,14 @@ export async function POST(request: NextRequest) {
     const destination = commitHash
       ? "journal"
       : documentId
-      ? "repository"
-      : portfolioProjectId
-      ? "portfolio"
-      : "media";
+        ? "repository"
+        : portfolioProjectId
+          ? "portfolio"
+          : "media";
 
     // Get image dimensions if it's an image
-    let width: number | null = null;
-    let height: number | null = null;
+    const width: number | null = null;
+    const height: number | null = null;
 
     // Parse tags
     let tags: string[] = [];
@@ -113,9 +113,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("[Media Upload] Error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to upload file" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || "Failed to upload file" }, { status: 500 });
   }
 }

@@ -40,7 +40,8 @@ export function validateMcpApiKey(request: NextRequest): { valid: boolean; error
 
   return {
     valid: false,
-    error: "Invalid or missing MCP API key. Provide via Authorization: Bearer <key>, X-MCP-API-Key header, or ?api_key= query param.",
+    error:
+      "Invalid or missing MCP API key. Provide via Authorization: Bearer <key>, X-MCP-API-Key header, or ?api_key= query param.",
   };
 }
 

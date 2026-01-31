@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc, and, sql, count, inArray } from "drizzle-orm";
-import { getDrizzleDb, journalEntries, entryAttachments, projectSummaries, athenaLearningItems, athenaSessions } from "@/lib/db/drizzle";
+import {
+  getDrizzleDb,
+  journalEntries,
+  entryAttachments,
+  projectSummaries,
+  athenaLearningItems,
+  athenaSessions,
+} from "@/lib/db/drizzle";
 import { withErrorHandler } from "@/lib/api-handler";
 import { requireQuery, journalQuerySchema } from "@/lib/validations";
 import { ValidationError, NotFoundError, ForbiddenError } from "@/lib/errors";
@@ -130,31 +137,21 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
   const commitHashes = entries.map((e) => e.commitHash);
 
   // Delete related Athena learning items for this repository
-  await db
-    .delete(athenaLearningItems)
-    .where(eq(athenaLearningItems.repository, repository));
+  await db.delete(athenaLearningItems).where(eq(athenaLearningItems.repository, repository));
 
   // Delete related Athena sessions for this repository
-  await db
-    .delete(athenaSessions)
-    .where(eq(athenaSessions.repository, repository));
+  await db.delete(athenaSessions).where(eq(athenaSessions.repository, repository));
 
   // Delete all attachments for these entries
   if (commitHashes.length > 0) {
-    await db
-      .delete(entryAttachments)
-      .where(inArray(entryAttachments.commitHash, commitHashes));
+    await db.delete(entryAttachments).where(inArray(entryAttachments.commitHash, commitHashes));
   }
 
   // Delete all entries for this repository
-  await db
-    .delete(journalEntries)
-    .where(eq(journalEntries.repository, repository));
+  await db.delete(journalEntries).where(eq(journalEntries.repository, repository));
 
   // Delete the project summary for this repository
-  await db
-    .delete(projectSummaries)
-    .where(eq(projectSummaries.repository, repository));
+  await db.delete(projectSummaries).where(eq(projectSummaries.repository, repository));
 
   // Trigger backup after deletion
   try {

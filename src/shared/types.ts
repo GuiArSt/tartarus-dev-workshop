@@ -4,7 +4,7 @@
 
 export interface ToolResponse {
   content: Array<{
-    type: 'text';
+    type: "text";
     text: string;
   }>;
   isError?: boolean;
@@ -23,12 +23,20 @@ export interface LinearConfig {
   userId?: string; // Optional user ID for default assignee filtering
 }
 
+export interface GitConfig {
+  githubToken?: string; // Fine-grained PAT for GitHub
+  gitlabToken?: string; // PAT for GitLab
+  gitlabHost?: string; // Default: https://gitlab.com
+  enableGitTools?: boolean; // Feature flag
+}
+
 export interface JournalConfig {
   dbPath: string;
-  aiProvider: 'anthropic' | 'openai' | 'google';
+  aiProvider: "anthropic" | "openai" | "google";
   aiApiKey: string;
   tartarusUrl?: string; // Base URL for Tartarus web app (for attachment download URLs)
   mcpApiKey?: string; // API key for MCP to access Tartarus repository endpoints
+  gitConfig?: GitConfig; // Optional Git configuration for repository access
 }
 
 export interface UnifiedConfig {

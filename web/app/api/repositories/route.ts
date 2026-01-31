@@ -15,13 +15,3 @@ export const GET = withErrorHandler(async () => {
 
   return NextResponse.json(repositories.map((r) => r.repository));
 });
-
-
-
-
-
-
-
-
-
-

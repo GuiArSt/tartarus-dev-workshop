@@ -127,13 +127,3 @@ function exportToSQL(outputPath: string): void {
 
   fs.writeFileSync(outputPath, sql, "utf-8");
 }
-
-
-
-
-
-
-
-
-
-

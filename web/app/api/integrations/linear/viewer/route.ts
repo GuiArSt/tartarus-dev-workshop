@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const viewer = await getViewer();
     const configuredUserId = getDefaultUserId();
-    
+
     return NextResponse.json({
       ...viewer,
       configuredUserId,
