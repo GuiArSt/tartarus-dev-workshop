@@ -289,6 +289,76 @@ export async function createProject(input: {
   return data.projectCreate.project;
 }
 
+// Create project update (status post on a project)
+export async function createProjectUpdate(input: {
+  projectId: string;
+  body: string;
+  health: "onTrack" | "atRisk" | "offTrack";
+}) {
+  const mutation = `
+    mutation CreateProjectUpdate($input: ProjectUpdateCreateInput!) {
+      projectUpdateCreate(input: $input) {
+        success
+        projectUpdate {
+          id
+          body
+          health
+          createdAt
+          user {
+            id
+            name
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await linearQuery<{
+    projectUpdateCreate: { success: boolean; projectUpdate: any };
+  }>(mutation, { input });
+
+  if (!data.projectUpdateCreate?.success || !data.projectUpdateCreate.projectUpdate) {
+    throw new Error("Failed to create project update");
+  }
+
+  return data.projectUpdateCreate.projectUpdate;
+}
+
+// List project updates for a project
+export async function listProjectUpdates(projectId: string, limit: number = 10) {
+  const query = `
+    query ProjectUpdates($projectId: String!, $first: Int!) {
+      project(id: $projectId) {
+        id
+        name
+        projectUpdates(first: $first, orderBy: createdAt) {
+          nodes {
+            id
+            body
+            health
+            createdAt
+            updatedAt
+            user {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await linearQuery<{
+    project: { id: string; name: string; projectUpdates: { nodes: any[] } };
+  }>(query, { projectId, first: limit });
+
+  return {
+    projectId: data.project.id,
+    projectName: data.project.name,
+    updates: data.project.projectUpdates.nodes,
+  };
+}
+
 // Update project (linear_update_project)
 export async function updateProject(
   projectId: string,

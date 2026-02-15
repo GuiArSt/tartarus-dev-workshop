@@ -52,21 +52,11 @@ if (
  * Environment variable schema
  */
 const envSchema = z.object({
-  // Linear (optional)
-  LINEAR_API_KEY: z.string().optional(),
-  LINEAR_USER_ID: z.string().optional(),
-
   // AI Providers (at least one required for journal)
   // Priority: Anthropic (preferred) → OpenAI → Google (first one found)
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),
-
-  // Git integration (optional)
-  GITHUB_TOKEN: z.string().optional(), // Fine-grained GitHub PAT for repository access
-  GITLAB_TOKEN: z.string().optional(), // GitLab PAT for repository access
-  GITLAB_HOST: z.string().optional(), // Custom GitLab instance (default: https://gitlab.com)
-  ENABLE_GIT_TOOLS: z.string().optional(), // Feature flag to enable Git tools (true/false)
 
   // Optional settings
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
@@ -86,18 +76,9 @@ export function loadConfig(): UnifiedConfig {
     logLevel: env.LOG_LEVEL || "info",
   };
 
-  // Configure Linear if credentials present
-  if (env.LINEAR_API_KEY) {
-    config.linear = {
-      apiKey: env.LINEAR_API_KEY,
-      userId: env.LINEAR_USER_ID, // Optional: defaults to null, can be set via env var
-    };
-    logger.info("Linear module enabled");
-  }
-
   // Configure Journal if AI provider available
   // Priority: Anthropic (preferred) → OpenAI → Google (first one found)
-  // Models are hardcoded: claude-opus-4-5, gpt-5.1, gemini-3.0
+  // Models are hardcoded: claude-opus-4-6 (latest), claude-opus-4-5, gpt-5.1, gemini-3.0
   if (env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY || env.GOOGLE_API_KEY) {
     let aiProvider: "anthropic" | "openai" | "google";
     let aiApiKey: string;
@@ -119,34 +100,22 @@ export function loadConfig(): UnifiedConfig {
     const defaultDbPath =
       env.JOURNAL_DB_PATH || path.join(PROJECT_ROOT, "data", "journal.db");
 
-    // Git configuration (optional)
-    const gitConfig =
-      env.GITHUB_TOKEN || env.GITLAB_TOKEN || env.ENABLE_GIT_TOOLS === "true"
-        ? {
-            githubToken: env.GITHUB_TOKEN,
-            gitlabToken: env.GITLAB_TOKEN,
-            gitlabHost: env.GITLAB_HOST || "https://gitlab.com",
-            enableGitTools: env.ENABLE_GIT_TOOLS === "true",
-          }
-        : undefined;
-
     config.journal = {
       dbPath: defaultDbPath,
       aiProvider,
       aiApiKey,
       tartarusUrl: env.TARTARUS_URL,
       mcpApiKey: env.MCP_API_KEY,
-      gitConfig,
     };
     logger.info(
-      `Journal module enabled (AI provider: ${aiProvider})${env.TARTARUS_URL ? `, Tartarus: ${env.TARTARUS_URL}` : ""}${gitConfig?.enableGitTools ? ", Git tools: enabled" : ""}`,
+      `Journal module enabled (AI provider: ${aiProvider})${env.TARTARUS_URL ? `, Tartarus: ${env.TARTARUS_URL}` : ""}`,
     );
   }
 
-  // Validate at least one module is configured
-  if (!config.linear && !config.journal) {
+  // Validate journal module is configured
+  if (!config.journal) {
     throw new ConfigurationError(
-      "No modules configured. Please set environment variables for at least one module (Linear or Journal).",
+      "Journal module not configured. Please set ANTHROPIC_API_KEY (or OPENAI_API_KEY / GOOGLE_API_KEY).",
     );
   }
 

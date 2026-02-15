@@ -16,6 +16,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { logger } from "./logger.js";
+import { MODEL_COSTS, calculateCost } from "./model-costs.js";
+
+export { calculateCost };
 
 let db: Database.Database | null = null;
 
@@ -160,30 +163,6 @@ export interface KronusChat {
 export interface TraceContext {
   traceId: string;
   spanId: string;
-}
-
-// ============================================================================
-// Cost calculation (per 1M tokens)
-// ============================================================================
-
-const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-  "claude-sonnet-4-5-20250929": { input: 3.0, output: 15.0 },
-  "claude-haiku-4-5-20250514": { input: 0.8, output: 4.0 },
-  "claude-opus-4-5-20251101": { input: 15.0, output: 75.0 },
-  // AI SDK model aliases
-  "claude-haiku-4-5": { input: 0.8, output: 4.0 },
-  "claude-sonnet-4-5": { input: 3.0, output: 15.0 },
-  "claude-opus-4-5": { input: 15.0, output: 75.0 },
-};
-
-export function calculateCost(
-  model: string,
-  inputTokens: number,
-  outputTokens: number,
-): number {
-  const costs = MODEL_COSTS[model];
-  if (!costs) return 0;
-  return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;
 }
 
 // ============================================================================

@@ -252,9 +252,9 @@ Respond with valid JSON matching the schema.`;
 
     switch (config.aiProvider) {
       case "anthropic":
-        // Claude Haiku 4.5 - fast, capable, cost-effective for journal entries
-        model = anthropic("claude-haiku-4-5");
-        modelName = "Claude Haiku 4.5";
+        // Claude Opus 4.6 - highest quality for journal entry analysis
+        model = anthropic("claude-opus-4-6");
+        modelName = "Claude Opus 4.6";
         break;
       case "openai":
         // GPT-5 mini - fast, cost-effective, no reasoning needed for journal entries

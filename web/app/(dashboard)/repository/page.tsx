@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, memo } from "react";
+import { useEffect, useState, useMemo, useCallback, memo, useRef } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,10 +51,12 @@ import {
   ChevronDown,
   ChevronUp,
   StickyNote,
-  GitCommit,
   Trello,
   Image,
   MessageSquare,
+  RefreshCw,
+  Clock,
+  Bot,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatMonthYear } from "@/lib/utils";
@@ -321,11 +323,87 @@ interface PortfolioProject {
   sortOrder?: number;
 }
 
+// Linear cache types
+interface LinearCachedProject {
+  id: string;
+  name: string;
+  description: string | null;
+  state: string | null;
+  progress: number | null;
+  targetDate: string | null;
+  url: string | null;
+  lead: { id: string; name: string | null } | null;
+  summary: string | null;
+  syncedAt: string | null;
+  isDeleted: boolean;
+}
+
+interface LinearCachedIssue {
+  id: string;
+  identifier: string;
+  title: string;
+  description: string | null;
+  priority: number | null;
+  url: string | null;
+  state: { id: string; name: string | null } | null;
+  assignee: { id: string; name: string | null } | null;
+  team: { id: string; name: string | null; key: string | null } | null;
+  project: { id: string; name: string | null } | null;
+  summary: string | null;
+  syncedAt: string | null;
+  isDeleted: boolean;
+}
+
+// Kronus MCP chat types (askKronus tool calls)
+interface KronusChat {
+  id: number;
+  trace_id: string;
+  question: string;
+  answer: string;
+  question_preview: string;
+  answer_preview: string;
+  repository: string | null;
+  depth: string;
+  status: string;
+  has_summary: boolean;
+  summary: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  latency_ms: number | null;
+  cost_usd: number | null;
+  created_at: string;
+}
+
+// Main chat conversation types (admin UI chats)
+interface ChatConversation {
+  id: number;
+  title: string;
+  summary: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count?: number;
+}
+
+// Media asset types
+interface MediaAsset {
+  id: number;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  description: string | null;
+  alt: string | null;
+  destination: string;
+  created_at: string;
+  drive_url: string | null;
+  supabase_url: string | null;
+}
+
 export default function RepositoryPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("writings");
   const [writings, setWritings] = useState<Document[]>([]);
   const [prompts, setPrompts] = useState<Document[]>([]);
+  const [notes, setNotes] = useState<Document[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [experience, setExperience] = useState<WorkExperience[]>([]);
   const [education, setEducation] = useState<Education[]>([]);
@@ -380,6 +458,41 @@ export default function RepositoryPage() {
 
   // Expanded summaries state - tracks which document IDs have expanded summaries
   const [expandedSummaries, setExpandedSummaries] = useState<Set<number>>(new Set());
+
+  // Linear cache state
+  const [linearProjects, setLinearProjects] = useState<LinearCachedProject[]>([]);
+  const [linearIssues, setLinearIssues] = useState<LinearCachedIssue[]>([]);
+  const [linearLastSync, setLinearLastSync] = useState<string | null>(null);
+  const [linearSyncing, setLinearSyncing] = useState(false);
+
+  // Kronus MCP chats state (askKronus tool calls)
+  const [kronusChats, setKronusChats] = useState<KronusChat[]>([]);
+  const [kronusChatsPagination, setKronusChatsPagination] = useState<{
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  } | null>(null);
+
+  // Main chat conversations state (admin UI chats)
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [conversationsPagination, setConversationsPagination] = useState<{
+    total: number;
+  } | null>(null);
+
+  // Media assets state
+  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
+  const [mediaTotal, setMediaTotal] = useState<number>(0);
+
+  // Tab data cache - stores fetched data per tab to avoid re-fetching on return visits
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [tabDataCache, setTabDataCache] = useState<Record<string, { data: any; fetchedAt: number }>>(
+    {}
+  );
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
+
+  // AbortController ref for cancelling in-flight requests on tab switch
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Navigate to chat to EDIT a document with Kronus
   const editDocumentWithKronus = useCallback(
@@ -545,111 +658,257 @@ What education entry would you like to add? Please provide the institution and d
     [filteredSkills]
   );
 
-  useEffect(() => {
-    fetchData();
-  }, [activeTab]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      if (activeTab === "writings") {
-        const [res, typesRes] = await Promise.all([
-          fetch("/api/documents?type=writing"),
-          fetch("/api/document-types"),
-        ]);
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        const data = await res.json();
-        console.log("Fetched writings:", data.documents?.length || 0);
+  // Apply cached data to state based on tab
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const applyTabData = useCallback((tab: string, data: any) => {
+    switch (tab) {
+      case "writings":
         setWritings(data.documents || []);
-        if (typesRes.ok) {
-          const typesData = await typesRes.json();
-          setDocumentTypes(typesData || []);
-        }
-      } else if (activeTab === "prompts") {
-        const [res, typesRes] = await Promise.all([
-          fetch("/api/documents?type=prompt"),
-          fetch("/api/document-types"),
-        ]);
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        const data = await res.json();
-        console.log("Fetched prompts:", data.documents?.length || 0);
+        if (data.documentTypes) setDocumentTypes(data.documentTypes);
+        break;
+      case "prompts":
         setPrompts(data.documents || []);
-        if (typesRes.ok) {
-          const typesData = await typesRes.json();
-          setDocumentTypes(typesData || []);
-        }
-      } else if (activeTab === "cv") {
-        // Fetch CV data and categories in parallel
-        const [cvRes, catRes] = await Promise.all([fetch("/api/cv"), fetch("/api/cv/categories")]);
-        if (!cvRes.ok) {
-          throw new Error(`HTTP error! status: ${cvRes.status}`);
-        }
-        const data = await cvRes.json();
-        console.log("Fetched CV data:", {
-          skills: data.skills?.length || 0,
-          experience: data.experience?.length || 0,
-          education: data.education?.length || 0,
-        });
+        if (data.documentTypes) setDocumentTypes(data.documentTypes);
+        break;
+      case "notes":
+        setNotes(data.documents || []);
+        break;
+      case "cv":
         setSkills(data.skills || []);
         setExperience(data.experience || []);
         setEducation(data.education || []);
+        if (data.categories) setSkillCategories(data.categories);
+        break;
+      case "portfolio":
+        setPortfolioProjects(data.projects || []);
+        break;
+      case "linear":
+        setLinearProjects(data.projects || []);
+        setLinearIssues(data.issues || []);
+        setLinearLastSync(data.lastSync || null);
+        break;
+      case "chats":
+        setConversations(data.conversations || []);
+        setConversationsPagination(data.conversationsPagination || null);
+        setKronusChats(data.kronusChats || []);
+        setKronusChatsPagination(data.kronusChatsPagination || null);
+        break;
+      case "media":
+        setMediaAssets(data.assets || []);
+        setMediaTotal(data.total || 0);
+        break;
+    }
+  }, []);
 
-        // Fetch categories
+  useEffect(() => {
+    fetchData();
+    // Cleanup: abort request on unmount or tab change
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, [activeTab]);
+
+  const fetchData = async (forceRefresh = false) => {
+    // Check cache first (unless forcing refresh)
+    const cached = tabDataCache[activeTab];
+    if (!forceRefresh && cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
+      // Use cached data - instant!
+      applyTabData(activeTab, cached.data);
+      setLoading(false);
+      return;
+    }
+
+    // Cancel any in-flight request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    setLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let fetchedData: any = {};
+
+      if (activeTab === "writings") {
+        const [res, typesRes] = await Promise.all([
+          fetch("/api/documents?type=writing", { signal }),
+          fetch("/api/document-types", { signal }),
+        ]);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        fetchedData = { documents: data.documents || [] };
+        if (typesRes.ok) {
+          fetchedData.documentTypes = await typesRes.json();
+        }
+      } else if (activeTab === "prompts") {
+        const [res, typesRes] = await Promise.all([
+          fetch("/api/documents?type=prompt", { signal }),
+          fetch("/api/document-types", { signal }),
+        ]);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        fetchedData = { documents: data.documents || [] };
+        if (typesRes.ok) {
+          fetchedData.documentTypes = await typesRes.json();
+        }
+      } else if (activeTab === "cv") {
+        const [cvRes, catRes] = await Promise.all([
+          fetch("/api/cv", { signal }),
+          fetch("/api/cv/categories", { signal }),
+        ]);
+        if (!cvRes.ok) throw new Error(`HTTP error! status: ${cvRes.status}`);
+        const data = await cvRes.json();
+        fetchedData = {
+          skills: data.skills || [],
+          experience: data.experience || [],
+          education: data.education || [],
+        };
         if (catRes.ok) {
-          const catData = await catRes.json();
-          setSkillCategories(catData || []);
+          fetchedData.categories = await catRes.json();
         }
       } else if (activeTab === "portfolio") {
-        const res = await fetch("/api/portfolio-projects");
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
+        const res = await fetch("/api/portfolio-projects", { signal });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data = await res.json();
-        console.log("Fetched portfolio projects:", data.projects?.length || 0);
-        setPortfolioProjects(data.projects || []);
+        fetchedData = { projects: data.projects || [] };
+      } else if (activeTab === "notes") {
+        const res = await fetch("/api/documents?type=note", { signal });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        fetchedData = { documents: data.documents || [] };
+      } else if (activeTab === "linear") {
+        const res = await fetch("/api/integrations/linear/cache", { signal });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        fetchedData = {
+          projects: data.projects || [],
+          issues: data.issues || [],
+          lastSync: data.lastSync || null,
+        };
+      } else if (activeTab === "chats") {
+        const [convRes, kronusRes] = await Promise.all([
+          fetch("/api/conversations?limit=20", { signal }),
+          fetch("/api/kronus/chats?limit=20", { signal }),
+        ]);
+        fetchedData = {};
+        if (convRes.ok) {
+          const convData = await convRes.json();
+          fetchedData.conversations = convData.conversations || [];
+          fetchedData.conversationsPagination = { total: convData.total || 0 };
+        }
+        if (kronusRes.ok) {
+          const kronusData = await kronusRes.json();
+          fetchedData.kronusChats = kronusData.chats || [];
+          fetchedData.kronusChatsPagination = kronusData.pagination || null;
+        }
+      } else if (activeTab === "media") {
+        const res = await fetch("/api/media?limit=24", { signal });
+        if (res.ok) {
+          const data = await res.json();
+          fetchedData = { assets: data.assets || [], total: data.total || 0 };
+        }
       }
+
+      // Apply data to state
+      applyTabData(activeTab, fetchedData);
+
+      // Update cache
+      setTabDataCache((prev) => ({
+        ...prev,
+        [activeTab]: { data: fetchedData, fetchedAt: Date.now() },
+      }));
     } catch (error) {
+      // Ignore abort errors - they're expected when switching tabs
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
       console.error("Failed to fetch data:", error);
-      // Set empty arrays on error to prevent stale data
+      // Set empty arrays on error
       if (activeTab === "writings") setWritings([]);
       else if (activeTab === "prompts") setPrompts([]);
+      else if (activeTab === "notes") setNotes([]);
       else if (activeTab === "portfolio") setPortfolioProjects([]);
       else if (activeTab === "cv") {
         setSkills([]);
         setExperience([]);
         setEducation([]);
+      } else if (activeTab === "linear") {
+        setLinearProjects([]);
+        setLinearIssues([]);
+        setLinearLastSync(null);
+      } else if (activeTab === "chats") {
+        setConversations([]);
+        setConversationsPagination(null);
+        setKronusChats([]);
+        setKronusChatsPagination(null);
+      } else if (activeTab === "media") {
+        setMediaAssets([]);
+        setMediaTotal(0);
       }
     } finally {
       setLoading(false);
     }
   };
 
+  // Function to invalidate cache for a specific tab (useful after mutations)
+  const invalidateTabCache = useCallback((tab: string) => {
+    setTabDataCache((prev) => {
+      const next = { ...prev };
+      delete next[tab];
+      return next;
+    });
+  }, []);
+
+  // Sync Linear data
+  const syncLinearData = async () => {
+    setLinearSyncing(true);
+    try {
+      const res = await fetch("/api/integrations/linear/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const data = await res.json();
+      console.log("Linear sync result:", data);
+      // Refresh the cache data
+      const cacheRes = await fetch("/api/integrations/linear/cache");
+      if (cacheRes.ok) {
+        const cacheData = await cacheRes.json();
+        setLinearProjects(cacheData.projects || []);
+        setLinearIssues(cacheData.issues || []);
+        setLinearLastSync(cacheData.lastSync || null);
+      }
+    } catch (error) {
+      console.error("Failed to sync Linear data:", error);
+    } finally {
+      setLinearSyncing(false);
+    }
+  };
+
   // Extract all unique tags from documents - memoized
   const allTags = useMemo(() => {
     const tags = new Set<string>();
-    [...writings, ...prompts].forEach((doc) => {
+    [...writings, ...prompts, ...notes].forEach((doc) => {
       const docTags = doc.metadata?.tags || [];
       if (Array.isArray(docTags)) {
         docTags.forEach((tag: string) => tags.add(tag));
       }
     });
     return Array.from(tags).sort();
-  }, [writings, prompts]);
+  }, [writings, prompts, notes]);
 
   // Extract all unique types from documents - memoized
   const allTypes = useMemo(() => {
     const types = new Set<string>();
-    [...writings, ...prompts].forEach((doc) => {
+    [...writings, ...prompts, ...notes].forEach((doc) => {
       if (doc.metadata?.type) {
         types.add(doc.metadata.type);
       }
     });
     return Array.from(types).sort();
-  }, [writings, prompts]);
+  }, [writings, prompts, notes]);
 
   // Filtered writings - memoized
   const filteredWritings = useMemo(
@@ -685,6 +944,23 @@ What education entry would you like to add? Please provide the institution and d
     [prompts, searchQuery, searchLower, selectedTag, selectedType]
   );
 
+  // Filtered notes - memoized
+  const filteredNotes = useMemo(
+    () =>
+      notes.filter((d) => {
+        const matchesSearch =
+          !searchQuery ||
+          d.title.toLowerCase().includes(searchLower) ||
+          d.content.toLowerCase().includes(searchLower);
+        const docTags = d.metadata?.tags || [];
+        const matchesTag =
+          selectedTag === "all" || (Array.isArray(docTags) && docTags.includes(selectedTag));
+        const matchesType = selectedType === "all" || d.metadata?.type === selectedType;
+        return matchesSearch && matchesTag && matchesType;
+      }),
+    [notes, searchQuery, searchLower, selectedTag, selectedType]
+  );
+
   const hasActiveFilters = selectedTag !== "all" || selectedType !== "all" || searchQuery !== "";
   const clearFilters = useCallback(() => {
     setSelectedTag("all");
@@ -701,12 +977,13 @@ What education entry would you like to add? Please provide the institution and d
       });
       if (res.ok) {
         setEditingSkill(null);
-        fetchData();
+        invalidateTabCache("cv");
+        fetchData(true); // Force refresh after mutation
       }
     } catch (error) {
       console.error("Failed to save skill:", error);
     }
-  }, []);
+  }, [invalidateTabCache]);
 
   const handleSaveExperience = useCallback(async (data: Partial<WorkExperience>) => {
     try {
@@ -717,12 +994,13 @@ What education entry would you like to add? Please provide the institution and d
       });
       if (res.ok) {
         setEditingExperience(null);
-        fetchData();
+        invalidateTabCache("cv");
+        fetchData(true); // Force refresh after mutation
       }
     } catch (error) {
       console.error("Failed to save experience:", error);
     }
-  }, []);
+  }, [invalidateTabCache]);
 
   const handleSaveEducation = useCallback(async (data: Partial<Education>) => {
     try {
@@ -733,12 +1011,13 @@ What education entry would you like to add? Please provide the institution and d
       });
       if (res.ok) {
         setEditingEducation(null);
-        fetchData();
+        invalidateTabCache("cv");
+        fetchData(true); // Force refresh after mutation
       }
     } catch (error) {
       console.error("Failed to save education:", error);
     }
-  }, []);
+  }, [invalidateTabCache]);
 
   const handleSaveProject = useCallback(async (data: Partial<PortfolioProject>) => {
     try {
@@ -749,12 +1028,13 @@ What education entry would you like to add? Please provide the institution and d
       });
       if (res.ok) {
         setEditingProject(null);
-        fetchData();
+        invalidateTabCache("portfolio");
+        fetchData(true); // Force refresh after mutation
       }
     } catch (error) {
       console.error("Failed to save project:", error);
     }
-  }, []);
+  }, [invalidateTabCache]);
 
   // Navigate to chat to ADD a new portfolio project with Kronus
   const addProjectWithKronus = useCallback(() => {
@@ -840,13 +1120,14 @@ What project would you like to add?`;
       }
 
       closeCategoryDialog();
-      fetchData();
+      invalidateTabCache("cv");
+      fetchData(true); // Force refresh after mutation
     } catch (error: any) {
       setCategoryError(error.message);
     } finally {
       setSavingCategory(false);
     }
-  }, [categoryForm, editingCategory, closeCategoryDialog]);
+  }, [categoryForm, editingCategory, closeCategoryDialog, invalidateTabCache]);
 
   const handleDeleteCategory = useCallback(async () => {
     if (!editingCategory) return;
@@ -864,13 +1145,14 @@ What project would you like to add?`;
       }
 
       closeCategoryDialog();
-      fetchData();
+      invalidateTabCache("cv");
+      fetchData(true); // Force refresh after mutation
     } catch (error: any) {
       setCategoryError(error.message);
     } finally {
       setDeletingCategory(false);
     }
-  }, [editingCategory, closeCategoryDialog]);
+  }, [editingCategory, closeCategoryDialog, invalidateTabCache]);
 
   // Get count of skills in a category (for delete warning)
   const getSkillCountInCategory = useCallback(
@@ -948,13 +1230,17 @@ What project would you like to add?`;
       }
 
       closeDocTypeDialog();
-      fetchData();
+      // Invalidate all document tabs since types affect writings, prompts, and notes
+      invalidateTabCache("writings");
+      invalidateTabCache("prompts");
+      invalidateTabCache("notes");
+      fetchData(true); // Force refresh after mutation
     } catch (error: any) {
       setDocTypeError(error.message);
     } finally {
       setSavingDocType(false);
     }
-  }, [docTypeForm, editingDocType, closeDocTypeDialog, fetchData]);
+  }, [docTypeForm, editingDocType, closeDocTypeDialog, invalidateTabCache]);
 
   const handleDeleteDocType = useCallback(async () => {
     if (!editingDocType) return;
@@ -972,13 +1258,17 @@ What project would you like to add?`;
       }
 
       closeDocTypeDialog();
-      fetchData();
+      // Invalidate all document tabs since types affect writings, prompts, and notes
+      invalidateTabCache("writings");
+      invalidateTabCache("prompts");
+      invalidateTabCache("notes");
+      fetchData(true); // Force refresh after mutation
     } catch (error: any) {
       setDocTypeError(error.message);
     } finally {
       setDeletingDocType(false);
     }
-  }, [editingDocType, closeDocTypeDialog, fetchData]);
+  }, [editingDocType, closeDocTypeDialog, invalidateTabCache]);
 
   // Get count of documents using a type
   const getDocCountWithType = useCallback(
@@ -1040,10 +1330,6 @@ What project would you like to add?`;
             <TabsTrigger value="prompts">
               <Code className="mr-2 h-4 w-4" />
               Prompts
-            </TabsTrigger>
-            <TabsTrigger value="journal">
-              <GitCommit className="mr-2 h-4 w-4" />
-              Journal
             </TabsTrigger>
             <TabsTrigger value="linear">
               <Trello className="mr-2 h-4 w-4" />
@@ -2168,7 +2454,7 @@ What project would you like to add?`;
               )}
             </TabsContent>
 
-            {/* Notes Tab - Filter documents by type: "note" */}
+            {/* Notes Tab */}
             <TabsContent value="notes" className="mt-0">
               <div className="grid gap-4 p-6">
                 {loading ? (
@@ -2177,7 +2463,7 @@ What project would you like to add?`;
                   </div>
                 ) : (
                   <>
-                    {filteredDocuments.filter((d) => d.type === "note").length === 0 ? (
+                    {filteredNotes.length === 0 ? (
                       <Card className="text-muted-foreground border-dashed p-12 text-center">
                         <StickyNote className="text-muted-foreground/50 mx-auto mb-4 h-12 w-12" />
                         <p className="mb-2 text-lg font-medium">No notes yet</p>
@@ -2187,9 +2473,7 @@ What project would you like to add?`;
                       </Card>
                     ) : (
                       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {filteredDocuments
-                          .filter((d) => d.type === "note")
-                          .map((doc) => (
+                        {filteredNotes.map((doc) => (
                             <Link key={doc.slug} href={`/repository/${doc.slug}`}>
                               <Card className="group h-full cursor-pointer transition-all hover:shadow-md">
                                 <CardHeader className="pb-2">
@@ -2207,7 +2491,7 @@ What project would you like to add?`;
                                   </p>
                                   {doc.metadata?.tags && doc.metadata.tags.length > 0 && (
                                     <div className="mt-3 flex flex-wrap gap-1">
-                                      {doc.metadata.tags.slice(0, 3).map((tag) => (
+                                      {doc.metadata.tags.slice(0, 3).map((tag: string) => (
                                         <Badge key={tag} variant="outline" className="text-xs">
                                           {tag}
                                         </Badge>
@@ -2230,75 +2514,534 @@ What project would you like to add?`;
               </div>
             </TabsContent>
 
-            {/* Journal Tab - Link to Reader */}
-            <TabsContent value="journal" className="mt-0">
-              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                <GitCommit className="text-muted-foreground/50 mb-6 h-16 w-16" />
-                <h3 className="mb-3 text-xl font-semibold">Journal Entries</h3>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                  Browse your coding journal entries, commit histories, and project documentation in
-                  the Reader view.
-                </p>
-                <Link href="/reader">
-                  <Button className="bg-[var(--tartarus-teal)] text-white hover:bg-[var(--tartarus-teal)]/90">
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Open Reader
-                  </Button>
-                </Link>
-              </div>
-            </TabsContent>
-
-            {/* Linear Tab - Link to Integrations or show summary */}
+            {/* Linear Tab - Show cached data with sync */}
             <TabsContent value="linear" className="mt-0">
-              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                <Trello className="text-muted-foreground/50 mb-6 h-16 w-16" />
-                <h3 className="mb-3 text-xl font-semibold">Linear Integration</h3>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                  View and manage your Linear issues and projects. Synced automatically from your
-                  workspace.
-                </p>
-                <Link href="/integrations/linear">
-                  <Button className="bg-[#5E6AD2] text-white hover:bg-[#5E6AD2]/90">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open Linear Dashboard
-                  </Button>
-                </Link>
+              <div className="space-y-6 p-6">
+                {/* Header with sync button */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold">Linear Cache</h3>
+                    <p className="text-muted-foreground text-sm">
+                      {linearLastSync
+                        ? `Last synced: ${new Date(linearLastSync).toLocaleString()}`
+                        : "Not synced yet"}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={syncLinearData}
+                      disabled={linearSyncing}
+                      className="border-[#5E6AD2]/30 hover:border-[#5E6AD2]"
+                    >
+                      <RefreshCw className={`mr-2 h-4 w-4 ${linearSyncing ? "animate-spin" : ""}`} />
+                      {linearSyncing ? "Syncing..." : "Sync Now"}
+                    </Button>
+                    <Link href="/integrations/linear">
+                      <Button className="bg-[#5E6AD2] text-white hover:bg-[#5E6AD2]/90">
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Full Dashboard
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                  <Card className="border-[#5E6AD2]/20 bg-[#5E6AD2]/5">
+                    <CardContent className="p-4">
+                      <div className="text-2xl font-bold text-[#5E6AD2]">{linearProjects.length}</div>
+                      <div className="text-muted-foreground text-sm">Projects</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-[#5E6AD2]/20 bg-[#5E6AD2]/5">
+                    <CardContent className="p-4">
+                      <div className="text-2xl font-bold text-[#5E6AD2]">{linearIssues.length}</div>
+                      <div className="text-muted-foreground text-sm">Issues</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-[#5E6AD2]/20 bg-[#5E6AD2]/5">
+                    <CardContent className="p-4">
+                      <div className="text-2xl font-bold text-[#5E6AD2]">
+                        {linearIssues.filter((i) => i.state?.name === "In Progress").length}
+                      </div>
+                      <div className="text-muted-foreground text-sm">In Progress</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-[#5E6AD2]/20 bg-[#5E6AD2]/5">
+                    <CardContent className="p-4">
+                      <div className="text-2xl font-bold text-[#5E6AD2]">
+                        {linearProjects.filter((p) => p.summary).length + linearIssues.filter((i) => i.summary).length}
+                      </div>
+                      <div className="text-muted-foreground text-sm">With Summaries</div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#5E6AD2]" />
+                  </div>
+                ) : linearProjects.length === 0 && linearIssues.length === 0 ? (
+                  <Card className="text-muted-foreground border-dashed p-12 text-center">
+                    <Trello className="text-muted-foreground/50 mx-auto mb-4 h-12 w-12" />
+                    <p className="mb-2 text-lg font-medium">No cached Linear data</p>
+                    <p className="mb-4 text-sm">
+                      Sync your Linear workspace to see your projects and issues here.
+                    </p>
+                    <Button
+                      onClick={syncLinearData}
+                      disabled={linearSyncing}
+                      className="bg-[#5E6AD2] text-white hover:bg-[#5E6AD2]/90"
+                    >
+                      <RefreshCw className={`mr-2 h-4 w-4 ${linearSyncing ? "animate-spin" : ""}`} />
+                      Sync Linear Data
+                    </Button>
+                  </Card>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Projects */}
+                    {linearProjects.length > 0 && (
+                      <div>
+                        <h4 className="mb-3 text-lg font-medium">Projects ({linearProjects.length})</h4>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {linearProjects.slice(0, 6).map((project) => (
+                            <Card key={project.id} className="hover:border-[#5E6AD2]/50 transition-colors">
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{project.name}</span>
+                                      {project.state && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {project.state}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    {project.summary ? (
+                                      <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
+                                        {project.summary}
+                                      </p>
+                                    ) : project.description ? (
+                                      <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
+                                        {project.description.substring(0, 150)}...
+                                      </p>
+                                    ) : null}
+                                    {project.progress !== null && (
+                                      <div className="mt-2">
+                                        <div className="bg-muted h-1.5 w-full rounded-full">
+                                          <div
+                                            className="h-1.5 rounded-full bg-[#5E6AD2]"
+                                            style={{ width: `${(project.progress || 0) * 100}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-muted-foreground text-xs">
+                                          {Math.round((project.progress || 0) * 100)}% complete
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {project.url && (
+                                    <a href={project.url} target="_blank" rel="noopener noreferrer">
+                                      <ExternalLink className="text-muted-foreground hover:text-foreground h-4 w-4" />
+                                    </a>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Issues */}
+                    {linearIssues.length > 0 && (
+                      <div>
+                        <h4 className="mb-3 text-lg font-medium">Recent Issues ({linearIssues.length})</h4>
+                        <div className="space-y-2">
+                          {linearIssues.slice(0, 10).map((issue) => (
+                            <Card key={issue.id} className="hover:border-[#5E6AD2]/50 transition-colors">
+                              <CardContent className="flex items-center gap-4 p-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground font-mono text-xs">
+                                      {issue.identifier}
+                                    </span>
+                                    <span className="font-medium">{issue.title}</span>
+                                  </div>
+                                  {issue.summary && (
+                                    <p className="text-muted-foreground mt-0.5 line-clamp-1 text-sm">
+                                      {issue.summary}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {issue.state?.name && (
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs ${
+                                        issue.state.name === "Done"
+                                          ? "border-green-500/30 bg-green-500/10 text-green-600"
+                                          : issue.state.name === "In Progress"
+                                            ? "border-blue-500/30 bg-blue-500/10 text-blue-600"
+                                            : ""
+                                      }`}
+                                    >
+                                      {issue.state.name}
+                                    </Badge>
+                                  )}
+                                  {issue.url && (
+                                    <a href={issue.url} target="_blank" rel="noopener noreferrer">
+                                      <ExternalLink className="text-muted-foreground hover:text-foreground h-4 w-4" />
+                                    </a>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </TabsContent>
 
-            {/* Media Tab - Link to Multimedia */}
+            {/* Media Tab - Grid Display with Data */}
             <TabsContent value="media" className="mt-0">
-              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                <Image className="text-muted-foreground/50 mb-6 h-16 w-16" />
-                <h3 className="mb-3 text-xl font-semibold">Media Library</h3>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                  Browse images, diagrams, and other media assets attached to your journal entries
-                  and documents.
-                </p>
-                <Link href="/multimedia">
-                  <Button variant="outline">
-                    <Image className="mr-2 h-4 w-4" />
-                    Open Media Gallery
-                  </Button>
-                </Link>
+              <div className="space-y-6 p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold">Media Library</h3>
+                    <p className="text-muted-foreground text-sm">
+                      {mediaTotal > 0
+                        ? `${mediaTotal} media assets`
+                        : "No media assets found"}
+                    </p>
+                  </div>
+                  <Link href="/multimedia">
+                    <Button className="bg-[#8B5CF6] text-white hover:bg-[#8B5CF6]/90">
+                      <Image className="mr-2 h-4 w-4" />
+                      Full Gallery
+                    </Button>
+                  </Link>
+                </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#8B5CF6]" />
+                  </div>
+                ) : mediaAssets.length === 0 ? (
+                  <Card className="border-dashed border-[#8B5CF6]/30 p-8 text-center">
+                    <Image className="text-muted-foreground/50 mx-auto mb-4 h-12 w-12" />
+                    <p className="text-muted-foreground text-sm">
+                      No media assets found. Upload images, diagrams, or documents to see them here.
+                    </p>
+                  </Card>
+                ) : (
+                  <>
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                      <Card className="border-[#8B5CF6]/20 bg-[#8B5CF6]/5">
+                        <CardContent className="p-4">
+                          <div className="text-2xl font-bold text-[#8B5CF6]">{mediaTotal}</div>
+                          <div className="text-muted-foreground text-sm">Total Assets</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-[#8B5CF6]/20 bg-[#8B5CF6]/5">
+                        <CardContent className="p-4">
+                          <div className="text-2xl font-bold text-[#8B5CF6]">
+                            {mediaAssets.filter((m) => m.mime_type?.startsWith("image/")).length}
+                          </div>
+                          <div className="text-muted-foreground text-sm">Images</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-[#8B5CF6]/20 bg-[#8B5CF6]/5">
+                        <CardContent className="p-4">
+                          <div className="text-2xl font-bold text-[#8B5CF6]">
+                            {mediaAssets.filter((m) => m.destination === "journal").length}
+                          </div>
+                          <div className="text-muted-foreground text-sm">Journal</div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-[#8B5CF6]/20 bg-[#8B5CF6]/5">
+                        <CardContent className="p-4">
+                          <div className="text-2xl font-bold text-[#8B5CF6]">
+                            {mediaAssets.filter((m) => m.destination === "media").length}
+                          </div>
+                          <div className="text-muted-foreground text-sm">Standalone</div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Media Grid */}
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                      {mediaAssets.slice(0, 18).map((asset) => (
+                        <Link key={asset.id} href={`/multimedia?id=${asset.id}`}>
+                          <Card className="group cursor-pointer overflow-hidden transition-colors hover:border-[#8B5CF6]/50">
+                            <div className="bg-muted relative aspect-square">
+                              {asset.mime_type?.startsWith("image/") ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={asset.supabase_url || asset.drive_url || `/api/media/${asset.id}/raw`}
+                                  alt={asset.alt || asset.filename}
+                                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <FileText className="text-muted-foreground h-8 w-8" />
+                                </div>
+                              )}
+                              {/* Destination badge */}
+                              <div className="absolute right-1 top-1">
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-black/60 text-[10px] text-white"
+                                >
+                                  {asset.destination}
+                                </Badge>
+                              </div>
+                            </div>
+                            <CardContent className="p-2">
+                              <p className="line-clamp-1 text-xs font-medium">
+                                {asset.filename}
+                              </p>
+                              <p className="text-muted-foreground text-[10px]">
+                                {new Date(asset.created_at).toLocaleDateString()}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+
+                    {/* View All Link */}
+                    {mediaTotal > 18 && (
+                      <div className="flex justify-center pt-4">
+                        <Link href="/multimedia">
+                          <Button variant="outline" className="border-[#8B5CF6]/30 hover:border-[#8B5CF6]">
+                            View All {mediaTotal} Assets
+                            <ExternalLink className="ml-2 h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </TabsContent>
 
-            {/* Chats Tab - Link to conversations */}
+            {/* Chats Tab - Both Main Conversations AND Kronus MCP History */}
             <TabsContent value="chats" className="mt-0">
-              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                <MessageSquare className="text-muted-foreground/50 mb-6 h-16 w-16" />
-                <h3 className="mb-3 text-xl font-semibold">Chat History</h3>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                  View your past conversations with Kronus. Conversations with summaries are indexed
-                  for quick retrieval.
-                </p>
-                <Link href="/chat">
-                  <Button className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Open Chat
-                  </Button>
-                </Link>
+              <div className="space-y-8 p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold">Chat History</h3>
+                    <p className="text-muted-foreground text-sm">
+                      {conversationsPagination && kronusChatsPagination
+                        ? `${conversationsPagination.total} conversations, ${kronusChatsPagination.total} Kronus queries`
+                        : "Loading..."}
+                    </p>
+                  </div>
+                  <Link href="/chat">
+                    <Button className="bg-[var(--tartarus-gold)] text-[var(--tartarus-void)] hover:bg-[var(--tartarus-gold)]/90">
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      New Chat
+                    </Button>
+                  </Link>
+                </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[var(--tartarus-gold)]" />
+                  </div>
+                ) : (
+                  <>
+                    {/* ═══════════════════════════════════════════════════════════════════
+                        SECTION 1: Main Chat Conversations (Admin UI)
+                        ═══════════════════════════════════════════════════════════════════ */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--tartarus-teal)]/10">
+                          <MessageSquare className="h-4 w-4 text-[var(--tartarus-teal)]" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Conversations</h4>
+                          <p className="text-muted-foreground text-xs">
+                            Chat sessions with Kronus assistant
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="ml-auto">
+                          {conversationsPagination?.total || 0}
+                        </Badge>
+                      </div>
+
+                      {conversations.length === 0 ? (
+                        <Card className="border-dashed border-[var(--tartarus-teal)]/30 p-6 text-center">
+                          <p className="text-muted-foreground text-sm">
+                            No chat conversations yet. Start a new chat to begin!
+                          </p>
+                        </Card>
+                      ) : (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {conversations.slice(0, 6).map((conv) => (
+                            <Link key={conv.id} href={`/chat?id=${conv.id}`}>
+                              <Card className="h-full cursor-pointer transition-colors hover:border-[var(--tartarus-teal)]/50">
+                                <CardContent className="p-4">
+                                  <div className="flex items-start gap-3">
+                                    <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-[var(--tartarus-teal)]" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="line-clamp-1 font-medium">{conv.title}</p>
+                                      {conv.summary && (
+                                        <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
+                                          {conv.summary}
+                                        </p>
+                                      )}
+                                      <p className="text-muted-foreground mt-2 flex items-center gap-1 text-xs">
+                                        <Clock className="h-3 w-3" />
+                                        {new Date(conv.updated_at).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+
+                      {conversations.length > 6 && (
+                        <div className="flex justify-center">
+                          <Link href="/chat">
+                            <Button variant="outline" size="sm">
+                              View All Conversations
+                            </Button>
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Divider */}
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="border-border w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center">
+                        <span className="bg-background text-muted-foreground px-3 text-xs uppercase tracking-wider">
+                          MCP Tool Queries
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* ═══════════════════════════════════════════════════════════════════
+                        SECTION 2: Kronus MCP Tool Queries (askKronus)
+                        ═══════════════════════════════════════════════════════════════════ */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--tartarus-gold)]/10">
+                          <Bot className="h-4 w-4 text-[var(--tartarus-gold)]" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Kronus Queries</h4>
+                          <p className="text-muted-foreground text-xs">
+                            Direct questions via kronus_ask MCP tool
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="ml-auto">
+                          {kronusChatsPagination?.total || 0}
+                        </Badge>
+                      </div>
+
+                      {/* Kronus Stats */}
+                      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        <Card className="border-[var(--tartarus-gold)]/20 bg-[var(--tartarus-gold)]/5">
+                          <CardContent className="p-3">
+                            <div className="text-xl font-bold text-[var(--tartarus-gold)]">
+                              {kronusChatsPagination?.total || 0}
+                            </div>
+                            <div className="text-muted-foreground text-xs">Total Queries</div>
+                          </CardContent>
+                        </Card>
+                        <Card className="border-[var(--tartarus-gold)]/20 bg-[var(--tartarus-gold)]/5">
+                          <CardContent className="p-3">
+                            <div className="text-xl font-bold text-[var(--tartarus-gold)]">
+                              {kronusChats.filter((c) => c.depth === "deep").length}
+                            </div>
+                            <div className="text-muted-foreground text-xs">Deep</div>
+                          </CardContent>
+                        </Card>
+                        <Card className="border-[var(--tartarus-gold)]/20 bg-[var(--tartarus-gold)]/5">
+                          <CardContent className="p-3">
+                            <div className="text-xl font-bold text-[var(--tartarus-gold)]">
+                              {kronusChats.filter((c) => c.has_summary).length}
+                            </div>
+                            <div className="text-muted-foreground text-xs">Summarized</div>
+                          </CardContent>
+                        </Card>
+                        <Card className="border-[var(--tartarus-gold)]/20 bg-[var(--tartarus-gold)]/5">
+                          <CardContent className="p-3">
+                            <div className="text-xl font-bold text-[var(--tartarus-gold)]">
+                              {kronusChats.reduce((acc, c) => acc + (c.input_tokens || 0) + (c.output_tokens || 0), 0).toLocaleString()}
+                            </div>
+                            <div className="text-muted-foreground text-xs">Tokens</div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {kronusChats.length === 0 ? (
+                        <Card className="border-dashed border-[var(--tartarus-gold)]/30 p-6 text-center">
+                          <p className="text-muted-foreground text-sm">
+                            No Kronus MCP queries yet. Use kronus_ask in Claude Code to query your projects.
+                          </p>
+                        </Card>
+                      ) : (
+                        <div className="space-y-2">
+                          {kronusChats.slice(0, 8).map((chat) => (
+                            <Card key={chat.id} className="transition-colors hover:border-[var(--tartarus-gold)]/50">
+                              <CardContent className="p-3">
+                                <div className="flex items-start gap-3">
+                                  <Bot className="mt-0.5 h-4 w-4 shrink-0 text-[var(--tartarus-gold)]" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="line-clamp-1 text-sm font-medium">{chat.question_preview}</p>
+                                    <p className="text-muted-foreground mt-0.5 line-clamp-1 text-xs">
+                                      {chat.summary || chat.answer_preview}
+                                    </p>
+                                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                        {chat.depth}
+                                      </Badge>
+                                      {chat.repository && (
+                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                          {chat.repository}
+                                        </Badge>
+                                      )}
+                                      <span className="text-muted-foreground text-[10px]">
+                                        {new Date(chat.created_at).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+
+                      {kronusChatsPagination?.has_more && (
+                        <div className="flex justify-center">
+                          <Link href="/kronus">
+                            <Button variant="outline" size="sm">
+                              View All Kronus Queries
+                            </Button>
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </TabsContent>
           </div>

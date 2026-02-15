@@ -31,7 +31,12 @@ import type {
   ProjectSummaryInsert,
   Attachment,
   AttachmentInsert,
+  ProjectSummaryV2,
+  SectionsJson,
+  SectionWithHistory,
+  AllSection,
 } from "../types.js";
+import { CURRENT_SCHEMA_VERSION } from "../types.js";
 
 let db: Database.Database | null = null;
 
@@ -335,6 +340,56 @@ const createSchema = (handle: Database.Database) => {
     }
   }
 
+  // Migration: Add code_author and team_members columns (align with Drizzle schema)
+  try {
+    handle.exec(`ALTER TABLE journal_entries ADD COLUMN code_author TEXT;`);
+    logger.debug("Added column code_author to journal_entries");
+  } catch (error: any) {
+    if (!error.message?.includes("duplicate column")) {
+      logger.warn(
+        "Could not add code_author column (may already exist):",
+        error.message,
+      );
+    }
+  }
+
+  try {
+    handle.exec(
+      `ALTER TABLE journal_entries ADD COLUMN team_members TEXT DEFAULT '[]';`,
+    );
+    logger.debug("Added column team_members to journal_entries");
+  } catch (error: any) {
+    if (!error.message?.includes("duplicate column")) {
+      logger.warn(
+        "Could not add team_members column (may already exist):",
+        error.message,
+      );
+    }
+  }
+
+  // Migration: Entry 0 v2 — sections_json, schema_version, last_scanned_commit, total_updates
+  const v2Columns = [
+    "schema_version INTEGER DEFAULT 1",
+    "sections_json TEXT",        // JSON blob: Record<AllSection, SectionWithHistory>
+    "last_scanned_commit TEXT",  // commit hash of last technical update
+    "total_updates INTEGER DEFAULT 0",
+  ];
+
+  for (const column of v2Columns) {
+    const [columnName] = column.split(" ");
+    try {
+      handle.exec(`ALTER TABLE project_summaries ADD COLUMN ${column};`);
+      logger.debug(`Added v2 column ${columnName} to project_summaries`);
+    } catch (error: any) {
+      if (!error.message?.includes("duplicate column")) {
+        logger.warn(
+          `Could not add ${columnName} column (may already exist):`,
+          error.message,
+        );
+      }
+    }
+  }
+
   // Migration: Add summary columns to all tables for Kronus indexing
   const summaryMigrations = [
     { table: "journal_entries", column: "summary TEXT" },
@@ -428,6 +483,8 @@ const mapRow = (row: any): JournalEntry => ({
   repository: row.repository,
   branch: row.branch,
   author: row.author,
+  code_author: row.code_author ?? null,
+  team_members: row.team_members ?? "[]",
   date: row.date,
   why: row.why,
   what_changed: row.what_changed,
@@ -495,22 +552,6 @@ export const insertJournalEntry = (entry: JournalEntryInsert): number => {
   }
 };
 
-export const getEntriesByRepository = (repository: string): JournalEntry[] => {
-  if (!db) {
-    throw new Error("Database not initialized");
-  }
-  const rows = db
-    .prepare(
-      `
-    SELECT * FROM journal_entries
-    WHERE repository = ?
-    ORDER BY created_at DESC
-  `,
-    )
-    .all(repository);
-  return rows.map(mapRow);
-};
-
 export const getEntriesByRepositoryPaginated = (
   repository: string,
   limit: number = 50,
@@ -540,25 +581,6 @@ export const getEntriesByRepositoryPaginated = (
     entries: rows.map(mapRow),
     total: totalRow.count,
   };
-};
-
-export const getEntriesByBranch = (
-  repository: string,
-  branch: string,
-): JournalEntry[] => {
-  if (!db) {
-    throw new Error("Database not initialized");
-  }
-  const rows = db
-    .prepare(
-      `
-    SELECT * FROM journal_entries
-    WHERE repository = ? AND branch = ?
-    ORDER BY created_at DESC
-  `,
-    )
-    .all(repository, branch);
-  return rows.map(mapRow);
 };
 
 export const getEntriesByBranchPaginated = (
@@ -767,31 +789,6 @@ export const updateJournalEntry = (
 /**
  * Update repository name for entries (useful for fixing misnamed repositories)
  */
-export const updateRepositoryName = (
-  oldRepository: string,
-  newRepository: string,
-): number => {
-  if (!db) {
-    throw new Error("Database not initialized");
-  }
-
-  const updateStmt = db.prepare(`
-    UPDATE journal_entries
-    SET repository = @new_repository
-    WHERE repository = @old_repository
-  `);
-
-  const result = updateStmt.run({
-    old_repository: oldRepository,
-    new_repository: newRepository,
-  });
-
-  logger.success(
-    `Updated ${result.changes} entries from repository "${oldRepository}" to "${newRepository}"`,
-  );
-  return result.changes;
-};
-
 /**
  * Project Summary CRUD operations
  */
@@ -928,16 +925,6 @@ export const getProjectSummary = (
   return row ? mapProjectSummaryRow(row) : null;
 };
 
-export const listAllProjectSummaries = (): ProjectSummary[] => {
-  if (!db) {
-    throw new Error("Database not initialized");
-  }
-  const rows = db
-    .prepare("SELECT * FROM project_summaries ORDER BY repository ASC")
-    .all();
-  return rows.map(mapProjectSummaryRow);
-};
-
 export const listAllProjectSummariesPaginated = (
   limit: number = 50,
   offset: number = 0,
@@ -959,6 +946,319 @@ export const listAllProjectSummariesPaginated = (
     summaries: rows.map(mapProjectSummaryRow),
     total: totalRow.count,
   };
+};
+
+// ============================================
+// Entry 0 v2 — Structured Sections with History
+// ============================================
+
+/**
+ * Map a DB row to ProjectSummaryV2 (includes sections_json + legacy columns)
+ */
+const mapProjectSummaryV2Row = (row: any): ProjectSummaryV2 => {
+  const base = mapProjectSummaryRow(row);
+  return {
+    ...base,
+    schema_version: row.schema_version ?? 1,
+    sections_json: row.sections_json ? JSON.parse(row.sections_json) : null,
+    last_scanned_commit: row.last_scanned_commit ?? null,
+    total_updates: row.total_updates ?? 0,
+  };
+};
+
+/**
+ * Get project summary as v2 (with sections_json parsed)
+ */
+export const getProjectSummaryV2 = (
+  repository: string,
+): ProjectSummaryV2 | null => {
+  if (!db) throw new Error("Database not initialized");
+  const row = db
+    .prepare("SELECT * FROM project_summaries WHERE repository = ? LIMIT 1")
+    .get(repository);
+  return row ? mapProjectSummaryV2Row(row) : null;
+};
+
+/**
+ * Create a new section with history tracking
+ */
+function createSection(
+  value: string,
+  commit: string,
+  date: string,
+): SectionWithHistory {
+  return {
+    current: value,
+    last_updated: date,
+    last_commit: commit,
+    history: [],
+  };
+}
+
+/**
+ * Update a section, pushing the old value to history
+ */
+function updateSection(
+  existing: SectionWithHistory | undefined,
+  newValue: string,
+  commit: string,
+  date: string,
+  changeSummary: string,
+): SectionWithHistory {
+  if (!existing) {
+    return createSection(newValue, commit, date);
+  }
+
+  // Don't push to history if value hasn't changed
+  if (existing.current.trim() === newValue.trim()) {
+    return existing;
+  }
+
+  return {
+    current: newValue,
+    last_updated: date,
+    last_commit: commit,
+    history: [
+      {
+        date: existing.last_updated,
+        commit: existing.last_commit,
+        change_summary: changeSummary,
+        previous_value: existing.current,
+      },
+      ...existing.history,
+    ],
+  };
+}
+
+/**
+ * Create Entry 0 v2 — agent fills exhaustive schema, we persist as sections_json
+ */
+export const createProjectSummaryV2 = (params: {
+  repository: string;
+  git_url?: string | null;
+  current_commit: string;
+  sections: Record<string, string>; // section_name → value
+}): number => {
+  if (!db) throw new Error("Database not initialized");
+
+  const now = new Date().toISOString();
+
+  // Build sections_json from provided sections
+  const sectionsJson: SectionsJson = {};
+  for (const [key, value] of Object.entries(params.sections)) {
+    if (value && value.trim().length > 0) {
+      sectionsJson[key as AllSection] = createSection(
+        value,
+        params.current_commit,
+        now,
+      );
+    }
+  }
+
+  // Also write to legacy flat columns for backward compatibility
+  const legacyParams: Record<string, any> = {
+    repository: params.repository,
+    git_url: params.git_url || null,
+    schema_version: CURRENT_SCHEMA_VERSION,
+    sections_json: JSON.stringify(sectionsJson),
+    last_scanned_commit: params.current_commit,
+    total_updates: 0,
+  };
+
+  // Map sections to legacy columns where they exist
+  const legacyColumnMap: Record<string, string> = {
+    summary: "summary",
+    purpose: "purpose",
+    architecture: "architecture",
+    key_decisions: "key_decisions",
+    technologies: "technologies",
+    status: "status",
+    file_structure: "file_structure",
+    tech_stack: "tech_stack",
+    frontend: "frontend",
+    backend: "backend",
+    database_info: "database_info",
+    services: "services",
+    custom_tooling: "custom_tooling",
+    data_flow: "data_flow",
+    patterns: "patterns",
+    commands: "commands",
+    extended_notes: "extended_notes",
+  };
+
+  for (const [section, column] of Object.entries(legacyColumnMap)) {
+    legacyParams[column] = params.sections[section] || null;
+  }
+
+  const columns = Object.keys(legacyParams);
+  const placeholders = columns.map((c) => `@${c}`).join(", ");
+  const columnList = columns.join(", ");
+
+  const stmt = db.prepare(
+    `INSERT INTO project_summaries (${columnList}) VALUES (${placeholders})`,
+  );
+
+  const result = stmt.run(legacyParams);
+  logger.success(`Created Entry 0 v2 for ${params.repository}`);
+  return Number(result.lastInsertRowid);
+};
+
+/**
+ * Update technical sections of Entry 0 v2
+ * Only touches technical sections, preserves narrative.
+ */
+export const updateProjectTechnicalV2 = (params: {
+  repository: string;
+  to_commit: string;
+  sections: Record<string, string>; // section_name → new value (only changed sections)
+  change_summary: string;
+}): { updatedSections: string[]; totalUpdates: number } => {
+  if (!db) throw new Error("Database not initialized");
+
+  const existing = getProjectSummaryV2(params.repository);
+  if (!existing) throw new Error(`No Entry 0 found for "${params.repository}"`);
+
+  const now = new Date().toISOString();
+  const currentSections: SectionsJson = existing.sections_json || {};
+  const updatedSections: string[] = [];
+
+  // Update only provided sections
+  for (const [key, value] of Object.entries(params.sections)) {
+    if (value && value.trim().length > 0) {
+      const sectionKey = key as AllSection;
+      currentSections[sectionKey] = updateSection(
+        currentSections[sectionKey],
+        value,
+        params.to_commit,
+        now,
+        params.change_summary,
+      );
+      updatedSections.push(key);
+    }
+  }
+
+  const newTotalUpdates = (existing.total_updates || 0) + 1;
+
+  // Update sections_json + legacy columns + metadata
+  const updateParams: Record<string, any> = {
+    sections_json: JSON.stringify(currentSections),
+    last_scanned_commit: params.to_commit,
+    total_updates: newTotalUpdates,
+    schema_version: CURRENT_SCHEMA_VERSION,
+    repository: params.repository,
+  };
+
+  // Also update legacy flat columns for backward compatibility
+  for (const key of updatedSections) {
+    if (params.sections[key]) {
+      updateParams[key] = params.sections[key];
+    }
+  }
+
+  const setClauses = Object.keys(updateParams)
+    .filter((k) => k !== "repository")
+    .map((k) => `${k} = @${k}`)
+    .join(", ");
+
+  db.prepare(
+    `UPDATE project_summaries SET ${setClauses}, updated_at = CURRENT_TIMESTAMP WHERE repository = @repository`,
+  ).run(updateParams);
+
+  logger.success(
+    `Updated ${updatedSections.length} technical sections for ${params.repository}`,
+  );
+
+  return { updatedSections, totalUpdates: newTotalUpdates };
+};
+
+/**
+ * Update narrative sections of Entry 0 v2
+ * Only touches narrative sections, preserves technical.
+ */
+export const updateProjectNarrativeV2 = (params: {
+  repository: string;
+  sections: Record<string, string>; // section_name → new value
+  commit?: string;
+  change_summary: string;
+}): { updatedSections: string[] } => {
+  if (!db) throw new Error("Database not initialized");
+
+  const existing = getProjectSummaryV2(params.repository);
+  if (!existing) throw new Error(`No Entry 0 found for "${params.repository}"`);
+
+  const now = new Date().toISOString();
+  const commit = params.commit || "narrative-update";
+  const currentSections: SectionsJson = existing.sections_json || {};
+  const updatedSections: string[] = [];
+
+  for (const [key, value] of Object.entries(params.sections)) {
+    if (value && value.trim().length > 0) {
+      const sectionKey = key as AllSection;
+      currentSections[sectionKey] = updateSection(
+        currentSections[sectionKey],
+        value,
+        commit,
+        now,
+        params.change_summary,
+      );
+      updatedSections.push(key);
+    }
+  }
+
+  // Update sections_json + legacy columns
+  const updateParams: Record<string, any> = {
+    sections_json: JSON.stringify(currentSections),
+    schema_version: CURRENT_SCHEMA_VERSION,
+    repository: params.repository,
+  };
+
+  for (const key of updatedSections) {
+    if (params.sections[key]) {
+      updateParams[key] = params.sections[key];
+    }
+  }
+
+  const setClauses = Object.keys(updateParams)
+    .filter((k) => k !== "repository")
+    .map((k) => `${k} = @${k}`)
+    .join(", ");
+
+  db.prepare(
+    `UPDATE project_summaries SET ${setClauses}, updated_at = CURRENT_TIMESTAMP WHERE repository = @repository`,
+  ).run(updateParams);
+
+  logger.success(
+    `Updated ${updatedSections.length} narrative sections for ${params.repository}`,
+  );
+
+  return { updatedSections };
+};
+
+/**
+ * Get shallow view of Entry 0 — flat key:value, no history (for LLM context)
+ */
+export const getShallowView = (
+  repository: string,
+): Record<string, string> | null => {
+  const summary = getProjectSummaryV2(repository);
+  if (!summary || !summary.sections_json) return null;
+
+  const shallow: Record<string, string> = {};
+  for (const [key, section] of Object.entries(summary.sections_json)) {
+    if (section && section.current && section.current.trim().length > 0) {
+      shallow[key] = section.current;
+    }
+  }
+  return shallow;
+};
+
+/**
+ * Get deep view of Entry 0 — full sections with history (for Kronus/debugging)
+ */
+export const getDeepView = (
+  repository: string,
+): ProjectSummaryV2 | null => {
+  return getProjectSummaryV2(repository);
 };
 
 /**
@@ -1094,25 +1394,6 @@ export const getAttachmentById = (id: number): Attachment | null => {
 /**
  * Delete an attachment by ID
  */
-export const deleteAttachment = (id: number): void => {
-  if (!db) {
-    throw new Error("Database not initialized");
-  }
-
-  const deleteStmt = db.prepare(`
-    DELETE FROM entry_attachments
-    WHERE id = ?
-  `);
-
-  const result = deleteStmt.run(id);
-
-  if (result.changes === 0) {
-    throw new Error(`No attachment found with ID ${id}`);
-  }
-
-  logger.success(`Deleted attachment ${id}`);
-};
-
 /**
  * Get attachment count and total size for a commit
  */
@@ -1301,107 +1582,6 @@ export const exportToSQL = (outputPath: string): void => {
   fs.writeFileSync(outputPath, sql, "utf-8");
   logger.success(
     `Exported ${entries.length} entries, ${summaries.length} project summaries, and ${attachmentMetadata.length} attachment references to ${outputPath}`,
-  );
-};
-
-/**
- * Restore database from SQL backup file
- * Skips entries that already exist (by commit_hash) to avoid duplicates
- */
-export const restoreFromSQL = (sqlPath: string): void => {
-  if (!db) {
-    throw new Error("Database not initialized");
-  }
-
-  if (!fs.existsSync(sqlPath)) {
-    throw new Error(`SQL backup file not found: ${sqlPath}`);
-  }
-
-  const sqlContent = fs.readFileSync(sqlPath, "utf-8");
-
-  // Split by semicolons and filter out comments/empty lines
-  const statements = sqlContent
-    .split(";")
-    .map((s) => s.trim())
-    .filter(
-      (s) =>
-        s.length > 0 &&
-        !s.startsWith("--") &&
-        !s.startsWith("INSERT INTO") === false,
-    );
-
-  let restoredEntries = 0;
-  let restoredSummaries = 0;
-  let skippedEntries = 0;
-  let skippedSummaries = 0;
-
-  // Process INSERT statements
-  for (const statement of sqlContent.split("\n")) {
-    const trimmed = statement.trim();
-    if (!trimmed || trimmed.startsWith("--")) continue;
-
-    if (trimmed.startsWith("INSERT INTO project_summaries")) {
-      try {
-        // Extract repository name to check if exists
-        const repoMatch = trimmed.match(/VALUES\s*\(['"]([^'"]+)['"]/);
-        if (repoMatch) {
-          const repo = repoMatch[1];
-          const existing = db
-            .prepare(
-              "SELECT repository FROM project_summaries WHERE repository = ?",
-            )
-            .get(repo);
-          if (existing) {
-            skippedSummaries++;
-            continue;
-          }
-        }
-        db.exec(trimmed);
-        restoredSummaries++;
-      } catch (error: any) {
-        if (
-          error.message?.includes("UNIQUE constraint") ||
-          error.message?.includes("duplicate")
-        ) {
-          skippedSummaries++;
-        } else {
-          logger.warn(`Failed to restore project summary: ${error.message}`);
-        }
-      }
-    } else if (trimmed.startsWith("INSERT INTO journal_entries")) {
-      try {
-        // Extract commit_hash to check if exists
-        const commitMatch = trimmed.match(/VALUES\s*\(['"]([a-f0-9]{7,})['"]/i);
-        if (commitMatch) {
-          const commitHash = commitMatch[1];
-          const existing = db
-            .prepare(
-              "SELECT commit_hash FROM journal_entries WHERE commit_hash = ?",
-            )
-            .get(commitHash);
-          if (existing) {
-            skippedEntries++;
-            continue;
-          }
-        }
-        db.exec(trimmed);
-        restoredEntries++;
-      } catch (error: any) {
-        if (
-          error.message?.includes("UNIQUE constraint") ||
-          error.message?.includes("duplicate")
-        ) {
-          skippedEntries++;
-        } else {
-          logger.warn(`Failed to restore journal entry: ${error.message}`);
-        }
-      }
-    }
-  }
-
-  logger.success(
-    `Restored ${restoredEntries} entries, ${restoredSummaries} project summaries. ` +
-      `Skipped ${skippedEntries} duplicate entries, ${skippedSummaries} duplicate summaries.`,
   );
 };
 
@@ -1938,4 +2118,255 @@ export const getLinearCacheStats = (): {
     lastProjectSync: projectStats.last_sync,
     lastIssueSync: issueStats.last_sync,
   };
+};
+
+// ============================================
+// LINEAR PROJECT UPDATES
+// ============================================
+
+export interface LinearProjectUpdate {
+  id: string;
+  projectId: string;
+  projectName: string | null;
+  body: string;
+  health: string | null;
+  userId: string | null;
+  userName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const mapProjectUpdateRow = (row: any): LinearProjectUpdate => ({
+  id: row.id,
+  projectId: row.project_id,
+  projectName: row.project_name,
+  body: row.body,
+  health: row.health,
+  userId: row.user_id,
+  userName: row.user_name,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+/**
+ * List project updates for a specific project (newest first)
+ */
+export const listLinearProjectUpdates = (
+  projectId: string,
+  limit: number = 10,
+): LinearProjectUpdate[] => {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT * FROM linear_project_updates
+       WHERE project_id = ? AND is_deleted = 0
+       ORDER BY created_at DESC
+       LIMIT ?`,
+    )
+    .all(projectId, limit);
+
+  return rows.map(mapProjectUpdateRow);
+};
+
+/**
+ * List all recent project updates across all projects (newest first)
+ */
+export const listAllLinearProjectUpdates = (
+  limit: number = 20,
+): LinearProjectUpdate[] => {
+  if (!db) {
+    throw new Error("Database not initialized");
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT * FROM linear_project_updates
+       WHERE is_deleted = 0
+       ORDER BY created_at DESC
+       LIMIT ?`,
+    )
+    .all(limit);
+
+  return rows.map(mapProjectUpdateRow);
+};
+
+// ============================================
+// KRONUS CONTEXT - Direct DB queries for repository data
+// Replaces HTTP calls to Tartarus for the same data
+// ============================================
+
+export interface DocumentRow {
+  id: number;
+  slug: string;
+  type: string;
+  title: string;
+  content: string;
+  language: string | null;
+  summary: string | null;
+  metadata: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const listDocuments = (limit: number = 50): DocumentRow[] => {
+  if (!db) throw new Error("Database not initialized");
+  return db
+    .prepare(
+      `SELECT id, slug, type, title, content, language, summary, metadata,
+              created_at, updated_at
+       FROM documents ORDER BY updated_at DESC LIMIT ?`,
+    )
+    .all(limit)
+    .map((row: any) => ({
+      id: row.id,
+      slug: row.slug,
+      type: row.type,
+      title: row.title,
+      content: row.content,
+      language: row.language,
+      summary: row.summary,
+      metadata: row.metadata,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+};
+
+export const getDocumentBySlug = (slug: string): DocumentRow | null => {
+  if (!db) throw new Error("Database not initialized");
+  const row = db
+    .prepare(`SELECT id, slug, type, title, content, language, summary, metadata,
+              created_at, updated_at FROM documents WHERE slug = ?`)
+    .get(slug) as any;
+  if (!row) return null;
+  return {
+    id: row.id, slug: row.slug, type: row.type, title: row.title,
+    content: row.content, language: row.language, summary: row.summary,
+    metadata: row.metadata, createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+};
+
+export interface SkillRow {
+  id: string;
+  name: string;
+  category: string;
+  magnitude: number;
+  description: string;
+  summary: string | null;
+}
+
+export const listSkills = (): SkillRow[] => {
+  if (!db) throw new Error("Database not initialized");
+  return db
+    .prepare(
+      `SELECT id, name, category, magnitude, description, summary
+       FROM skills ORDER BY category, magnitude DESC`,
+    )
+    .all() as SkillRow[];
+};
+
+export interface WorkExperienceRow {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  dateStart: string;
+  dateEnd: string | null;
+  tagline: string;
+  achievements: string;
+  summary: string | null;
+}
+
+export const listWorkExperience = (): WorkExperienceRow[] => {
+  if (!db) throw new Error("Database not initialized");
+  return db
+    .prepare(
+      `SELECT id, title, company, location, dateStart, dateEnd,
+              tagline, achievements, summary
+       FROM work_experience ORDER BY dateStart DESC`,
+    )
+    .all() as WorkExperienceRow[];
+};
+
+export interface EducationRow {
+  id: string;
+  degree: string;
+  field: string;
+  institution: string;
+  dateStart: string;
+  dateEnd: string;
+  tagline: string;
+  focusAreas: string;
+  summary: string | null;
+}
+
+export const listEducation = (): EducationRow[] => {
+  if (!db) throw new Error("Database not initialized");
+  return db
+    .prepare(
+      `SELECT id, degree, field, institution, dateStart, dateEnd,
+              tagline, focusAreas, summary
+       FROM education ORDER BY dateStart DESC`,
+    )
+    .all() as EducationRow[];
+};
+
+export interface PortfolioProjectRow {
+  id: string;
+  title: string;
+  category: string;
+  company: string | null;
+  status: string;
+  featured: number;
+  description: string | null;
+  excerpt: string | null;
+  role: string | null;
+  technologies: string;
+  metrics: string;
+  summary: string | null;
+}
+
+export const listPortfolioProjects = (): PortfolioProjectRow[] => {
+  if (!db) throw new Error("Database not initialized");
+  return db
+    .prepare(
+      `SELECT id, title, category, company, status, featured,
+              description, excerpt, role, technologies, metrics, summary
+       FROM portfolio_projects ORDER BY featured DESC, sort_order`,
+    )
+    .all() as PortfolioProjectRow[];
+};
+
+export interface ConversationSummaryRow {
+  id: number;
+  title: string;
+  summary: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
+export const listConversationsWithSummaries = (
+  limit: number = 50,
+): ConversationSummaryRow[] => {
+  if (!db) throw new Error("Database not initialized");
+  return db
+    .prepare(
+      `SELECT id, title, summary, created_at, updated_at,
+              json_array_length(messages) as messageCount
+       FROM chat_conversations
+       WHERE summary IS NOT NULL AND summary != ''
+       ORDER BY updated_at DESC LIMIT ?`,
+    )
+    .all(limit)
+    .map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      summary: row.summary,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      messageCount: row.messageCount || 0,
+    }));
 };

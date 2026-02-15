@@ -13,6 +13,7 @@ export type ModelSelection =
   | "gemini-3-flash"
   | "gemini-3-pro"
   | "claude-opus-4.5"
+  | "claude-opus-4.6"
   | "claude-haiku-4.5"
   | "gpt-5.2";
 
@@ -37,6 +38,7 @@ export const MODEL_CONTEXT_LIMITS: Record<ModelSelection, number> = {
   "gemini-3-flash": 1000000,
   "gemini-3-pro": 1000000,
   "claude-opus-4.5": 200000,
+  "claude-opus-4.6": 1000000,
   "claude-haiku-4.5": 200000,
   "gpt-5.2": 400000,
 };
@@ -77,6 +79,15 @@ const MODELS: Record<
     shortName: "Opus 4.5",
     description: "Most capable",
     context: "200K",
+    color: TARTARUS.anthropic,
+    hasThinking: true,
+    provider: "Anthropic",
+  },
+  "claude-opus-4.6": {
+    name: "Claude Opus 4.6",
+    shortName: "Opus 4.6",
+    description: "Latest, most capable",
+    context: "1M",
     color: TARTARUS.anthropic,
     hasThinking: true,
     provider: "Anthropic",

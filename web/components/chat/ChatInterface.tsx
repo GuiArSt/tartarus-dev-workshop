@@ -967,6 +967,28 @@ export function ChatInterface() {
             break;
           }
 
+          case "linear_create_project_update": {
+            const { projectId: pid, body: updateBody, health } = typedArgs;
+            const res = await fetch(`/api/integrations/linear/projects/${pid}/updates`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ body: updateBody, health }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || "Failed to create project update");
+            output = `✅ Posted project update (${result.health})\nID: ${result.id}`;
+            break;
+          }
+
+          case "linear_list_project_updates": {
+            const { projectId: pid2 } = typedArgs;
+            const res = await fetch(`/api/integrations/linear/projects/${pid2}/updates`);
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || "Failed to list project updates");
+            output = `Found ${result.total} updates:\n${JSON.stringify(result.updates, null, 2)}`;
+            break;
+          }
+
           // === Linear Cache Tools (read from local DB) ===
           case "linear_get_issue": {
             const { identifier } = typedArgs as { identifier: string };

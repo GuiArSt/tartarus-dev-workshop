@@ -243,6 +243,29 @@ export const toolSpecs = {
         .describe('Project start date (ISO 8601 format, e.g., "2026-01-15")'),
     }),
   },
+
+  linear_create_project_update: {
+    description:
+      "Post a status update on a Linear project. Use this to communicate project progress, blockers, or health changes. The update appears on the project's timeline in Linear.",
+    inputSchema: z.object({
+      projectId: z.string().describe("Linear project ID"),
+      body: z
+        .string()
+        .min(1)
+        .describe("Update content in markdown format. Include progress, blockers, next steps."),
+      health: z
+        .enum(["onTrack", "atRisk", "offTrack"])
+        .describe("Project health status: onTrack, atRisk, or offTrack"),
+    }),
+  },
+
+  linear_list_project_updates: {
+    description:
+      "List recent status updates for a Linear project. Shows the project timeline with health changes and progress notes.",
+    inputSchema: z.object({
+      projectId: z.string().describe("Linear project ID"),
+    }),
+  },
   // NOTE: Old document_*, skill_*, experience_*, education_* tools removed
   // All repository tools now use repository_* prefix - see chat/route.ts
 

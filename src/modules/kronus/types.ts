@@ -88,6 +88,10 @@ export const KronusAskInputSchema = z.object({
     .enum(["quick", "deep"])
     .default("quick")
     .describe("quick=summaries only, deep=full content access"),
+  serious: z
+    .boolean()
+    .default(false)
+    .describe("Enable Opus 4.6 for maximum quality. Expensive - only use when explicitly requested."),
 });
 
 export type KronusAskInput = z.infer<typeof KronusAskInputSchema>;
@@ -287,4 +291,123 @@ export interface ConversationIndex {
   createdAt: string;
   updatedAt: string;
   messageCount: number;
+}
+
+/**
+ * Tartarus API Response Types
+ *
+ * These types define the structure of responses from Tartarus API endpoints.
+ * Used by Kronus agent to safely parse API responses without `any` types.
+ */
+
+export interface TartarusDocumentsResponse {
+  documents: Array<{
+    slug: string;
+    type: string;
+    title: string;
+    summary: string | null;
+    language: string | null;
+  }>;
+}
+
+export interface TartarusSkillsResponse {
+  skills: Array<{
+    id: string;
+    name: string;
+    category: string;
+    magnitude: number;
+    summary: string | null;
+  }>;
+}
+
+export interface TartarusExperienceResponse {
+  experience: Array<{
+    id: string;
+    title: string;
+    company: string;
+    startDate: string;
+    endDate: string | null;
+    summary: string | null;
+  }>;
+}
+
+export interface TartarusEducationResponse {
+  education: Array<{
+    id: string;
+    degree: string;
+    field: string;
+    institution: string;
+    startDate: string;
+    endDate: string | null;
+    summary: string | null;
+  }>;
+}
+
+export interface TartarusPortfolioResponse {
+  projects: Array<{
+    id: string;
+    title: string;
+    category: string;
+    status: string;
+    summary: string | null;
+    technologies: string[] | null;
+  }>;
+}
+
+export interface TartarusConversationsResponse {
+  conversations: Array<{
+    id: string;
+    title: string | null;
+    summary: string | null;
+    createdAt: string;
+    updatedAt: string;
+    messageCount: number;
+  }>;
+}
+
+export interface TartarusLinearCacheResponse {
+  projects: Array<{
+    id: string;
+    name: string;
+    summary: string | null;
+    state: string | null;
+    progress: number | null;
+  }>;
+  issues: Array<{
+    identifier: string;
+    title: string;
+    summary: string | null;
+    stateName: string | null;
+    priority: number | null;
+    projectName: string | null;
+  }>;
+}
+
+export interface TartarusDocumentResponse {
+  title: string;
+  type: string;
+  content: string;
+}
+
+export interface TartarusLinearProjectResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  content: string | null;
+  state: string | null;
+  progress: number | null;
+  leadName: string | null;
+  url: string;
+}
+
+export interface TartarusLinearIssueResponse {
+  identifier: string;
+  title: string;
+  description: string | null;
+  stateName: string | null;
+  priority: number | null;
+  projectName: string | null;
+  teamName: string | null;
+  assigneeName: string | null;
+  url: string;
 }

@@ -6,9 +6,9 @@
  * Generates AI summaries for new items via /api/ai/summarize endpoint.
  */
 
-import { getDrizzleDb, linearProjects, linearIssues } from "@/lib/db/drizzle";
+import { getDrizzleDb, linearProjects, linearIssues, linearProjectUpdates } from "@/lib/db/drizzle";
 import { eq } from "drizzle-orm";
-import { listProjects, listIssues } from "./client";
+import { listProjects, listIssues, listProjectUpdates } from "./client";
 
 /**
  * Generate a summary for Linear content using the AI summarize endpoint
@@ -52,6 +52,10 @@ export interface SyncResult {
     created: number;
     updated: number;
     deleted: number;
+    total: number;
+  };
+  projectUpdates: {
+    created: number;
     total: number;
   };
 }
@@ -289,7 +293,62 @@ export async function syncLinearIssues(
 }
 
 /**
- * Sync both Projects and Issues
+ * Sync Project Updates for all cached projects
+ */
+export async function syncLinearProjectUpdates(): Promise<SyncResult["projectUpdates"]> {
+  const db = getDrizzleDb();
+
+  // Get all active project IDs from cache
+  const cachedProjects = await db
+    .select({ id: linearProjects.id, name: linearProjects.name })
+    .from(linearProjects)
+    .where(eq(linearProjects.isDeleted, false));
+
+  // Get existing update IDs
+  const existingUpdates = await db
+    .select({ id: linearProjectUpdates.id })
+    .from(linearProjectUpdates);
+  const existingIds = new Set(existingUpdates.map((u) => u.id));
+
+  let created = 0;
+
+  // Fetch updates for each project (latest 5 per project)
+  for (const project of cachedProjects) {
+    try {
+      const result = await listProjectUpdates(project.id, 5);
+
+      for (const update of result.updates) {
+        if (existingIds.has(update.id)) continue; // Already cached
+
+        await db.insert(linearProjectUpdates).values({
+          id: update.id,
+          projectId: project.id,
+          projectName: project.name,
+          body: update.body,
+          health: update.health || null,
+          userId: update.user?.id || null,
+          userName: update.user?.name || null,
+          createdAt: update.createdAt,
+          updatedAt: update.updatedAt || update.createdAt,
+          syncedAt: new Date().toISOString(),
+        });
+        created++;
+      }
+    } catch (error) {
+      console.warn(`Failed to sync updates for project ${project.name}:`, error);
+    }
+  }
+
+  const total = await db
+    .select()
+    .from(linearProjectUpdates)
+    .then((rows) => rows.length);
+
+  return { created, total };
+}
+
+/**
+ * Sync Projects, Issues, and Project Updates
  */
 export async function syncLinearData(includeCompleted: boolean = false): Promise<SyncResult> {
   const [projectsResult, issuesResult] = await Promise.all([
@@ -297,8 +356,12 @@ export async function syncLinearData(includeCompleted: boolean = false): Promise
     syncLinearIssues(includeCompleted),
   ]);
 
+  // Sync project updates after projects (needs project IDs)
+  const projectUpdatesResult = await syncLinearProjectUpdates();
+
   return {
     projects: projectsResult,
     issues: issuesResult,
+    projectUpdates: projectUpdatesResult,
   };
 }

@@ -513,6 +513,25 @@ export const linearIssues = sqliteTable("linear_issues", {
   updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
 });
 
+/**
+ * Linear Project Updates - status posts on projects
+ * Cached locally from Linear API, preserves history
+ */
+export const linearProjectUpdates = sqliteTable("linear_project_updates", {
+  id: text("id").primaryKey(), // Linear project update ID
+  projectId: text("project_id").notNull(), // Linear project ID
+  projectName: text("project_name"), // Cached project name
+  body: text("body").notNull(), // Markdown content of the update
+  health: text("health"), // "onTrack" | "atRisk" | "offTrack"
+  userId: text("user_id"), // Author user ID
+  userName: text("user_name"), // Author name (cached)
+  // Metadata
+  syncedAt: text("synced_at").default("CURRENT_TIMESTAMP"),
+  isDeleted: integer("is_deleted", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"), // When created in Linear
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
+});
+
 // ============================================================================
 // PROMPT MANAGEMENT SYSTEM
 // ============================================================================

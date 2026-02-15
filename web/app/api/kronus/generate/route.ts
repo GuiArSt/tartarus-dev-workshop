@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
 
     if (anthropicKey) {
       process.env.ANTHROPIC_API_KEY = anthropicKey;
-      model = anthropic("claude-opus-4-5");
-      modelName = "Claude Opus 4.5";
+      model = anthropic("claude-opus-4-6");
+      modelName = "Claude Opus 4.6";
     } else if (openaiKey) {
       process.env.OPENAI_API_KEY = openaiKey;
       model = openai("gpt-5.1");

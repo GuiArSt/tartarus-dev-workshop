@@ -39,6 +39,7 @@ export const WRITE_TOOLS = new Set([
   "linear_update_issue",
   "linear_create_project",
   "linear_update_project",
+  "linear_create_project_update",
 ]);
 
 // Tools that are read-only (no confirmation needed)
@@ -67,6 +68,7 @@ export const READ_TOOLS = new Set([
   "linear_get_viewer",
   "linear_list_issues",
   "linear_list_projects",
+  "linear_list_project_updates",
 
   // Web search (read-only by nature)
   "perplexity_search",
@@ -145,6 +147,8 @@ export function getToolActionDescription(toolName: string, args: Record<string, 
       return `Create Linear project: "${args.name}"`;
     case "linear_update_project":
       return `Update Linear project ${args.projectId}`;
+    case "linear_create_project_update":
+      return `Post project update (${args.health}) to Linear project ${args.projectId}`;
 
     default:
       return `Execute ${toolName}`;

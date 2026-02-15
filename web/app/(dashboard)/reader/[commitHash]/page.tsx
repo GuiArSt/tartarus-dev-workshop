@@ -399,48 +399,53 @@ export default function EntryDetailPage() {
       {/* Content */}
       <ScrollArea className="flex-1 bg-[var(--journal-paper)]">
         <div className="mx-auto max-w-4xl rounded-lg border border-[#E5E0D8] bg-[#FEFDFB] p-6 shadow-sm">
-          {/* Meta */}
-          <div className="mb-6 space-y-3">
-            <div className="mb-2 flex flex-wrap items-center gap-3">
+          {/* Meta - Clean Grid Layout */}
+          <div className="mb-6 space-y-4">
+            {/* Row 1: Commit Hash and Date */}
+            <div className="flex flex-wrap items-center gap-4">
               <Badge
                 variant="outline"
-                className="border-[var(--tartarus-teal-dim)] bg-[var(--tartarus-teal-soft)] font-mono text-[var(--tartarus-teal-dim)]"
+                className="border-[var(--tartarus-teal-dim)] bg-[var(--tartarus-teal-soft)] px-3 py-1 font-mono text-sm text-[var(--tartarus-teal-dim)]"
               >
                 {entry.commit_hash}
               </Badge>
+              <span className="flex items-center gap-1.5 text-sm text-[#5C5550]">
+                <Calendar className="h-4 w-4" />
+                {formatDateShort(entry.date)}, {new Date(entry.date).toLocaleTimeString()}
+              </span>
+            </div>
+
+            {/* Row 2: Authors */}
+            <div className="flex flex-wrap items-center gap-6">
               {/* Code Author - who wrote the commit */}
-              <span className="flex items-center gap-1.5 text-sm font-medium text-[#2A2520]">
-                <GitBranch className="h-3 w-3 text-[var(--tartarus-teal-dim)]" />
-                <span className="text-[#5C5550]">Commit by:</span>
+              <div className="flex items-center gap-2">
+                <GitBranch className="h-4 w-4 text-[var(--tartarus-teal-dim)]" />
+                <span className="text-sm text-[#5C5550]">Commit by:</span>
                 {editMode ? (
                   <Input
                     value={editData.code_author || entry.code_author || entry.author}
                     onChange={(e) => setEditData({ ...editData, code_author: e.target.value })}
-                    className="h-6 w-32 border-[#E5E0D8] bg-white text-xs"
+                    className="h-7 w-36 border-[#E5E0D8] bg-white text-sm"
                     placeholder="Code author"
                   />
                 ) : (
-                  <span className="font-semibold">{entry.code_author || entry.author}</span>
+                  <span className="text-sm font-semibold text-[#2A2520]">{entry.code_author || entry.author}</span>
                 )}
-              </span>
+              </div>
               {/* Journal Entry Author - who documented/analyzed it */}
-              <span className="flex items-center gap-1.5 text-sm text-[#5C5550]">
-                <Edit className="h-3 w-3 text-[var(--tartarus-gold-dim)]" />
-                <span>Entry by:</span>
+              <div className="flex items-center gap-2">
+                <Edit className="h-4 w-4 text-[var(--tartarus-gold-dim)]" />
+                <span className="text-sm text-[#5C5550]">Entry by:</span>
                 {editMode ? (
                   <Input
                     value={editData.author || entry.author}
                     onChange={(e) => setEditData({ ...editData, author: e.target.value })}
-                    className="h-6 w-32 border-[#E5E0D8] bg-white text-xs"
+                    className="h-7 w-36 border-[#E5E0D8] bg-white text-sm"
                   />
                 ) : (
-                  <span className="font-medium text-[#2A2520]">{entry.author}</span>
+                  <span className="text-sm font-semibold text-[#2A2520]">{entry.author}</span>
                 )}
-              </span>
-              <span className="flex items-center gap-1 text-sm text-[#5C5550]">
-                <Calendar className="h-3 w-3" />
-                {new Date(entry.date).toLocaleString()}
-              </span>
+              </div>
             </div>
             {entry.team_members && JSON.parse(entry.team_members || "[]").length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
@@ -593,6 +598,43 @@ export default function EntryDetailPage() {
               )
             )}
           </div>
+
+          {/* AI Summary - Prominent Display */}
+          {entry.summary && (
+            <Card className="mb-6 border-l-4 border-[var(--tartarus-gold)] bg-gradient-to-r from-[var(--tartarus-gold-soft)] to-[#FEFDFB]">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-[var(--tartarus-gold-dim)]">
+                  <img src="/chronus-logo.png" alt="Kronus" className="h-4 w-4 rounded-full" />
+                  AI Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm leading-relaxed text-[#3D3833]">{entry.summary}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No Summary - Show prompt to generate */}
+          {!entry.summary && (
+            <Card className="mb-6 border border-dashed border-[var(--tartarus-gold-dim)]/40 bg-[var(--tartarus-gold-soft)]/30">
+              <CardContent className="flex items-center justify-between py-4">
+                <div className="flex items-center gap-3">
+                  <img src="/chronus-logo.png" alt="Kronus" className="h-5 w-5 rounded-full opacity-50" />
+                  <span className="text-sm text-[#5C5550]">No AI summary yet</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={regenerateSummary}
+                  disabled={regeneratingSummary}
+                  className="border-[var(--tartarus-gold-dim)]/40 text-[var(--tartarus-gold-dim)] hover:bg-[var(--tartarus-gold-soft)]"
+                >
+                  <RefreshCw className={`mr-2 h-3 w-3 ${regeneratingSummary ? "animate-spin" : ""}`} />
+                  {regeneratingSummary ? "Generating..." : "Generate Summary"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Sections */}
           <Tabs defaultValue="content" className="space-y-6">

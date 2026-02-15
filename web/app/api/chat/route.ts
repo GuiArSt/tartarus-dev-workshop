@@ -39,6 +39,7 @@ export type ModelSelection =
   | "gemini-3-flash" // Google - fast, has thinking
   | "gemini-3-pro" // Google - most capable, deep reasoning
   | "claude-opus-4.5" // Anthropic - powerful, has extended thinking
+  | "claude-opus-4.6" // Anthropic - latest, most capable, 1M context
   | "claude-haiku-4.5" // Anthropic - fast, no thinking
   | "gpt-5.2"; // OpenAI - latest, has reasoning
 
@@ -68,6 +69,11 @@ const MODEL_CONFIG: Record<
     modelId: "claude-opus-4-5-20251101",
     hasThinking: true,
   },
+  "claude-opus-4.6": {
+    provider: "anthropic",
+    modelId: "claude-opus-4-6",
+    hasThinking: true,
+  },
   "claude-haiku-4.5": {
     provider: "anthropic",
     modelId: "claude-haiku-4-5-20251001",
@@ -86,6 +92,7 @@ const MODEL_CONFIG: Record<
  * Models:
  * - gemini-3-flash: Gemini 3 Flash (1M context, fast with thinking)
  * - claude-opus-4.5: Claude Opus 4.5 (200K context, most capable)
+ * - claude-opus-4.6: Claude Opus 4.6 (1M context, latest, most capable)
  * - claude-haiku-4.5: Claude Haiku 4.5 (200K context, fast)
  * - gpt-5.2: GPT-5.2 (400K context, reasoning)
  */
@@ -340,6 +347,23 @@ const tools = {
       leadId: z.string().optional(),
       targetDate: z.string().optional(),
       startDate: z.string().optional(),
+    }),
+  },
+  linear_create_project_update: {
+    description:
+      "Post a status update on a Linear project. Communicates progress, blockers, or health changes on the project timeline.",
+    inputSchema: z.object({
+      projectId: z.string().describe("Linear project ID"),
+      body: z.string().min(1).describe("Update content in markdown"),
+      health: z
+        .enum(["onTrack", "atRisk", "offTrack"])
+        .describe("Project health: onTrack, atRisk, or offTrack"),
+    }),
+  },
+  linear_list_project_updates: {
+    description: "List recent status updates for a Linear project from cache.",
+    inputSchema: z.object({
+      projectId: z.string().describe("Linear project ID"),
     }),
   },
   // ===== Linear Cache Tools (read from local DB, not API) =====
@@ -739,6 +763,8 @@ function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
       linear_list_projects: tools.linear_list_projects,
       linear_create_project: tools.linear_create_project,
       linear_update_project: tools.linear_update_project,
+      linear_create_project_update: tools.linear_create_project_update,
+      linear_list_project_updates: tools.linear_list_project_updates,
       // Cache tools (read from local DB)
       linear_get_issue: tools.linear_get_issue,
       linear_get_project: tools.linear_get_project,
@@ -851,17 +877,37 @@ export async function POST(req: Request) {
 
     // Sanitize messages - remove control characters that can cause issues
     // (e.g., <ctrl46> from Delete key, other non-printable characters)
-    const sanitizedMessages = messages.map((msg: any) => {
-      if (typeof msg.content === "string") {
-        // Remove control character tags like <ctrl46>, <ctrl0>, etc.
-        // and actual control characters (ASCII 0-31 except newline/tab)
-        const sanitized = msg.content
-          .replace(/<ctrl\d+>/gi, "") // Remove <ctrlNN> tags
-          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""); // Remove control chars except \n \t \r
-        return { ...msg, content: sanitized };
-      }
-      return msg;
-    });
+    // Also filter out messages with empty content (can happen when switching models,
+    // e.g., Gemini thinking-only messages don't have content that Claude accepts)
+    const sanitizedMessages = messages
+      .map((msg: any) => {
+        if (typeof msg.content === "string") {
+          // Remove control character tags like <ctrl46>, <ctrl0>, etc.
+          // and actual control characters (ASCII 0-31 except newline/tab)
+          const sanitized = msg.content
+            .replace(/<ctrl\d+>/gi, "") // Remove <ctrlNN> tags
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""); // Remove control chars except \n \t \r
+          return { ...msg, content: sanitized };
+        }
+        return msg;
+      })
+      .filter((msg: any) => {
+        // Filter out messages with empty content (except final assistant message which is allowed)
+        // This prevents "all messages must have non-empty content" errors when switching providers
+        if (typeof msg.content === "string") {
+          return msg.content.trim().length > 0;
+        }
+        // For array content (multipart messages), check if there's meaningful content
+        if (Array.isArray(msg.content)) {
+          return msg.content.length > 0 && msg.content.some((part: any) => {
+            if (part.type === "text") return part.text?.trim().length > 0;
+            if (part.type === "tool-call" || part.type === "tool-result") return true;
+            if (part.type === "image") return true;
+            return false;
+          });
+        }
+        return true;
+      });
 
     // Convert UI messages to model format for proper streaming (async in AI SDK 6)
     let modelMessages = await convertToModelMessages(sanitizedMessages);
@@ -901,7 +947,7 @@ export async function POST(req: Request) {
     const providerOptions: Record<string, any> = {};
     if (hasThinking) {
       if (actualProvider === "anthropic") {
-        // Enable extended thinking for Claude models (Opus 4.5)
+        // Enable extended thinking for Claude models (Opus 4.5, Opus 4.6)
         providerOptions.anthropic = {
           thinking: { type: "enabled", budgetTokens: 10000 },
         } satisfies AnthropicProviderOptions;

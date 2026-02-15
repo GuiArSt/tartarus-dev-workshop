@@ -35,11 +35,26 @@ import {
   listLinearIssues,
   getLinearIssue,
   getLinearCacheStats,
+  listLinearProjectUpdates,
+  listAllLinearProjectUpdates,
+  // Entry 0 v2
+  getProjectSummaryV2,
+  createProjectSummaryV2,
+  updateProjectTechnicalV2,
+  updateProjectNarrativeV2,
+  getShallowView,
+  getDeepView,
 } from "./db/database.js";
 import {
   AgentInputSchema,
   ProjectSummaryInputSchema,
   AttachmentInputSchema,
+  ProjectSummaryCreateSchemaV2,
+  ProjectTechnicalUpdateSchema,
+  ProjectNarrativeUpdateSchema,
+  TECHNICAL_SECTIONS,
+  NARRATIVE_SECTIONS,
+  TIER1_SECTIONS,
 } from "./types.js";
 
 /**
@@ -561,206 +576,100 @@ Example file mentions in report:
 
   // Tool 7 removed - use resource journal://summary/{repository} instead
 
-  // Tool 8: Create Project Summary (Entry 0 Initial Creation)
+  // Tool 8: Create Project Summary (Entry 0 v2 — Agent fills exhaustive schema)
   server.registerTool(
     "journal_create_project_summary",
     {
       title: "Create Project Summary (Entry 0)",
       description: `Create the initial Entry 0 (Living Project Summary) for a repository.
-Entry 0 is synthesized from TWO sources:
-1. **Your raw_report** - The primary source, your free-form observations about the project
-2. **Recent journal entries** - Additional context from existing journal entries (if any exist)
 
-Kronus normalizes both sources into structured Entry 0 sections.
+## Entry 0 v2 — Schema-Driven
+The coding agent fills an exhaustive schema directly. No AI normalization needed —
+YOU are the scanner. Read the codebase, fill the fields.
 
-## When to Use This Tool
-Use this tool when a repository has NO Entry 0 yet. If Entry 0 already exists, use journal_submit_summary_report instead to update it.
+## Tier 1 — Required (wrong code without these)
+- **file_structure**: Annotated directory tree from git
+- **tech_stack**: All frameworks, libraries, EXACT versions
+- **patterns**: Naming style, imports, error handling, file organization
+- **commands**: ALL dev/build/deploy/test commands (from Makefile, package.json, etc.)
+- **architecture**: System boundaries and module responsibilities
 
-## How Entry 0 is Created
-Entry 0 combines:
-- **Your report** (raw_report parameter) - Your observations, discoveries, and narrative
-- **Recent journal entries** (if they exist) - Historical context from past work
+## Tier 2 — Optional (not all projects have all)
+- **frontend**: Component library, state, routing, styling
+- **backend**: API routes, middleware, auth, server framework
+- **database_info**: Engine, ORM, key tables, migration approach
+- **services**: External APIs, SDKs, env vars
+- **data_flow**: Entry points -> processing -> storage -> output
 
-Kronus analyzes both sources to extract structured information and create a comprehensive project summary.
-
-## Your Report = The Primary Source
-The raw_report is YOUR space to write freely. This is where you capture:
-- The narrative and story of what you're building
-- The WHY behind decisions, not just the what
-- The spirit and essence of the project
-- Context, journey, struggles, breakthroughs
-- Non-technical aspects: goals, vision, personality
-- Technical discoveries (file paths, patterns, versions)
-
-Write like you're journaling - be messy, be expressive, be you.
-Kronus extracts technical details into structured sections below,
-but your narrative is preserved and valued as the project's soul.
-
-## Entry 0 Sections (extracted from your report)
-Kronus will parse your report and populate these structured sections:
-- **summary**: High-level project description
-- **purpose**: Primary goals and objectives
-- **architecture**: System design and structure
-- **key_decisions**: Important architectural/design decisions
-- **technologies**: Tech stack summary
-- **status**: Current project status
-- **file_structure**: Directory tree, what lives where
-- **tech_stack**: Frameworks, libraries, versions
-- **frontend**: UI patterns, components, state management
-- **backend**: API routes, middleware, auth patterns
-- **database_info**: Schema structure, ORM patterns
-- **services**: External APIs and integrations
+## Tier 3 — Optional (usually filled later via narrative updates)
 - **custom_tooling**: Project-specific utilities
-- **data_flow**: How data moves through the system
-- **patterns**: Naming conventions, code style
-- **commands**: Dev, deploy, build commands
-- **extended_notes**: Gotchas, TODOs, historical context
+- **purpose**: What and why
+- **summary**: 3-sentence description
 
-## What To Include In Your Report
-- Technical discoveries (file paths, patterns, versions)
-- Non-technical context (why this approach, what problem it solves)
-- The journey (what you tried, what worked, what didn't)
-- Gotchas and "future me will thank me" notes
-- Anything that makes this project THIS project
-
-## Example Report
-"Building a developer journal system to track my coding journey. The soul of this
-project is capturing not just what I code, but WHY - the decisions, the learning,
-the growth. Using Next.js 16 with App Router, SQLite for portability (no server
-needed), and Kronus (Claude) to help me reflect on my work. Structure: src/ for
-MCP server, web/ for Next.js app. Important: dates are European (dd/mm/yyyy).
-The file_structure discovery: modules/journal/ handles entries, ai/ does the magic."`,
-      inputSchema: {
-        repository: z
-          .string()
-          .min(1)
-          .describe(
-            "Repository name (must NOT have an existing project summary)",
-          ),
-        git_url: z
-          .string()
-          .optional()
-          .describe(
-            'Optional Git repository URL (e.g., "https://github.com/user/repo")',
-          ),
-        raw_report: z
-          .string()
-          .min(50)
-          .describe(
-            "Your free-form report - the PRIMARY source for Entry 0. Include technical discoveries, narrative, context, file structure, tech stack, patterns, etc. Kronus will also analyze recent journal entries (if any exist) to enrich this report.",
-          ),
-        include_recent_entries: z
-          .number()
-          .optional()
-          .default(5)
-          .describe(
-            "Number of recent journal entries to analyze for ADDITIONAL context when creating Entry 0. These entries complement your raw_report (default: 5, max: 20).",
-          ),
-      },
+Use journal_update_project_technical to update technical sections later.
+Use journal_submit_summary_report to update narrative sections later.`,
+      inputSchema: ProjectSummaryCreateSchemaV2,
     },
-    async ({ repository, git_url, raw_report, include_recent_entries }) => {
+    async (input) => {
       try {
-        // 1. Check if Entry 0 already exists
-        const existingSummary = getProjectSummary(repository);
-
-        if (existingSummary) {
+        // Check if Entry 0 already exists
+        const existing = getProjectSummary(input.repository);
+        if (existing) {
           return {
-            content: [
-              {
-                type: "text" as const,
-                text: `⚠️ Project summary (Entry 0) already exists for "${repository}". Use journal_submit_summary_report to update it instead.`,
-              },
-            ],
+            content: [{
+              type: "text" as const,
+              text: `Entry 0 already exists for "${input.repository}". Use journal_update_project_technical or journal_submit_summary_report to update it.`,
+            }],
           };
         }
 
-        // 2. Get recent journal entries for additional context (if any exist)
-        // Entry 0 is synthesized from: raw_report (primary) + recentEntries (additional context)
-        const entriesLimit = Math.min(include_recent_entries || 5, 20); // Cap at 20
-        const { entries: recentEntries } = getEntriesByRepositoryPaginated(
-          repository,
-          entriesLimit,
-          0,
-        );
-
-        logger.info(
-          `Creating Entry 0 for ${repository} from agent report + ${recentEntries.length} recent journal entries`,
-        );
-
-        // 3. Call Kronus to normalize the report and journal entries into structured Entry 0
-        // normalizeReport combines: raw_report (agent's observations) + recentEntries (historical context)
-        const normalizedUpdates = await normalizeReport(
-          raw_report, // Primary source: agent's free-form report
-          null, // No existing summary - this is initial creation
-          recentEntries, // Additional context: recent journal entries
-          journalConfig,
-        );
-
-        // 4. Merge updates (will just return the updates since there's no existing summary)
-        const mergedUpdates = mergeSummaryUpdates(null, normalizedUpdates);
-
-        // 5. Create initial Entry 0
-        upsertProjectSummary({
-          repository,
-          git_url: git_url || null,
-          summary: mergedUpdates.summary || "Project summary",
-          purpose: mergedUpdates.purpose || "To be documented",
-          architecture: mergedUpdates.architecture || "To be documented",
-          key_decisions: mergedUpdates.key_decisions || "To be documented",
-          technologies: mergedUpdates.technologies || "To be documented",
-          status: mergedUpdates.status || "In development",
-          linear_project_id: null,
-          linear_issue_id: null,
-          // Living Project Summary fields
-          file_structure: mergedUpdates.file_structure || null,
-          tech_stack: mergedUpdates.tech_stack || null,
-          frontend: mergedUpdates.frontend || null,
-          backend: mergedUpdates.backend || null,
-          database_info: mergedUpdates.database_info || null,
-          services: mergedUpdates.services || null,
-          custom_tooling: mergedUpdates.custom_tooling || null,
-          data_flow: mergedUpdates.data_flow || null,
-          patterns: mergedUpdates.patterns || null,
-          commands: mergedUpdates.commands || null,
-          extended_notes: mergedUpdates.extended_notes || null,
-          last_synced_entry:
-            recentEntries.length > 0 ? recentEntries[0].commit_hash : null,
-          entries_synced: recentEntries.length,
-        });
-
-        // Auto-backup
-        autoBackup();
-
-        // 6. Track what fields were created
-        const createdFields: string[] = [];
-        for (const [key, value] of Object.entries(mergedUpdates)) {
-          if (
-            value !== null &&
-            value !== undefined &&
-            String(value).trim().length > 0
-          ) {
-            createdFields.push(key);
+        // Collect all sections from input
+        const sections: Record<string, string> = {};
+        const allSectionKeys = [...TECHNICAL_SECTIONS, ...NARRATIVE_SECTIONS];
+        for (const key of allSectionKeys) {
+          const value = (input as any)[key];
+          if (value && typeof value === "string" && value.trim().length > 0) {
+            sections[key] = value;
           }
         }
 
+        // Validate Tier 1 presence
+        const missingTier1 = TIER1_SECTIONS.filter((s) => !sections[s]);
+        if (missingTier1.length > 0) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `Missing required Tier 1 sections: ${missingTier1.join(", ")}. These are required for Entry 0 creation. Read the codebase and fill them.`,
+            }],
+          };
+        }
+
+        // Create Entry 0 v2
+        createProjectSummaryV2({
+          repository: input.repository,
+          git_url: input.git_url,
+          current_commit: input.current_commit,
+          sections,
+        });
+
+        autoBackup();
+
+        const filledSections = Object.keys(sections);
         const output = {
           success: true,
-          repository,
-          created_fields: createdFields,
-          fields_count: createdFields.length,
-          entries_analyzed: recentEntries.length,
-          message: `Entry 0 (Living Project Summary) created for ${repository} with ${createdFields.length} field(s): ${createdFields.join(", ")}`,
+          repository: input.repository,
+          schema_version: 2,
+          sections_filled: filledSections,
+          sections_count: filledSections.length,
+          commit: input.current_commit,
+          message: `Entry 0 v2 created with ${filledSections.length} sections: ${filledSections.join(", ")}`,
         };
 
-        const text = `✅ Entry 0 (Living Project Summary) created for ${repository}\n\n${JSON.stringify(output, null, 2)}`;
-
         return {
-          content: [
-            {
-              type: "text" as const,
-              text: truncateOutput(text),
-            },
-          ],
+          content: [{
+            type: "text" as const,
+            text: truncateOutput(`Entry 0 v2 created for ${input.repository}\n\n${JSON.stringify(output, null, 2)}`),
+          }],
         };
       } catch (error) {
         throw toMcpError(error);
@@ -768,189 +677,201 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
     },
   );
 
-  // Tool 9: Submit Summary Report (Entry 0 Update)
+  // Tool 8b: Update Project Technical (Entry 0 v2 — agent sends changed sections + git context)
+  server.registerTool(
+    "journal_update_project_technical",
+    {
+      title: "Update Entry 0 Technical Sections",
+      description: `Update technical sections of Entry 0 after code changes.
+
+## When to Use
+After meaningful code changes: new deps, restructured dirs, new patterns, changed commands.
+Only send sections that ACTUALLY changed — missing sections are preserved as-is.
+
+## How It Works
+1. Agent reads git diff and codebase changes since last update
+2. Agent fills only the sections that changed
+3. Old values are pushed to history timeline with timestamps
+4. Legacy flat columns are kept in sync for backward compatibility
+
+## History Tracking
+Each section carries an evolution timeline. When you update a section,
+the previous value is preserved in history with the commit ref and date.
+This creates a "distilled memory" of how the project evolved.`,
+      inputSchema: ProjectTechnicalUpdateSchema,
+    },
+    async (input) => {
+      try {
+        const existing = getProjectSummaryV2(input.repository);
+        if (!existing) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `No Entry 0 found for "${input.repository}". Create one first with journal_create_project_summary.`,
+            }],
+          };
+        }
+
+        // Collect only changed technical sections from input
+        const sections: Record<string, string> = {};
+        for (const key of TECHNICAL_SECTIONS) {
+          const value = (input as any)[key];
+          if (value && typeof value === "string" && value.trim().length > 0) {
+            sections[key] = value;
+          }
+        }
+
+        if (Object.keys(sections).length === 0) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: "No technical sections provided. Include at least one section to update.",
+            }],
+          };
+        }
+
+        const changeSummary = input.agent_report.substring(0, 200);
+
+        const result = updateProjectTechnicalV2({
+          repository: input.repository,
+          to_commit: input.to_commit,
+          sections,
+          change_summary: changeSummary,
+        });
+
+        autoBackup();
+
+        const output = {
+          success: true,
+          repository: input.repository,
+          from_commit: input.from_commit,
+          to_commit: input.to_commit,
+          updated_sections: result.updatedSections,
+          total_updates: result.totalUpdates,
+          message: `Updated ${result.updatedSections.length} technical sections: ${result.updatedSections.join(", ")}`,
+        };
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: truncateOutput(`Entry 0 technical update for ${input.repository}\n\n${JSON.stringify(output, null, 2)}`),
+          }],
+        };
+      } catch (error) {
+        throw toMcpError(error);
+      }
+    },
+  );
+
+  // Tool 9: Submit Summary Report (Entry 0 v2 — Narrative Only)
   server.registerTool(
     "journal_submit_summary_report",
     {
-      title: "Submit Project Summary Report",
-      description: `Submit a chaotic report about a project to update Entry 0 (Living Project Summary).
-Kronus (Sonnet 4.5) normalizes messy observations into structured sections.
+      title: "Update Entry 0 Narrative Sections",
+      description: `Update NARRATIVE sections of Entry 0 (Living Project Summary).
+This tool ONLY touches narrative sections. Technical sections are untouched.
 
-## Your Report = The Soul of the Project
-The raw_report is YOUR space to write freely. This is where you capture:
-- The narrative and story of what you're building
-- The WHY behind decisions, not just the what
-- The spirit and essence of the project
-- Context, journey, struggles, breakthroughs
-- Non-technical aspects: goals, vision, personality
-
-Write like you're journaling - be messy, be expressive, be you.
-Kronus extracts technical details into structured sections below,
-but your narrative is preserved and valued as the project's soul.
-
-## Entry 0 Sections (extracted from your report)
-Kronus will parse your report and populate these structured sections:
-- **file_structure**: Directory tree, what lives where
-- **tech_stack**: Frameworks, libraries, versions
-- **frontend**: UI patterns, components, state management
-- **backend**: API routes, middleware, auth patterns
-- **database_info**: Schema structure, ORM patterns
-- **services**: External APIs and integrations
-- **custom_tooling**: Project-specific utilities
-- **data_flow**: How data moves through the system
-- **patterns**: Naming conventions, code style
-- **commands**: Dev, deploy, build commands
+## Narrative Sections
+- **summary**: 3-sentence project description
+- **purpose**: Primary goals and objectives
+- **key_decisions**: Important decisions with reasoning
+- **technologies**: High-level tech choices and WHY
+- **status**: Current project status, WIP areas, known issues
 - **extended_notes**: Gotchas, TODOs, historical context
 
-## What To Include In Your Report
-- Technical discoveries (file paths, patterns, versions)
-- Non-technical context (why this approach, what problem it solves)
-- The journey (what you tried, what worked, what didn't)
-- Gotchas and "future me will thank me" notes
-- Anything that makes this project THIS project
+## Two Modes
+1. **AI-assisted** (default): Send a raw_report. Kronus normalizes it into narrative sections.
+2. **Direct**: Send individual section values directly. Faster, no AI call needed.
 
-## Example Report
-"Building a developer journal system to track my coding journey. The soul of this
-project is capturing not just what I code, but WHY - the decisions, the learning,
-the growth. Using Next.js 16 with App Router, SQLite for portability (no server
-needed), and Kronus (Claude) to help me reflect on my work. Structure: src/ for
-MCP server, web/ for Next.js app. Important: dates are European (dd/mm/yyyy).
-The file_structure discovery: modules/journal/ handles entries, ai/ does the magic."`,
-      inputSchema: {
-        repository: z
-          .string()
-          .min(1)
-          .describe("Repository name (must have an existing project summary)"),
-        raw_report: z
-          .string()
-          .min(50)
-          .describe(
-            "Your free-form report - the soul/spirit of the project, technical discoveries, narrative, context. Write freely, Kronus extracts structure.",
-          ),
-        include_recent_entries: z
-          .number()
-          .optional()
-          .default(5)
-          .describe(
-            "Also analyze N recent journal entries for additional context (default: 5)",
-          ),
-      },
+If you provide both raw_report AND individual sections, the direct sections take priority.
+
+Use journal_update_project_technical for technical sections instead.`,
+      inputSchema: ProjectNarrativeUpdateSchema,
     },
-    async ({ repository, raw_report, include_recent_entries }) => {
+    async (input) => {
       try {
-        // 1. Get existing Entry 0 (project summary)
-        const existingSummary = getProjectSummary(repository);
-
-        if (!existingSummary) {
+        const existing = getProjectSummaryV2(input.repository);
+        if (!existing) {
           return {
-            content: [
-              {
-                type: "text" as const,
-                text: `❌ No project summary found for "${repository}". Create a project summary first using the web UI or API before submitting Entry 0 reports.`,
-              },
-            ],
+            content: [{
+              type: "text" as const,
+              text: `No Entry 0 found for "${input.repository}". Create one first with journal_create_project_summary.`,
+            }],
           };
         }
 
-        // 2. Get recent journal entries for context
-        const entriesLimit = Math.min(include_recent_entries || 5, 20); // Cap at 20
-        const { entries: recentEntries } = getEntriesByRepositoryPaginated(
-          repository,
-          entriesLimit,
-          0,
-        );
-
-        logger.info(
-          `Normalizing report for ${repository} (${recentEntries.length} recent entries for context)`,
-        );
-
-        // 3. Call Kronus (Sonnet 4.5) to normalize the chaotic report
-        const normalizedUpdates = await normalizeReport(
-          raw_report,
-          existingSummary,
-          recentEntries,
-          journalConfig,
-        );
-
-        // 4. Merge updates with existing summary
-        const mergedUpdates = mergeSummaryUpdates(
-          existingSummary,
-          normalizedUpdates,
-        );
-
-        // 5. Track what fields were updated
-        const updatedFields: string[] = [];
-        for (const [key, value] of Object.entries(mergedUpdates)) {
-          if (value !== null && value !== undefined) {
-            updatedFields.push(key);
+        // Collect narrative sections — direct values take priority
+        const sections: Record<string, string> = {};
+        for (const key of NARRATIVE_SECTIONS) {
+          const value = (input as any)[key];
+          if (value && typeof value === "string" && value.trim().length > 0) {
+            sections[key] = value;
           }
         }
 
-        // 6. Save updated Entry 0
-        const latestCommitHash =
-          recentEntries.length > 0 ? recentEntries[0].commit_hash : null;
+        // If no direct sections but raw_report provided, use AI normalization
+        if (Object.keys(sections).length === 0 && input.raw_report) {
+          const entriesLimit = Math.min(input.include_recent_entries || 5, 20);
+          const { entries: recentEntries } = getEntriesByRepositoryPaginated(
+            input.repository,
+            entriesLimit,
+            0,
+          );
 
-        upsertProjectSummary({
-          repository: existingSummary.repository,
-          git_url: existingSummary.git_url,
-          summary: mergedUpdates.summary || existingSummary.summary,
-          purpose: mergedUpdates.purpose || existingSummary.purpose,
-          architecture:
-            mergedUpdates.architecture || existingSummary.architecture,
-          key_decisions:
-            mergedUpdates.key_decisions || existingSummary.key_decisions,
-          technologies:
-            mergedUpdates.technologies || existingSummary.technologies,
-          status: mergedUpdates.status || existingSummary.status,
-          linear_project_id: existingSummary.linear_project_id,
-          linear_issue_id: existingSummary.linear_issue_id,
-          // Living Project Summary fields
-          file_structure:
-            mergedUpdates.file_structure || existingSummary.file_structure,
-          tech_stack: mergedUpdates.tech_stack || existingSummary.tech_stack,
-          frontend: mergedUpdates.frontend || existingSummary.frontend,
-          backend: mergedUpdates.backend || existingSummary.backend,
-          database_info:
-            mergedUpdates.database_info || existingSummary.database_info,
-          services: mergedUpdates.services || existingSummary.services,
-          custom_tooling:
-            mergedUpdates.custom_tooling || existingSummary.custom_tooling,
-          data_flow: mergedUpdates.data_flow || existingSummary.data_flow,
-          patterns: mergedUpdates.patterns || existingSummary.patterns,
-          commands: mergedUpdates.commands || existingSummary.commands,
-          extended_notes:
-            mergedUpdates.extended_notes || existingSummary.extended_notes,
-          last_synced_entry: latestCommitHash,
-          entries_synced:
-            (existingSummary.entries_synced || 0) + recentEntries.length,
+          logger.info(
+            `Normalizing narrative report for ${input.repository} via Kronus`,
+          );
+
+          const normalizedUpdates = await normalizeReport(
+            input.raw_report,
+            existing,
+            recentEntries,
+            journalConfig,
+          );
+
+          // Only take narrative sections from AI output
+          const merged = mergeSummaryUpdates(existing, normalizedUpdates);
+          for (const key of NARRATIVE_SECTIONS) {
+            const value = (merged as any)[key];
+            if (value && typeof value === "string" && value.trim().length > 0) {
+              sections[key] = value;
+            }
+          }
+        }
+
+        if (Object.keys(sections).length === 0) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: "No narrative sections to update. Provide raw_report or individual sections (summary, purpose, key_decisions, technologies, status, extended_notes).",
+            }],
+          };
+        }
+
+        const changeSummary = input.raw_report
+          ? input.raw_report.substring(0, 200)
+          : "Narrative update";
+
+        const result = updateProjectNarrativeV2({
+          repository: input.repository,
+          sections,
+          change_summary: changeSummary,
         });
 
-        // Auto-backup
         autoBackup();
 
-        // 7. Return summary of what changed
         const output = {
           success: true,
-          repository,
-          updated_fields: updatedFields,
-          fields_count: updatedFields.length,
-          entries_analyzed: recentEntries.length,
-          last_synced_entry: latestCommitHash,
-          message:
-            updatedFields.length > 0
-              ? `Entry 0 updated with ${updatedFields.length} field(s): ${updatedFields.join(", ")}`
-              : "No fields were updated (existing content was better or no new info)",
+          repository: input.repository,
+          updated_sections: result.updatedSections,
+          message: `Updated ${result.updatedSections.length} narrative sections: ${result.updatedSections.join(", ")}`,
         };
 
-        const text = `✅ Entry 0 (Living Project Summary) processed for ${repository}\n\n${JSON.stringify(output, null, 2)}`;
-
         return {
-          content: [
-            {
-              type: "text" as const,
-              text: truncateOutput(text),
-            },
-          ],
+          content: [{
+            type: "text" as const,
+            text: truncateOutput(`Entry 0 narrative update for ${input.repository}\n\n${JSON.stringify(output, null, 2)}`),
+          }],
         };
       } catch (error) {
         throw toMcpError(error);
@@ -958,7 +879,7 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
     },
   );
 
-  // Tool 9: List All Project Summaries
+  // Tool 10: List All Project Summaries
   server.registerTool(
     "journal_list_project_summaries",
     {
@@ -1019,7 +940,7 @@ The file_structure discovery: modules/journal/ handles entries, ai/ does the mag
           linear_integration:
             "linear_project_id and/or linear_issue_id (optional Linear project/issue IDs if linked)",
           linear_usage:
-            "If linear_project_id or linear_issue_id is present, use linear_list_projects or linear_list_issues to fetch Linear data",
+            "If linear_project_id or linear_issue_id is present, use linear://project/{id} or linear://issue/{identifier} resources to fetch Linear data",
         };
 
         // Then add the rest of the fields
@@ -3018,37 +2939,76 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     },
   );
 
-  // Resource Template: Project summary by repository
+  // Resource Template: Project summary SHALLOW view (LLM-friendly, flat key:value)
   server.registerResource(
     "project-summary",
-    new ResourceTemplate("journal://summary/{repository}", { list: undefined }),
+    new ResourceTemplate("journal://project-summary/{repository}", { list: undefined }),
     {
-      description: "Get Entry 0 (Living Project Summary) for a repository",
+      description:
+        "Shallow view of Entry 0 — flat section_name:current_value pairs. " +
+        "Optimized for LLM context windows. No history, no metadata. " +
+        "Use journal://project-summary/{repository}/deep for full timeline.",
       mimeType: "application/json",
     },
     async (uri, { repository }) => {
-      const summary = getProjectSummary(repository as string);
-      if (!summary) {
-        return {
-          contents: [
-            {
+      const shallow = getShallowView(repository as string);
+      if (!shallow) {
+        // Fallback to legacy if no v2 sections_json yet
+        const legacy = getProjectSummary(repository as string);
+        if (!legacy) {
+          return {
+            contents: [{
               uri: uri.href,
               mimeType: "application/json",
-              text: JSON.stringify({
-                error: `No project summary found for ${repository}`,
-              }),
-            },
-          ],
+              text: JSON.stringify({ error: `No Entry 0 found for ${repository}` }),
+            }],
+          };
+        }
+        return {
+          contents: [{
+            uri: uri.href,
+            mimeType: "application/json",
+            text: JSON.stringify(legacy, null, 2),
+          }],
         };
       }
       return {
-        contents: [
-          {
+        contents: [{
+          uri: uri.href,
+          mimeType: "application/json",
+          text: JSON.stringify(shallow, null, 2),
+        }],
+      };
+    },
+  );
+
+  // Resource Template: Project summary DEEP view (full timeline + history)
+  server.registerResource(
+    "project-summary-deep",
+    new ResourceTemplate("journal://project-summary/{repository}/deep", { list: undefined }),
+    {
+      description:
+        "Deep view of Entry 0 — full sections with evolution history, timestamps, " +
+        "commit refs. For Kronus debugging and human review. Includes legacy columns.",
+      mimeType: "application/json",
+    },
+    async (uri, { repository }) => {
+      const deep = getDeepView(repository as string);
+      if (!deep) {
+        return {
+          contents: [{
             uri: uri.href,
             mimeType: "application/json",
-            text: JSON.stringify(summary, null, 2),
-          },
-        ],
+            text: JSON.stringify({ error: `No Entry 0 found for ${repository}` }),
+          }],
+        };
+      }
+      return {
+        contents: [{
+          uri: uri.href,
+          mimeType: "application/json",
+          text: JSON.stringify(deep, null, 2),
+        }],
       };
     },
   );
@@ -3635,8 +3595,8 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
   );
 
   // ============================================
-  // LINEAR CACHE RESOURCES - Historical buffer of Linear data
-  // Data is cached locally, includes deleted items for history
+  // LINEAR RESOURCES - Read-only cache, synced externally via Tartarus
+  // All Linear mutations happen in Tartarus, MCP is read-only
   // ============================================
 
   // Resource: Linear cache stats
@@ -3645,7 +3605,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     "linear://cache/stats",
     {
       description:
-        "Get Linear cache statistics - shows active/deleted/total counts for projects and issues. The cache is a HISTORICAL BUFFER that preserves data even after Linear deletes it.",
+        "Linear cache statistics - active/deleted/total counts for projects and issues. Linear data is read-only via cache, synced externally through Tartarus.",
       mimeType: "application/json",
     },
     async (uri) => {
@@ -3693,7 +3653,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     "linear://projects",
     {
       description:
-        "List all cached Linear projects (historical buffer - includes deleted projects). Rich descriptions preserved for AI context.",
+        "List all Linear projects (read-only cache, synced via Tartarus). Includes AI-generated summaries. Use linear://project/{id} for full details.",
       mimeType: "application/json",
     },
     async (uri) => {
@@ -3710,7 +3670,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
               text: JSON.stringify(
                 {
                   total,
-                  note: "Historical buffer - includes deleted projects (is_deleted=true)",
+                  note: "Read-only cache, synced via Tartarus. Includes deleted projects (is_deleted=true).",
                   projects: projects.map((p) => ({
                     id: p.id,
                     name: p.name,
@@ -3752,7 +3712,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     new ResourceTemplate("linear://project/{id}", { list: undefined }),
     {
       description:
-        "Get full details of a cached Linear project by ID. Includes rich description and content preserved in our historical buffer.",
+        "Get full details of a Linear project by ID (read-only cache). Includes rich description, content, and AI-generated summary.",
       mimeType: "application/json",
     },
     async (uri, { id }) => {
@@ -3802,7 +3762,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     "linear://issues",
     {
       description:
-        "List your cached Linear issues (synced via Tartarus). Summary view - use linear://issues/{identifier} for full details.",
+        "List your Linear issues (read-only cache, synced via Tartarus). Summary view with AI-generated summaries. Use linear://issue/{identifier} for full details.",
       mimeType: "application/json",
     },
     async (uri) => {
@@ -3858,7 +3818,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     new ResourceTemplate("linear://issue/{identifier}", { list: undefined }),
     {
       description:
-        "Get full details of a cached Linear issue by ID or identifier (e.g., DEV-123). Includes full description preserved in historical buffer.",
+        "Get full details of a Linear issue by ID or identifier (e.g., ENG-123). Includes full description and AI-generated summary. Read-only cache, synced via Tartarus.",
       mimeType: "application/json",
     },
     async (uri, { identifier }) => {
@@ -3902,7 +3862,115 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
     },
   );
 
-  logger.success("Linear cache resources registered (5 resources)");
+  // Resource: List project updates for a project
+  server.registerResource(
+    "linear-project-updates",
+    new ResourceTemplate("linear://project/{projectId}/updates", {
+      list: undefined,
+    }),
+    {
+      description:
+        "List recent status updates for a Linear project. Shows progress posts with health status (onTrack/atRisk/offTrack). Read-only cache, synced via Tartarus.",
+      mimeType: "application/json",
+    },
+    async (uri, { projectId }) => {
+      try {
+        const updates = listLinearProjectUpdates(projectId as string);
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  projectId,
+                  total: updates.length,
+                  updates: updates.map((u) => ({
+                    id: u.id,
+                    body: u.body,
+                    health: u.health,
+                    author: u.userName,
+                    createdAt: u.createdAt,
+                  })),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to list project updates: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  // Resource: List all recent project updates
+  server.registerResource(
+    "linear-all-project-updates",
+    "linear://project-updates",
+    {
+      description:
+        "List recent status updates across all Linear projects. Shows the latest progress posts with health status. Read-only cache, synced via Tartarus.",
+      mimeType: "application/json",
+    },
+    async (uri) => {
+      try {
+        const updates = listAllLinearProjectUpdates(20);
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  total: updates.length,
+                  updates: updates.map((u) => ({
+                    id: u.id,
+                    projectId: u.projectId,
+                    projectName: u.projectName,
+                    body:
+                      u.body.length > 200
+                        ? u.body.substring(0, 200) + "..."
+                        : u.body,
+                    health: u.health,
+                    author: u.userName,
+                    createdAt: u.createdAt,
+                  })),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to list project updates: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  logger.success("Linear cache resources registered (7 resources)");
 
   // ============================================
   // CV RESOURCES - Skills, Experience, Education from repository

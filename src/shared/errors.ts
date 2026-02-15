@@ -11,16 +11,6 @@ export class ConfigurationError extends Error {
   }
 }
 
-export class LinearAPIError extends Error {
-  constructor(
-    message: string,
-    public readonly linearError?: any,
-  ) {
-    super(message);
-    this.name = "LinearAPIError";
-  }
-}
-
 export class JournalError extends Error {
   constructor(message: string) {
     super(message);
@@ -34,13 +24,6 @@ export class JournalError extends Error {
 export function toMcpError(error: any): McpError {
   if (error instanceof ConfigurationError) {
     return new McpError(ErrorCode.InvalidRequest, error.message);
-  }
-
-  if (error instanceof LinearAPIError) {
-    return new McpError(
-      ErrorCode.InternalError,
-      `Linear API Error: ${error.message}`,
-    );
   }
 
   if (error instanceof JournalError) {

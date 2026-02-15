@@ -58,16 +58,12 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
 - "Show me recent work on the MCP server"
 - "What Linear issues are in progress?"
 - "What technologies does the AI Eval project use?"`,
-      inputSchema: {
-        question: KronusAskInputSchema.shape.question,
-        repository: KronusAskInputSchema.shape.repository,
-        depth: KronusAskInputSchema.shape.depth,
-      },
+      inputSchema: KronusAskInputSchema,
     },
-    async ({ question, repository, depth }) => {
+    async ({ question, repository, depth, serious }) => {
       try {
         const response = await askKronus(
-          { question, repository, depth: depth || "quick" },
+          { question, repository, depth: depth || "quick", serious: serious || false },
           config,
         );
 
@@ -119,7 +115,7 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
 - Review previous Kronus conversations
 - Find answers to questions asked before
 - Check what was discussed about a specific repository`,
-      inputSchema: {
+      inputSchema: z.object({
         repository: z.string().optional().describe("Filter by repository name"),
         limit: z
           .number()
@@ -127,7 +123,7 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
           .max(100)
           .default(20)
           .describe("Number of chats to return (default: 20)"),
-      },
+      }),
     },
     async ({ repository, limit }) => {
       try {
@@ -182,14 +178,14 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
 - Cost in USD
 - Average latency
 - Error rate`,
-      inputSchema: {
+      inputSchema: z.object({
         days: z
           .number()
           .min(1)
           .max(90)
           .default(7)
           .describe("Number of days to include (default: 7)"),
-      },
+      }),
     },
     async ({ days }) => {
       try {
