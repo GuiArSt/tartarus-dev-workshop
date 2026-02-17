@@ -238,7 +238,7 @@ export function ModelConfig({ config, onChange }: ModelConfigProps) {
                 <Switch
                   checked={config.reasoningEnabled}
                   onCheckedChange={toggleReasoning}
-                  className="data-[state=checked]:bg-[#9B59B6] data-[state=unchecked]:bg-[#12121a]"
+                  className="data-[state=checked]:bg-[#9B59B6] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                   onClick={(e) => e.stopPropagation()}
                 />
                 <Brain

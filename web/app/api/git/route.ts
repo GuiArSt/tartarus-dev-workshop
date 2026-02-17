@@ -137,7 +137,7 @@ async function readGitHubFile(owner: string, repo: string, path: string, ref: st
       mediaType: { format: "raw" },
     });
 
-    return data as string;
+    return data as unknown as string;
   } catch (error: any) {
     if (error.status === 404) {
       throw new Error(`File not found: ${path}`);

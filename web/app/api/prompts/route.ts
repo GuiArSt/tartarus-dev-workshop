@@ -113,7 +113,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
  * Create a new prompt
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  const body = requireBody(createPromptSchema, await request.json());
+  const body = await requireBody(createPromptSchema, request);
   const db = getDrizzleDb();
 
   // Generate slug if not provided

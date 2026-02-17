@@ -127,11 +127,16 @@ export function Sidebar() {
         )}
       >
         <Link href="/chat" className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--tartarus-gold)] shadow-[0_0_15px_var(--tartarus-teal-glow)]">
-            <img src="/chronus-logo.png" alt="Tartarus" className="h-full w-full object-cover" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--tartarus-gold)] bg-[var(--tartarus-surface)] shadow-[0_0_12px_var(--tartarus-teal-glow),_0_0_4px_var(--tartarus-gold-glow)]">
+            <img
+              src="/chronus-logo.png"
+              alt="Tartarus"
+              className="h-full w-full object-cover"
+              style={{ filter: "brightness(1.4) contrast(1.1)" }}
+            />
           </div>
           {showExpanded && (
-            <span className="text-lg font-semibold tracking-tight text-[var(--tartarus-ivory)]">
+            <span className="text-gradient-teal-gold text-lg font-semibold tracking-tight">
               Tartarus
             </span>
           )}

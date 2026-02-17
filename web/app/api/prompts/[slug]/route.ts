@@ -87,7 +87,7 @@ export const PUT = withErrorHandler(
   async (request: NextRequest, context?: { params: Promise<{ slug: string }> }) => {
     const resolvedParams = await context?.params;
     const { slug } = requireParams(promptSlugSchema, resolvedParams);
-    const body = requireBody(updatePromptSchema, await request.json());
+    const body = await requireBody(updatePromptSchema, request);
     const db = getDrizzleDb();
 
     // Get current latest version

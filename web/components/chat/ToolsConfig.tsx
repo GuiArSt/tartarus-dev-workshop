@@ -200,7 +200,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                       <Switch
                         checked={enabled}
                         onCheckedChange={() => toggleCategory(key as keyof ToolsConfigState)}
-                        className="data-[state=checked]:bg-[#00CED1] data-[state=unchecked]:bg-[#12121a]"
+                        className="data-[state=checked]:bg-[#00CED1] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <Icon
@@ -248,7 +248,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                       <Switch
                         checked={enabled}
                         onCheckedChange={() => toggleCategory(key as keyof ToolsConfigState)}
-                        className="data-[state=checked]:bg-[#9B59B6] data-[state=unchecked]:bg-[#12121a]"
+                        className="data-[state=checked]:bg-[#9B59B6] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <Icon

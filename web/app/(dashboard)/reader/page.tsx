@@ -595,7 +595,7 @@ What changes would you like to make? You can update any field using the journal_
                                   {isExpanded && (
                                     <div className="border-t border-[var(--tartarus-border)]">
                                       {isMermaid ? (
-                                        <div className="bg-white p-4 dark:bg-slate-950">
+                                        <div className="bg-white p-4 dark:bg-[var(--tartarus-void)]">
                                           {attachmentContents[att.id] ? (
                                             <MermaidPreview code={attachmentContents[att.id]} />
                                           ) : (

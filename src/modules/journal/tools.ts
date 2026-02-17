@@ -4193,7 +4193,9 @@ Please provide a chaotic report with any of the following you've discovered:
 - Development commands
 - Gotchas and notes
 
-Use journal_create_project_summary if Entry 0 doesn't exist yet, or journal_submit_summary_report to update an existing Entry 0.`,
+Use journal_create_project_summary if Entry 0 doesn't exist yet.
+Use journal_update_project_technical for technical sections (file_structure, tech_stack, patterns, commands, architecture, etc.).
+Use journal_submit_summary_report for narrative sections (summary, purpose, key_decisions, status, etc.).`,
             },
           },
         ],
@@ -4248,7 +4250,7 @@ ${context}
 
 What would you like to know? I can:
 1. Show recent journal entries (journal_list_by_repository)
-2. Get the full project summary (journal://summary/{repository} resource)
+2. Get the project summary (journal://project-summary/{repository} resource)
 3. List branches with activity (journal_list_branches)
 4. Search for specific commits (journal://entry/{commit_hash} resource)`,
             },

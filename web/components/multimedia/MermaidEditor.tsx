@@ -308,7 +308,7 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
           <TabsContent value="preview" className="m-0 flex-1 overflow-hidden p-0">
             <div
               ref={containerRef}
-              className="flex h-full min-h-[400px] w-full items-center justify-center overflow-auto bg-white dark:bg-slate-950"
+              className="flex h-full min-h-[400px] w-full items-center justify-center overflow-auto bg-white dark:bg-[var(--tartarus-void)]"
             >
               {error ? (
                 <div className="p-8 text-center">

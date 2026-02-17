@@ -138,7 +138,7 @@ export function SkillEditForm({
               <SelectTrigger className="h-10 border-[#E5E0D8]">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
-              <SelectContent className="z-[100] border-[#E5E0D8] bg-white">
+              <SelectContent className="z-[100] border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory)]">
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.name}>
                     {cat.name}
@@ -163,7 +163,7 @@ export function SkillEditForm({
             <SelectTrigger className="h-10 border-[#E5E0D8]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="z-[100] border-[#E5E0D8] bg-white">
+            <SelectContent className="z-[100] border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory)]">
               <SelectItem value="1">1 - Beginner</SelectItem>
               <SelectItem value="2">2 - Apprentice</SelectItem>
               <SelectItem value="3">3 - Professional</SelectItem>
@@ -537,7 +537,7 @@ export function PortfolioProjectEditForm({
               <SelectTrigger className="h-10 border-[#E5E0D8]">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="z-[100] border-[#E5E0D8] bg-white">
+              <SelectContent className="z-[100] border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] text-[var(--tartarus-ivory)]">
                 <SelectItem value="shipped">Shipped</SelectItem>
                 <SelectItem value="wip">Work in Progress</SelectItem>
                 <SelectItem value="archived">Archived</SelectItem>

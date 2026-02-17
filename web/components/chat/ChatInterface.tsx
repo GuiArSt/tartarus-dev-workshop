@@ -70,6 +70,7 @@ import {
   ToolsConfigState,
   DEFAULT_CONFIG as DEFAULT_TOOLS_CONFIG,
 } from "./ToolsConfig";
+import { KronusModes } from "./KronusModes";
 import {
   ModelConfig,
   ModelConfigState,
@@ -2713,7 +2714,7 @@ Details: ${data.details}`
                           <TooltipContent
                             side="right"
                             sideOffset={8}
-                            className="z-[100] max-w-[300px] rounded-lg border-2 border-[var(--kronus-gold)]/40 bg-[#0a0a0f] p-4 shadow-2xl"
+                            className="z-[100] max-w-[300px] rounded-lg border-2 border-[var(--kronus-gold)]/40 bg-[var(--kronus-void)] p-4 shadow-2xl"
                           >
                             {hasSummary ? (
                               <div className="space-y-2">
@@ -2884,6 +2885,16 @@ Details: ${data.details}`
             <Plus className="mr-1 h-4 w-4" />
             New
           </Button>
+          {/* Kronus Mode - preset combos of soul + tools */}
+          <KronusModes
+            currentSoul={soulConfig}
+            currentTools={toolsConfig}
+            onApply={(soul, tools) => {
+              setSoulConfig(soul);
+              setToolsConfig(tools);
+            }}
+          />
+          <div className="mx-0.5 h-5 w-px bg-[var(--kronus-border)]" />
           {/* Soul Config - always editable, affects next new chat */}
           <SoulConfig config={soulConfig} onChange={setSoulConfig} contextLimit={CONTEXT_LIMIT} />
           {/* Tools Config - controls which tool categories are enabled */}

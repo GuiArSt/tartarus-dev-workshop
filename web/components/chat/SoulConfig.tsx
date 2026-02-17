@@ -399,7 +399,7 @@ export function SoulConfig({
                       <Switch
                         checked={enabled}
                         onCheckedChange={() => toggleSection(key as keyof SoulConfigState)}
-                        className="data-[state=checked]:bg-[#00CED1] data-[state=unchecked]:bg-[#12121a]"
+                        className="data-[state=checked]:bg-[#00CED1] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <Icon
@@ -477,7 +477,7 @@ export function SoulConfig({
                       <Switch
                         checked={enabled}
                         onCheckedChange={() => toggleSection(key as keyof SoulConfigState)}
-                        className="data-[state=checked]:bg-[#4285F4] data-[state=unchecked]:bg-[#12121a]"
+                        className="data-[state=checked]:bg-[#4285F4] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <Icon
@@ -527,7 +527,7 @@ export function SoulConfig({
                   <Switch
                     checked={config.linearIncludeCompleted}
                     onCheckedChange={() => toggleSection("linearIncludeCompleted")}
-                    className="data-[state=checked]:bg-[#D4AF37] data-[state=unchecked]:bg-[#12121a]"
+                    className="data-[state=checked]:bg-[#D4AF37] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                     onClick={(e) => e.stopPropagation()}
                   />
                   <CheckCircle2

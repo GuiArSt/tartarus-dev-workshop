@@ -552,7 +552,7 @@ export async function POST() {
             `Company: ${exp.company}`,
             exp.department ? `Department: ${exp.department}` : null,
             exp.location ? `Location: ${exp.location}` : null,
-            `Period: ${exp.startDate} - ${exp.endDate || "Present"}`,
+            `Period: ${exp.dateStart} - ${exp.dateEnd || "Present"}`,
             exp.tagline ? `Description: ${exp.tagline}` : null,
             achievements.length
               ? `Achievements:\n${achievements.map((a: string) => `- ${a}`).join("\n")}`
@@ -641,7 +641,7 @@ export async function POST() {
             `Field: ${edu.field}`,
             `Institution: ${edu.institution}`,
             edu.location ? `Location: ${edu.location}` : null,
-            `Period: ${edu.startDate} - ${edu.endDate || "Present"}`,
+            `Period: ${edu.dateStart} - ${edu.dateEnd || "Present"}`,
             edu.tagline ? `Description: ${edu.tagline}` : null,
             focusAreas.length ? `Focus Areas: ${focusAreas.join(", ")}` : null,
             achievements.length

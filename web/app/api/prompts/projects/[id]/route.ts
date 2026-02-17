@@ -71,7 +71,7 @@ export const PUT = withErrorHandler(
   async (request: NextRequest, context?: { params: Promise<{ id: string }> }) => {
     const resolvedParams = await context?.params;
     const { id } = requireParams(stringIdParamSchema, resolvedParams);
-    const body = requireBody(updatePromptProjectSchema, await request.json());
+    const body = await requireBody(updatePromptProjectSchema, request);
     const db = getDrizzleDb();
 
     // Check if exists

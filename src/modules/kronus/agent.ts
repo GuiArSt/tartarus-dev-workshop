@@ -478,7 +478,8 @@ You have the full knowledge context loaded. Answer comprehensively from the data
 Do not say "let me fetch" or "let me look up" - you already have everything.`
     : `\n\n## Mode: Quick
 Answer using summaries only. If the caller needs more detail, recommend these MCP resources:
-- **journal://summary/{repository}** - Full Entry 0 project summary
+- **journal://project-summary/{repository}** - Entry 0 shallow view (LLM context)
+- **journal://project-summary/{repository}/deep** - Entry 0 deep view (full history)
 - **journal://entries/{repository}** - Recent journal entries with full details
 - **linear://projects** or **linear://project/{id}** - Linear project details
 - **linear://issues** or **linear://issue/{identifier}** - Linear issue details

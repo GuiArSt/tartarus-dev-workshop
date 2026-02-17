@@ -94,7 +94,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
  * Create a new prompt project
  */
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  const body = requireBody(createPromptProjectSchema, await request.json());
+  const body = await requireBody(createPromptProjectSchema, request);
   const db = getDrizzleDb();
 
   // Check for existing ID
