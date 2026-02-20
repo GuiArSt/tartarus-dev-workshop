@@ -7,6 +7,7 @@
 
 export const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   // Full model IDs
+  "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
   "claude-sonnet-4-5-20250929": { input: 3.0, output: 15.0 },
   "claude-haiku-4-5-20250514": { input: 0.8, output: 4.0 },
   "claude-opus-4-5-20251101": { input: 15.0, output: 75.0 },
@@ -16,6 +17,8 @@ export const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   "claude-sonnet-4-5": { input: 3.0, output: 15.0 },
   "claude-opus-4-5": { input: 15.0, output: 75.0 },
   // Google Gemini models
+  "gemini-3.1-pro": { input: 2.5, output: 15.0 },
+  "gemini-3.1-pro-preview": { input: 2.5, output: 15.0 },
   "gemini-3-flash": { input: 0.5, output: 3.0 },
   "gemini-3-flash-preview": { input: 0.5, output: 3.0 },
   "gemini-3-pro": { input: 2.0, output: 12.0 },

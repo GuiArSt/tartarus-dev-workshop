@@ -533,6 +533,34 @@ export const linearProjectUpdates = sqliteTable("linear_project_updates", {
 });
 
 // ============================================================================
+// SLITE INTEGRATION - Cached Notes
+// ============================================================================
+
+/**
+ * Slite Notes - cached locally for knowledge base context
+ * Synced from Slite REST API, preserved even if deleted in Slite
+ */
+export const sliteNotes = sqliteTable("slite_notes", {
+  id: text("id").primaryKey(), // Slite note ID
+  title: text("title").notNull(),
+  content: text("content"), // Markdown content
+  parentNoteId: text("parent_note_id"), // Parent note ID (hierarchy)
+  url: text("url"), // Slite note URL
+  ownerId: text("owner_id"), // Author user ID or group ID
+  ownerName: text("owner_name"), // Author display name (cached)
+  reviewState: text("review_state"), // "Verified" | "Outdated" | "VerificationRequested"
+  noteType: text("note_type"), // "rich_text" | "discussion" | "collection"
+  summary: text("summary"), // AI-generated 3-sentence summary
+  // Metadata
+  syncedAt: text("synced_at").default("CURRENT_TIMESTAMP"),
+  deletedAt: text("deleted_at"),
+  isDeleted: integer("is_deleted", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
+  lastEditedAt: text("last_edited_at"), // From Slite API
+});
+
+// ============================================================================
 // PROMPT MANAGEMENT SYSTEM
 // ============================================================================
 

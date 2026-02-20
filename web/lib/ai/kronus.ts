@@ -11,6 +11,7 @@ import {
   journalEntries,
   linearProjects,
   linearIssues,
+  sliteNotes,
 } from "@/lib/db/drizzle";
 import { eq, desc, and } from "drizzle-orm";
 import { formatDateShort } from "@/lib/utils";
@@ -50,6 +51,8 @@ export interface SoulConfig {
   linearProjects: boolean;
   linearIssues: boolean;
   linearIncludeCompleted: boolean; // Include done/completed items
+  // Slite context - cached knowledge base notes
+  sliteNotes: boolean;
 }
 
 export const DEFAULT_SOUL_CONFIG: SoulConfig = {
@@ -63,6 +66,8 @@ export const DEFAULT_SOUL_CONFIG: SoulConfig = {
   linearProjects: false, // Can be enabled via Soul Config
   linearIssues: false, // Can be enabled via Soul Config
   linearIncludeCompleted: false, // Only active items when enabled
+  // Slite context - disabled by default
+  sliteNotes: false, // Can be enabled via Soul Config
 };
 
 /**
@@ -369,10 +374,9 @@ ${entriesSection.join("\n\n---\n\n")}`;
           .from(linearProjects)
           .where(eq(linearProjects.isDeleted, false));
 
-        // Filter by completion status if needed
-        if (!config.linearIncludeCompleted) {
-          projects = projects.filter((p) => p.state !== "completed" && p.state !== "canceled");
-        }
+        // Always exclude cancelled projects — they're abandoned noise.
+        // Completed projects are included by default (valuable historical context).
+        projects = projects.filter((p) => p.state !== "canceled");
 
         if (projects.length > 0) {
           const projectsSection = projects.map((project) => {
@@ -419,17 +423,12 @@ ${projectsSection.join("\n\n---\n\n")}`;
               : eq(linearIssues.isDeleted, false)
           );
 
-        // Filter by completion status if needed
-        if (!config.linearIncludeCompleted) {
-          issues = issues.filter((i) => {
-            const stateName = (i.stateName || "").toLowerCase();
-            return (
-              !stateName.includes("done") &&
-              !stateName.includes("completed") &&
-              !stateName.includes("canceled")
-            );
-          });
-        }
+        // Always exclude cancelled issues — they're abandoned noise.
+        // Done/completed issues are included (valuable context for what was shipped).
+        issues = issues.filter((i) => {
+          const stateName = (i.stateName || "").toLowerCase();
+          return !stateName.includes("canceled");
+        });
 
         if (issues.length > 0) {
           // Group by project
@@ -485,6 +484,46 @@ ${issuesSection}`;
       }
     }
 
+    // ===== SLITE KNOWLEDGE BASE (from cached database) =====
+    if (config.sliteNotes) {
+      try {
+        const db = getDrizzleDb();
+
+        const notes = await db
+          .select()
+          .from(sliteNotes)
+          .where(eq(sliteNotes.isDeleted, false))
+          .orderBy(desc(sliteNotes.lastEditedAt));
+
+        if (notes.length > 0) {
+          const notesSection = notes.map((note) => {
+            const summary = note.summary || "";
+            // Truncate content for context — summaries are the main value
+            const contentPreview = note.content
+              ? note.content.substring(0, 500) + (note.content.length > 500 ? "..." : "")
+              : "";
+
+            return `### ${note.title}
+**ID:** ${note.id} | **Review:** ${note.reviewState || "None"} | **Updated:** ${note.lastEditedAt || note.updatedAt || "Unknown"}
+${summary ? `**Summary:** ${summary}` : ""}
+${contentPreview ? `\n${contentPreview}` : ""}`;
+          });
+
+          const sliteText = `## Slite Knowledge Base (${notes.length} notes)
+
+Cached notes from the team's Slite workspace (synced locally).
+Use slite tools to search, read full content, or ask questions across the workspace.
+
+${notesSection.join("\n\n---\n\n")}`;
+
+          sections.push(sliteText);
+          totalChars += sliteText.length;
+        }
+      } catch (error) {
+        console.warn("[Kronus] Slite notes not available:", error);
+      }
+    }
+
     // ===== ASSEMBLE REPOSITORY =====
     if (sections.length === 0) {
       return { content: "", tokenEstimate: 0 };
@@ -527,87 +566,11 @@ function formatTodayDate(): string {
 }
 
 /**
- * Get the system prompt for Agent chat
- * Generated fresh based on soul config - NOT cached
+ * Lean baseline prompt sections — always included regardless of skills.
+ * These are safety-critical (write protocol) and formatting essentials.
  */
-export async function getKronusSystemPrompt(
-  config: SoulConfig = DEFAULT_SOUL_CONFIG
-): Promise<string> {
-  const agentConfig = getAgentConfig();
-  const soul = loadKronusSoul();
-  const { content: repository, tokenEstimate } = await loadRepositoryForSoul(config);
-  const todayDate = formatTodayDate();
-
-  const systemPrompt = `${soul}
-
-## Current Context
-
-**Today is ${todayDate}.**
-
-## Your Current Capabilities
-
-You have access to tools for:
-1. **Journal Management**: Create, read, update entries and project summaries
-2. **Linear Integration**: List/create/update issues and projects
-   - **linear_get_issue**: Fetch full issue details from local cache by identifier (e.g., 'ENG-1234'). Use this to read complete descriptions.
-   - **linear_get_project**: Fetch full project details from local cache by ID. Use this to read complete project content.
-   - Note: These read from the synced local database, NOT the Linear API. Use them when you need full details beyond what's in the system prompt.
-3. **Repository**: Access to all writings, prompts, skills, experience, and education
-   - **repository_search_documents**: Search writings and prompts (filter by type, search keywords, pagination)
-   - **repository_get_document**: Read a specific document by ID or slug
-   - **repository_create_document**: Add new writings/prompts/notes
-   - **repository_update_document**: Edit existing documents (requires document ID)
-   - **repository_list_skills**: Browse skills (filter by category)
-   - **repository_update_skill**: Update skill details
-   - **repository_create_skill**: Add a new skill to the CV
-   - **repository_list_experience**: Browse work experience
-   - **repository_create_experience**: Add new work experience
-   - **repository_list_education**: Browse education
-   - **repository_create_education**: Add new education entry
-
-### CRITICAL: Document Update Protocol
-**When the user wants to EDIT/UPDATE an existing document:**
-1. FIRST use **repository_search_documents** or **repository://document/{slug_or_id}** resource to find the document and get its **ID**
-2. THEN use **repository_update_document** with that ID to make changes
-3. NEVER create a new document when the user asks to edit an existing one
-
-**When to CREATE vs UPDATE:**
-- User says "edit", "update", "modify", "change" an existing doc → ALWAYS UPDATE (find ID first!)
-- User says "create", "write", "add new" → CREATE new document
-- If unsure, ASK the user first
-
-**Document Types:**
-- **writing**: Creative works, essays, poems, philosophical pieces, fiction
-- **prompt**: System prompts, AI contexts, templates, instructions for AI
-- **note**: Quick notes, reference material, snippets
-
-**Tags are preserved**: When you update a document, existing metadata (type, year, tags) is preserved unless you explicitly change it
-4. **Image Generation**: Generate images using multiple providers (replicate_generate_image)
-   - **FLUX.2 Pro** (default): \`black-forest-labs/flux-2-pro\` - Best quality via Replicate
-   - **FLUX Schnell**: \`black-forest-labs/flux-schnell\` - Faster via Replicate
-   - **Nano Banana Pro** 🍌: \`nano-banana-pro\` or \`gemini-3-pro-image-preview\` - Google's latest (supports text in images!)
-   - **Gemini 2.0**: \`gemini-2.0-flash-exp\` - Native multimodal output
-   - **Imagen 3**: \`imagen-3.0-generate-002\` - Google's dedicated image model
-   - Images are **automatically saved** to the Media Library when generated
-   - You'll receive the saved asset ID(s) in the response
-5. **Media Library**: Central storage for all images/media
-   - Use **update_media** to edit metadata (description, tags) on saved images
-   - Use **update_media** to link images to Journal entries or Repository documents
-   - Use **list_media** to browse saved assets
-6. **Attachments**: View attached files and diagrams
-7. **Database**: Trigger backups
-
-**Image Generation Flow:**
-1. Generate image → Automatically saved to Media Library
-2. Use update_media with the asset ID to add description, tags, or link to journal/documents
-
-**Model Recommendations:**
-- **Artistic/Creative**: FLUX.2 Pro (default) - photorealistic, detailed
-- **Text in images**: Nano Banana Pro 🍌 - excellent at readable text, infographics
-- **Speed**: FLUX Schnell or Gemini 2.0 Flash - faster generation
-- **Consistency**: Imagen 3 - good balance of quality and reliability
-
-## CRITICAL: Write Action Protocol - ALWAYS ASK FIRST
+function buildLeanProtocol(agentName: string): string {
+  return `## CRITICAL: Write Action Protocol - ALWAYS ASK FIRST
 
 **For ANY write/create/update action, you MUST ask for confirmation first. This applies to ALL data modifications:**
 
@@ -637,6 +600,7 @@ You have access to tools for:
 - All list/get operations (journal_list_*, repository_list_*, list_media, get_media)
 - journal_backup (creates backup file)
 - Searching and querying
+- activate_skill / deactivate_skill (skill management)
 
 ### Protocol:
 
@@ -674,7 +638,7 @@ This ensures the user ALWAYS has final control over their data.
 When the user provides commit information or agent reports, use the journal tools to document their work.
 When discussing project management, use Linear tools to help manage their workflow.
 
-Always be helpful, insightful, and true to your ${agentConfig.name} persona.
+Always be helpful, insightful, and true to your ${agentName} persona.
 
 ## Formatting Guidelines
 
@@ -692,11 +656,127 @@ For code and technical content, use fenced code blocks with language hints:
 const example = "code";
 \`\`\`
 
+### CRITICAL: Document Update Protocol
+**When the user wants to EDIT/UPDATE an existing document:**
+1. FIRST use **repository_search_documents** to find the document and get its **ID**
+2. THEN use **repository_update_document** with that ID to make changes
+3. NEVER create a new document when the user asks to edit an existing one
+
+**When to CREATE vs UPDATE:**
+- User says "edit", "update", "modify", "change" an existing doc → ALWAYS UPDATE (find ID first!)
+- User says "create", "write", "add new" → CREATE new document
+- If unsure, ASK the user first`;
+}
+
+/**
+ * Get the system prompt for Agent chat (LEGACY — backward compatible)
+ * Generated fresh based on soul config - NOT cached
+ */
+export async function getKronusSystemPrompt(
+  config: SoulConfig = DEFAULT_SOUL_CONFIG
+): Promise<string> {
+  const agentConfig = getAgentConfig();
+  const soul = loadKronusSoul();
+  const { content: repository, tokenEstimate } = await loadRepositoryForSoul(config);
+  const todayDate = formatTodayDate();
+
+  const systemPrompt = `${soul}
+
+## Current Context
+
+**Today is ${todayDate}.**
+
+${buildLeanProtocol(agentConfig.name)}
+
 ${repository}`;
 
   const totalTokens = estimateTokens(systemPrompt);
   console.log(
-    `[${agentConfig.name}] System prompt assembled: ~${totalTokens} tokens total (repository: ~${tokenEstimate})`
+    `[${agentConfig.name}] System prompt assembled (legacy): ~${totalTokens} tokens total (repository: ~${tokenEstimate})`
+  );
+
+  return systemPrompt;
+}
+
+/**
+ * Get the system prompt for Agent chat — SKILL-AWARE version.
+ * Builds a lean baseline + injects only what active skills declare.
+ *
+ * - activeSkills present: merge configs, load needed sections, inject skill prompts
+ * - activeSkills empty: lean baseline (~6k tokens)
+ *
+ * Only Soul.xml is cached. Everything else rebuilds per message.
+ */
+export async function getKronusSystemPromptWithSkills(
+  activeSkills: import("@/lib/ai/skills").KronusSkill[],
+  allAvailableSkills?: import("@/lib/ai/skills").SkillInfo[]
+): Promise<string> {
+  const agentConfig = getAgentConfig();
+  const soul = loadKronusSoul();
+  const todayDate = formatTodayDate();
+
+  // Import skill utilities
+  const { mergeSkillConfigs, buildSkillPromptSection, LEAN_SOUL_CONFIG } = await import(
+    "@/lib/ai/skills"
+  );
+
+  // Determine effective soul config from active skills
+  let effectiveSoulConfig: SoulConfig;
+  let skillPromptSection = "";
+
+  if (activeSkills.length > 0) {
+    const merged = mergeSkillConfigs(activeSkills);
+    effectiveSoulConfig = {
+      ...merged.soul,
+      // Ensure linearIncludeCompleted defaults to false if not explicitly set
+      linearIncludeCompleted: merged.soul.linearIncludeCompleted ?? false,
+    };
+    skillPromptSection = buildSkillPromptSection(activeSkills);
+  } else {
+    effectiveSoulConfig = {
+      ...LEAN_SOUL_CONFIG,
+      linearIncludeCompleted: false,
+    };
+  }
+
+  // Build available skills reference (so Kronus knows what it can activate)
+  let availableSkillsSection = "";
+  if (allAvailableSkills && allAvailableSkills.length > 0) {
+    const activeSlugs = new Set(activeSkills.map((s) => s.slug));
+    const skillLines = allAvailableSkills.map((s) => {
+      const status = activeSlugs.has(s.slug) ? " [ACTIVE]" : "";
+      return `- **${s.title}** (\`${s.slug}\`)${status}: ${s.description}`;
+    });
+    availableSkillsSection = `\n\n## Available Skills\n\nYou can activate/deactivate these skills via the \`activate_skill\`/\`deactivate_skill\` tools:\n\n${skillLines.join("\n")}`;
+  }
+
+  const { content: repository, tokenEstimate } =
+    await loadRepositoryForSoul(effectiveSoulConfig);
+
+  // Linear identity context (avoids needing get_viewer calls)
+  const linearUserId = process.env.LINEAR_USER_ID;
+  const linearTeamId = process.env.LINEAR_TEAM_ID;
+  const linearContext = linearUserId
+    ? `\n**Linear Identity:** User ID \`${linearUserId}\`${linearTeamId ? `, Team ID \`${linearTeamId}\`` : ""}. Cached data = your items. Use \`showAll\` or \`teamId\` parameters to query team-wide.`
+    : "";
+
+  const systemPrompt = `${soul}
+
+## Current Context
+
+**Today is ${todayDate}.**${linearContext}
+
+${buildLeanProtocol(agentConfig.name)}
+${skillPromptSection}${availableSkillsSection}
+${repository}`;
+
+  const totalTokens = estimateTokens(systemPrompt);
+  const skillNames =
+    activeSkills.length > 0
+      ? activeSkills.map((s) => s.title).join(", ")
+      : "none (lean baseline)";
+  console.log(
+    `[${agentConfig.name}] System prompt assembled (skills: ${skillNames}): ~${totalTokens} tokens total (repository: ~${tokenEstimate})`
   );
 
   return systemPrompt;

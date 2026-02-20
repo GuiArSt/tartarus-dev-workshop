@@ -27,6 +27,7 @@ const SummarizeInputSchema = z.object({
       "work_experience",
       "education",
       "portfolio_project",
+      "slite_note",
     ])
     .describe("Type of content being summarized"),
   content: z.string().min(1).describe("The full content to summarize"),

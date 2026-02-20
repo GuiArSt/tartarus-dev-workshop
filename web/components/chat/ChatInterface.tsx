@@ -57,7 +57,7 @@ import remarkBreaks from "remark-breaks";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { SoulConfig, SoulConfigState, DEFAULT_CONFIG } from "./SoulConfig";
+import { SoulConfigState, DEFAULT_CONFIG } from "./SoulConfig";
 import {
   FormatConfig,
   FormatConfigState,
@@ -66,11 +66,12 @@ import {
   KRONUS_FONT_SIZES,
 } from "./FormatConfig";
 import {
-  ToolsConfig,
   ToolsConfigState,
   DEFAULT_CONFIG as DEFAULT_TOOLS_CONFIG,
 } from "./ToolsConfig";
-import { KronusModes } from "./KronusModes";
+import { SkillSelector } from "./SkillSelector";
+import type { SkillInfo } from "@/lib/ai/skills";
+import { LEAN_SOUL_CONFIG, LEAN_TOOLS_CONFIG } from "@/lib/ai/skills";
 import {
   ModelConfig,
   ModelConfigState,
@@ -561,6 +562,48 @@ export function ChatInterface() {
   // NOT locked - can be changed mid-chat to dynamically enable/disable tools
   const [toolsConfig, setToolsConfig] = useState<ToolsConfigState>(DEFAULT_TOOLS_CONFIG);
 
+  // Skills — on-demand context loading. Dynamic, can change mid-conversation.
+  // Default: empty (lean mode ~6k tokens). Skills are additive (OR-merge).
+  const [activeSkillSlugs, setActiveSkillSlugs] = useState<string[]>([]);
+  // Cached skill data (loaded once from API, reused for config derivation)
+  const [cachedSkills, setCachedSkills] = useState<SkillInfo[]>([]);
+  // Track if user has manually overridden soul/tools config (bypassing skills)
+  const [isManualOverride, setIsManualOverride] = useState(false);
+
+  // Fetch skills once and cache them for config derivation
+  useEffect(() => {
+    fetch("/api/kronus/skills")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data?.skills) setCachedSkills(data.skills); })
+      .catch(() => {});
+  }, []);
+
+  // Sync Soul/Tools UI state when skills change (unless manual override)
+  useEffect(() => {
+    if (isManualOverride) return;
+    if (activeSkillSlugs.length === 0) {
+      // Lean baseline
+      setSoulConfig({ ...LEAN_SOUL_CONFIG });
+      setToolsConfig({ ...LEAN_TOOLS_CONFIG });
+      return;
+    }
+    // Merge active skill configs
+    const activeConfigs = cachedSkills.filter((s) => activeSkillSlugs.includes(s.slug));
+    if (activeConfigs.length === 0) return;
+    const soul: SoulConfigState = { ...LEAN_SOUL_CONFIG };
+    const tools: ToolsConfigState = { ...LEAN_TOOLS_CONFIG };
+    for (const skill of activeConfigs) {
+      for (const [key, value] of Object.entries(skill.config.soul || {})) {
+        if (value === true) (soul as any)[key] = true;
+      }
+      for (const [key, value] of Object.entries(skill.config.tools || {})) {
+        if (value === true) (tools as any)[key] = true;
+      }
+    }
+    setSoulConfig(soul);
+    setToolsConfig(tools);
+  }, [activeSkillSlugs, cachedSkills, isManualOverride]);
+
   // Model config - controls which AI provider is used (google, anthropic, openai)
   // Can be changed mid-chat - applies to next message
   const [modelConfig, setModelConfig] = useState<ModelConfigState>(DEFAULT_MODEL_CONFIG);
@@ -1010,6 +1053,62 @@ export function ChatInterface() {
             const result = await res.json();
             if (!res.ok) throw new Error(result.error || "Failed to fetch project from cache");
             output = JSON.stringify(result, null, 2);
+            break;
+          }
+
+          // ===== Slite Tools =====
+          case "slite_search_notes": {
+            const params = new URLSearchParams();
+            params.set("query", String(typedArgs.query));
+            if (typedArgs.parentNoteId) params.set("parentNoteId", String(typedArgs.parentNoteId));
+            if (typedArgs.hitsPerPage) params.set("hitsPerPage", String(typedArgs.hitsPerPage));
+            const res = await fetch(`/api/integrations/slite/search?${params}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Slite search failed");
+            output = `Found ${data.hits?.length || 0} notes:\n${JSON.stringify(data.hits, null, 2)}`;
+            break;
+          }
+
+          case "slite_get_note": {
+            const res = await fetch(`/api/integrations/slite/notes/${typedArgs.noteId}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to get Slite note");
+            output = JSON.stringify(data, null, 2);
+            break;
+          }
+
+          case "slite_create_note": {
+            const res = await fetch("/api/integrations/slite/notes", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(typedArgs),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to create Slite note");
+            output = `Created note: "${data.title}"\nID: ${data.id}\nURL: ${data.url}`;
+            break;
+          }
+
+          case "slite_update_note": {
+            const { noteId: nid, ...updates } = typedArgs;
+            const res = await fetch(`/api/integrations/slite/notes/${nid}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updates),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to update Slite note");
+            output = `Updated note: "${data.title}"`;
+            break;
+          }
+
+          case "slite_ask": {
+            const params = new URLSearchParams({ question: String(typedArgs.question) });
+            const res = await fetch(`/api/integrations/slite/ask?${params}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Slite ask failed");
+            const sources = data.sources?.map((s: any) => `- ${s.title}: ${s.url}`).join("\n") || "";
+            output = `${data.answer}\n\nSources:\n${sources}`;
             break;
           }
 
@@ -1696,6 +1795,19 @@ Details: ${data.details}`
             break;
           }
 
+          // ===== Gemini Search Grounding =====
+          case "gemini_search": {
+            const res = await fetch("/api/gemini-search", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: typedArgs.query }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Gemini search failed");
+            output = `🔍 **Google Search Results**\n\n${data.result}`;
+            break;
+          }
+
           // ===== Perplexity Web Search Tools =====
           case "perplexity_search": {
             const res = await fetch("/api/perplexity", {
@@ -1756,6 +1868,24 @@ Details: ${data.details}`
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Perplexity reasoning failed");
             output = `🧠 **Reasoning Analysis**\n\n${data.result}`;
+            break;
+          }
+
+          // ===== Skill Management Tools =====
+          case "activate_skill": {
+            const slug = String(typedArgs.slug);
+            if (!activeSkillSlugs.includes(slug)) {
+              setActiveSkillSlugs((prev) => [...prev, slug]);
+              setIsManualOverride(false); // Skills take over from manual
+            }
+            output = `Skill "${slug}" activated. Context and tools will update on the next message.`;
+            break;
+          }
+
+          case "deactivate_skill": {
+            const slug = String(typedArgs.slug);
+            setActiveSkillSlugs((prev) => prev.filter((s) => s !== slug));
+            output = `Skill "${slug}" deactivated. Context reduced on the next message.`;
             break;
           }
 
@@ -1828,6 +1958,7 @@ Details: ${data.details}`
                 soulConfig,
                 toolsConfig,
                 modelConfig,
+                activeSkillSlugs,
               },
             }
           );
@@ -2187,6 +2318,7 @@ Details: ${data.details}`
           soulConfig: effectiveSoulConfig,
           toolsConfig: effectiveToolsConfig,
           modelConfig,
+          activeSkillSlugs,
         },
       }
     );
@@ -2469,6 +2601,8 @@ Details: ${data.details}`
     lastSavedMessageCountRef.current = 0;
     setShowHistory(false);
     setLockedSoulConfig(null); // Unlock soul config for new conversation
+    setActiveSkillSlugs([]); // Reset to lean mode
+    setIsManualOverride(false); // Reset manual override
     // Note: toolsConfig is never locked - it's always dynamic
   };
 
@@ -2886,19 +3020,25 @@ Details: ${data.details}`
             New
           </Button>
           {/* Kronus Mode - preset combos of soul + tools */}
-          <KronusModes
-            currentSoul={soulConfig}
-            currentTools={toolsConfig}
-            onApply={(soul, tools) => {
-              setSoulConfig(soul);
-              setToolsConfig(tools);
+          {/* Skills — on-demand context loading (primary control) */}
+          <SkillSelector
+            activeSkillSlugs={activeSkillSlugs}
+            onChange={(slugs) => {
+              setActiveSkillSlugs(slugs);
+              setIsManualOverride(false);
+            }}
+            isManualOverride={isManualOverride}
+            soulConfig={soulConfig}
+            onSoulChange={(config) => {
+              setSoulConfig(config);
+              setIsManualOverride(true);
+            }}
+            toolsConfig={toolsConfig}
+            onToolsChange={(config) => {
+              setToolsConfig(config);
+              setIsManualOverride(true);
             }}
           />
-          <div className="mx-0.5 h-5 w-px bg-[var(--kronus-border)]" />
-          {/* Soul Config - always editable, affects next new chat */}
-          <SoulConfig config={soulConfig} onChange={setSoulConfig} contextLimit={CONTEXT_LIMIT} />
-          {/* Tools Config - controls which tool categories are enabled */}
-          <ToolsConfig config={toolsConfig} onChange={setToolsConfig} />
           {/* Model Config - select AI provider (Gemini, Claude, GPT-4o) */}
           <ModelConfig config={modelConfig} onChange={setModelConfig} />
           {/* Format Config - font/size, applies immediately */}
@@ -3335,6 +3475,7 @@ Details: ${data.details}`
                                         soulConfig: effectiveSoulConfig,
                                         toolsConfig,
                                         modelConfig,
+                                        activeSkillSlugs,
                                       },
                                     }
                                   );
@@ -3349,6 +3490,7 @@ Details: ${data.details}`
                                         soulConfig: effectiveSoulConfig,
                                         toolsConfig,
                                         modelConfig,
+                                        activeSkillSlugs,
                                       },
                                     }
                                   );

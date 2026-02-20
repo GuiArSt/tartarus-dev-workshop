@@ -37,6 +37,10 @@ import {
   getLinearCacheStats,
   listLinearProjectUpdates,
   listAllLinearProjectUpdates,
+  // Slite cache - knowledge base
+  listSliteNotes,
+  getSliteNote,
+  getSliteCacheStats,
   // Entry 0 v2
   getProjectSummaryV2,
   createProjectSummaryV2,
@@ -3971,6 +3975,152 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
   );
 
   logger.success("Linear cache resources registered (7 resources)");
+
+  // ============================================
+  // SLITE CACHE RESOURCES - Knowledge base notes (read-only)
+  // Data synced via Tartarus, served here as MCP resources
+  // ============================================
+
+  // Resource: Slite cache stats
+  server.registerResource(
+    "slite-cache-stats",
+    "slite://cache/stats",
+    {
+      description:
+        "Slite cache statistics - note counts and sync times. Knowledge base data is read-only via cache, synced externally through Tartarus.",
+      mimeType: "application/json",
+    },
+    async (uri) => {
+      try {
+        const stats = getSliteCacheStats();
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(stats, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to get Slite cache stats: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  // Resource: List Slite notes (cached)
+  server.registerResource(
+    "slite-notes",
+    "slite://notes",
+    {
+      description:
+        "List all cached Slite notes (read-only cache, synced via Tartarus). Includes AI-generated summaries. Use slite://note/{id} for full content.",
+      mimeType: "application/json",
+    },
+    async (uri) => {
+      try {
+        const notes = listSliteNotes({ includeDeleted: false });
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  total: notes.length,
+                  note: "Read-only cache, synced via Tartarus.",
+                  notes: notes.map((n) => ({
+                    id: n.id,
+                    title: n.title,
+                    parentNoteId: n.parentNoteId,
+                    reviewState: n.reviewState,
+                    summary: n.summary,
+                    lastEditedAt: n.lastEditedAt,
+                    updatedAt: n.updatedAt,
+                  })),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to list Slite notes: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  // Resource Template: Get single Slite note with full content
+  server.registerResourceTemplate(
+    "slite-note",
+    new ResourceTemplate("slite://note/{id}", { list: undefined }),
+    {
+      description:
+        "Get a single Slite note with full content by ID. Read-only cache, synced via Tartarus.",
+      mimeType: "application/json",
+    },
+    async (uri, { id }) => {
+      try {
+        const noteId = Array.isArray(id) ? id[0] : id;
+        const note = getSliteNote(noteId);
+        if (!note) {
+          return {
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({ error: `Note ${noteId} not found in cache` }),
+              },
+            ],
+          };
+        }
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(note, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to get Slite note: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  logger.success("Slite cache resources registered (3 resources)");
 
   // ============================================
   // CV RESOURCES - Skills, Experience, Education from repository

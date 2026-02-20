@@ -295,6 +295,37 @@ const createSchema = (handle: Database.Database) => {
     logger.warn("Could not migrate Linear cache tables:", error.message);
   }
 
+  // Migration: Slite cache table (006_slite_cache)
+  try {
+    handle.exec(`
+      CREATE TABLE IF NOT EXISTS slite_notes (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT,
+        parent_note_id TEXT,
+        url TEXT,
+        owner_id TEXT,
+        owner_name TEXT,
+        review_state TEXT,
+        note_type TEXT,
+        summary TEXT,
+        synced_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TEXT,
+        is_deleted INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        last_edited_at TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_slite_notes_parent ON slite_notes(parent_note_id);
+      CREATE INDEX IF NOT EXISTS idx_slite_notes_deleted ON slite_notes(is_deleted);
+      CREATE INDEX IF NOT EXISTS idx_slite_notes_synced ON slite_notes(synced_at DESC);
+    `);
+    logger.info("Slite cache table migrated");
+  } catch (error: any) {
+    logger.warn("Could not migrate Slite cache table:", error.message);
+  }
+
   // Migration: Living Project Summary (Entry 0) - Enhanced fields for project_summaries
   const entry0Columns = [
     "file_structure TEXT", // Git-style file tree (agent-provided)
@@ -2369,4 +2400,104 @@ export const listConversationsWithSummaries = (
       updatedAt: row.updated_at,
       messageCount: row.messageCount || 0,
     }));
+};
+
+// ============================================
+// Slite Cache - Read Operations
+// ============================================
+
+export interface SliteNote {
+  id: string;
+  title: string;
+  content: string | null;
+  parent_note_id: string | null;
+  url: string | null;
+  owner_id: string | null;
+  owner_name: string | null;
+  review_state: string | null;
+  note_type: string | null;
+  summary: string | null;
+  synced_at: string;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+  last_edited_at: string | null;
+}
+
+const mapSliteNoteRow = (row: any): SliteNote => ({
+  id: row.id,
+  title: row.title,
+  content: row.content,
+  parent_note_id: row.parent_note_id,
+  url: row.url,
+  owner_id: row.owner_id,
+  owner_name: row.owner_name,
+  review_state: row.review_state,
+  note_type: row.note_type,
+  summary: row.summary,
+  synced_at: row.synced_at,
+  is_deleted: Boolean(row.is_deleted),
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+  last_edited_at: row.last_edited_at,
+});
+
+export const listSliteNotes = (options?: {
+  includeDeleted?: boolean;
+}): SliteNote[] => {
+  if (!db) throw new Error("Database not initialized");
+
+  const includeDeleted = options?.includeDeleted ?? false;
+  const whereClause = includeDeleted ? "" : "WHERE is_deleted = 0";
+
+  return db
+    .prepare(
+      `SELECT * FROM slite_notes ${whereClause} ORDER BY last_edited_at DESC, updated_at DESC`,
+    )
+    .all()
+    .map(mapSliteNoteRow);
+};
+
+export const getSliteNote = (id: string): SliteNote | null => {
+  if (!db) throw new Error("Database not initialized");
+
+  const row = db
+    .prepare("SELECT * FROM slite_notes WHERE id = ?")
+    .get(id) as any;
+
+  return row ? mapSliteNoteRow(row) : null;
+};
+
+export const getSliteCacheStats = (): {
+  notes: { active: number; deleted: number; total: number };
+  lastSync: string | null;
+} => {
+  if (!db) throw new Error("Database not initialized");
+
+  const stats = db
+    .prepare(
+      `
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN is_deleted = 0 THEN 1 ELSE 0 END) as active,
+      SUM(CASE WHEN is_deleted = 1 THEN 1 ELSE 0 END) as deleted,
+      MAX(synced_at) as last_sync
+    FROM slite_notes
+  `,
+    )
+    .get() as {
+    total: number;
+    active: number;
+    deleted: number;
+    last_sync: string | null;
+  };
+
+  return {
+    notes: {
+      active: stats.active || 0,
+      deleted: stats.deleted || 0,
+      total: stats.total || 0,
+    },
+    lastSync: stats.last_sync,
+  };
 };

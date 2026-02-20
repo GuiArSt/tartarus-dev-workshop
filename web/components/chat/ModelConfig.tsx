@@ -10,9 +10,10 @@ import { TARTARUS, popoverStyles, headerStyles } from "./config-styles";
 
 // Model selection type - matches route.ts ModelSelection
 export type ModelSelection =
+  | "gemini-3.1-pro"
   | "gemini-3-flash"
   | "gemini-3-pro"
-  | "claude-opus-4.5"
+  | "claude-sonnet-4.6"
   | "claude-opus-4.6"
   | "claude-haiku-4.5"
   | "gpt-5.2";
@@ -29,15 +30,16 @@ interface ModelConfigProps {
 }
 
 const DEFAULT_CONFIG: ModelConfigState = {
-  model: "gemini-3-pro", // Default: Gemini 3 Pro for best reasoning
+  model: "gemini-3.1-pro", // Default: Gemini 3.1 Pro for best reasoning
   reasoningEnabled: true, // Reasoning on by default
 };
 
 // Context limits per model
 export const MODEL_CONTEXT_LIMITS: Record<ModelSelection, number> = {
+  "gemini-3.1-pro": 1000000,
   "gemini-3-flash": 1000000,
   "gemini-3-pro": 1000000,
-  "claude-opus-4.5": 200000,
+  "claude-sonnet-4.6": 1000000,
   "claude-opus-4.6": 1000000,
   "claude-haiku-4.5": 200000,
   "gpt-5.2": 400000,
@@ -56,6 +58,15 @@ const MODELS: Record<
     provider: string;
   }
 > = {
+  "gemini-3.1-pro": {
+    name: "Gemini 3.1 Pro",
+    shortName: "3.1 Pro",
+    description: "Latest, most capable",
+    context: "1M",
+    color: TARTARUS.google,
+    hasThinking: true,
+    provider: "Google",
+  },
   "gemini-3-flash": {
     name: "Gemini 3 Flash",
     shortName: "Gemini 3 Flash",
@@ -68,17 +79,17 @@ const MODELS: Record<
   "gemini-3-pro": {
     name: "Gemini 3 Pro",
     shortName: "Gemini 3 Pro",
-    description: "Most capable reasoning",
+    description: "Deep reasoning",
     context: "1M",
     color: TARTARUS.google,
     hasThinking: true,
     provider: "Google",
   },
-  "claude-opus-4.5": {
-    name: "Claude Opus 4.5",
-    shortName: "Opus 4.5",
-    description: "Most capable",
-    context: "200K",
+  "claude-sonnet-4.6": {
+    name: "Claude Sonnet 4.6",
+    shortName: "Sonnet 4.6",
+    description: "Best value, near-Opus",
+    context: "1M",
     color: TARTARUS.anthropic,
     hasThinking: true,
     provider: "Anthropic",

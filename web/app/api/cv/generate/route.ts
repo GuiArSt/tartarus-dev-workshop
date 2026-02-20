@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
     }
 
-    const model = anthropic("claude-sonnet-4-5-20250929");
+    const model = anthropic("claude-sonnet-4-6");
 
     let schema: z.ZodTypeAny;
     let systemPrompt: string;

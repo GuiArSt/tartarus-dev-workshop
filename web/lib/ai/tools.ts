@@ -156,19 +156,20 @@ export const toolSpecs = {
 
   // ===== Linear Integration Tools =====
   linear_get_viewer: {
-    description: "Get your Linear user info including teams and projects.",
+    description: "Get the authenticated user's Linear profile, including their teams and team IDs. Useful for discovering team context before querying team-wide issues or projects.",
     inputSchema: z.object({}),
   },
 
   linear_list_issues: {
-    description: "List issues in Linear with optional filters.",
+    description:
+      "List issues from the Linear API. By default returns only issues assigned to the user (cached locally). Set showAll=true to query the full workspace/team — use this when the user asks about teammates' work, team progress, or issues not assigned to them.",
     inputSchema: z.object({
       assigneeId: z.string().optional().describe("Filter by assignee user ID"),
       teamId: z.string().optional().describe("Filter by team ID"),
       projectId: z.string().optional().describe("Filter by project ID"),
       query: z.string().optional().describe("Search in title/description"),
       limit: z.number().optional().default(50).describe("Max results"),
-      showAll: z.boolean().optional().default(false).describe("Show all issues, not just yours"),
+      showAll: z.boolean().optional().default(false).describe("Show all workspace issues, not just the user's. Use for team-wide queries."),
     }),
   },
 
@@ -202,7 +203,8 @@ export const toolSpecs = {
   },
 
   linear_list_projects: {
-    description: "List all projects in Linear workspace.",
+    description:
+      "List projects from the Linear API. Returns all accessible workspace projects (not just the user's). Use teamId to narrow by team. The local cache only stores projects the user is a member of — this tool queries beyond the cache.",
     inputSchema: z.object({
       teamId: z.string().optional().describe("Filter by team ID"),
     }),
@@ -266,8 +268,66 @@ export const toolSpecs = {
       projectId: z.string().describe("Linear project ID"),
     }),
   },
+  // ===== Slite Integration Tools =====
+  slite_search_notes: {
+    description:
+      "Search notes in the Slite knowledge base. Returns matching notes with highlights. Use this to find documentation, processes, or team knowledge.",
+    inputSchema: z.object({
+      query: z.string().min(1).describe("Search query"),
+      parentNoteId: z.string().optional().describe("Filter to children of this note"),
+      hitsPerPage: z.number().optional().default(10).describe("Max results per page"),
+    }),
+  },
+
+  slite_get_note: {
+    description:
+      "Get the full content of a Slite note by ID. Returns markdown content. Use after searching to read a specific note.",
+    inputSchema: z.object({
+      noteId: z.string().describe("Slite note ID"),
+    }),
+  },
+
+  slite_create_note: {
+    description:
+      "Create a new note in Slite. Content should be markdown. Use parentNoteId to nest under an existing note.",
+    inputSchema: z.object({
+      title: z.string().min(1).describe("Note title"),
+      markdown: z.string().optional().describe("Note content in markdown"),
+      parentNoteId: z.string().optional().describe("Parent note ID for nesting"),
+    }),
+  },
+
+  slite_update_note: {
+    description: "Update an existing Slite note's title or content.",
+    inputSchema: z.object({
+      noteId: z.string().describe("Note ID to update"),
+      title: z.string().optional().describe("New title"),
+      markdown: z.string().optional().describe("New content in markdown"),
+    }),
+  },
+
+  slite_ask: {
+    description:
+      "Ask Slite AI a question about the workspace knowledge base. Returns an AI-generated answer with source references. Great for finding information across all team documentation.",
+    inputSchema: z.object({
+      question: z.string().min(1).describe("Question to ask about the knowledge base"),
+    }),
+  },
+
   // NOTE: Old document_*, skill_*, experience_*, education_* tools removed
   // All repository tools now use repository_* prefix - see chat/route.ts
+
+  // ===== Gemini Search Grounding =====
+  gemini_search: {
+    description:
+      "Search the web using Google Search grounding via Gemini. Returns a synthesized answer with cited sources and confidence scores. Use this for current events, real-time data, factual lookups, or any query requiring up-to-date web information.",
+    inputSchema: z.object({
+      query: z
+        .string()
+        .min(1)
+        .describe("Search query - be specific for better grounded results"),
+    }),
+  },
 
   // ===== Image Generation =====
   replicate_generate_image: {

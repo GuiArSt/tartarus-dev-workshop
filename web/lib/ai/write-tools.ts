@@ -40,6 +40,10 @@ export const WRITE_TOOLS = new Set([
   "linear_create_project",
   "linear_update_project",
   "linear_create_project_update",
+
+  // Slite write operations
+  "slite_create_note",
+  "slite_update_note",
 ]);
 
 // Tools that are read-only (no confirmation needed)
@@ -70,7 +74,13 @@ export const READ_TOOLS = new Set([
   "linear_list_projects",
   "linear_list_project_updates",
 
+  // Slite read operations
+  "slite_search_notes",
+  "slite_get_note",
+  "slite_ask",
+
   // Web search (read-only by nature)
+  "gemini_search",
   "perplexity_search",
   "perplexity_ask",
   "perplexity_research",
@@ -149,6 +159,12 @@ export function getToolActionDescription(toolName: string, args: Record<string, 
       return `Update Linear project ${args.projectId}`;
     case "linear_create_project_update":
       return `Post project update (${args.health}) to Linear project ${args.projectId}`;
+
+    // Slite
+    case "slite_create_note":
+      return `Create Slite note: "${args.title}"`;
+    case "slite_update_note":
+      return `Update Slite note ${args.noteId}`;
 
     default:
       return `Execute ${toolName}`;

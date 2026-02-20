@@ -9,56 +9,39 @@ import {
   PenTool,
   Briefcase,
   Check,
+  Leaf,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TARTARUS, popoverStyles, headerStyles } from "./config-styles";
 import type { SoulConfigState } from "./SoulConfig";
 import type { ToolsConfigState } from "./ToolsConfig";
+import { isAlmightyConfig } from "@/lib/ai/skills";
 
-// Mode definition — preset of soul context + tool categories
-export interface KronusMode {
+// Mode definition — maps to skill slugs for on-demand loading
+interface KronusModeConfig {
   id: string;
   name: string;
   description: string;
   icon: typeof Zap;
   color: string;
   colorGlow: string;
-  soul: SoulConfigState;
-  tools: ToolsConfigState;
+  /** Skill slugs this mode activates (primary path) */
+  skillSlugs: string[];
 }
 
 // ============================================================================
-// MODE PRESETS
+// MODE PRESETS — now mapped to skills
 // ============================================================================
 
-export const KRONUS_MODES: KronusMode[] = [
+const KRONUS_MODES: KronusModeConfig[] = [
   {
-    id: "almighty",
-    name: "Almighty",
-    description: "Everything enabled",
-    icon: Zap,
-    color: TARTARUS.teal,
-    colorGlow: TARTARUS.tealGlow,
-    soul: {
-      writings: true,
-      portfolioProjects: true,
-      skills: true,
-      workExperience: true,
-      education: true,
-      journalEntries: true,
-      linearProjects: true,
-      linearIssues: true,
-      linearIncludeCompleted: false,
-    },
-    tools: {
-      journal: true,
-      repository: true,
-      linear: true,
-      git: false,
-      media: true,
-      imageGeneration: false,
-      webSearch: false,
-    },
+    id: "lean",
+    name: "Lean",
+    description: "Minimal tokens, on-demand",
+    icon: Leaf,
+    color: TARTARUS.textMuted,
+    colorGlow: `${TARTARUS.textMuted}15`,
+    skillSlugs: [], // No skills = lean baseline
   },
   {
     id: "developer",
@@ -67,26 +50,7 @@ export const KRONUS_MODES: KronusMode[] = [
     icon: Code2,
     color: "#22c55e",
     colorGlow: "rgba(34, 197, 94, 0.15)",
-    soul: {
-      writings: false,
-      portfolioProjects: true,
-      skills: true,
-      workExperience: false,
-      education: false,
-      journalEntries: true,
-      linearProjects: true,
-      linearIssues: true,
-      linearIncludeCompleted: false,
-    },
-    tools: {
-      journal: true,
-      repository: true,
-      linear: true,
-      git: true,
-      media: true,
-      imageGeneration: false,
-      webSearch: false,
-    },
+    skillSlugs: ["skill-developer"],
   },
   {
     id: "writer",
@@ -95,26 +59,7 @@ export const KRONUS_MODES: KronusMode[] = [
     icon: PenTool,
     color: "#9B59B6",
     colorGlow: "rgba(155, 89, 182, 0.15)",
-    soul: {
-      writings: true,
-      portfolioProjects: false,
-      skills: false,
-      workExperience: false,
-      education: false,
-      journalEntries: false,
-      linearProjects: false,
-      linearIssues: false,
-      linearIncludeCompleted: false,
-    },
-    tools: {
-      journal: false,
-      repository: true,
-      linear: false,
-      git: false,
-      media: true,
-      imageGeneration: true,
-      webSearch: false,
-    },
+    skillSlugs: ["skill-writer"],
   },
   {
     id: "job-hunter",
@@ -123,26 +68,16 @@ export const KRONUS_MODES: KronusMode[] = [
     icon: Briefcase,
     color: TARTARUS.gold,
     colorGlow: TARTARUS.goldGlow,
-    soul: {
-      writings: false,
-      portfolioProjects: true,
-      skills: true,
-      workExperience: true,
-      education: true,
-      journalEntries: true,
-      linearProjects: true,
-      linearIssues: true,
-      linearIncludeCompleted: false,
-    },
-    tools: {
-      journal: true,
-      repository: true,
-      linear: true,
-      git: false,
-      media: true,
-      imageGeneration: false,
-      webSearch: true,
-    },
+    skillSlugs: ["skill-job-hunter"],
+  },
+  {
+    id: "almighty",
+    name: "Almighty",
+    description: "Everything enabled",
+    icon: Zap,
+    color: TARTARUS.teal,
+    colorGlow: TARTARUS.tealGlow,
+    skillSlugs: ["skill-almighty"],
   },
 ];
 
@@ -151,36 +86,61 @@ export const KRONUS_MODES: KronusMode[] = [
 // ============================================================================
 
 interface KronusModesProps {
+  /** Legacy: set raw soul + tools config (manual override path) */
   onApply: (soul: SoulConfigState, tools: ToolsConfigState) => void;
+  /** Primary: set active skill slugs */
+  onApplySkills: (slugs: string[]) => void;
   currentSoul: SoulConfigState;
   currentTools: ToolsConfigState;
+  activeSkillSlugs: string[];
 }
 
-function detectCurrentMode(soul: SoulConfigState, tools: ToolsConfigState): string | null {
+function detectCurrentMode(
+  activeSkillSlugs: string[],
+  currentSoul: SoulConfigState,
+  currentTools: ToolsConfigState
+): string | null {
+  // Check skill-based modes first
   for (const mode of KRONUS_MODES) {
-    const soulMatch = Object.keys(mode.soul).every(
-      (k) => soul[k as keyof SoulConfigState] === mode.soul[k as keyof SoulConfigState]
-    );
-    const toolsMatch = Object.keys(mode.tools).every(
-      (k) => tools[k as keyof ToolsConfigState] === mode.tools[k as keyof ToolsConfigState]
-    );
-    if (soulMatch && toolsMatch) return mode.id;
+    if (mode.skillSlugs.length === 0 && activeSkillSlugs.length === 0) {
+      return mode.id; // Lean mode
+    }
+    if (
+      mode.skillSlugs.length > 0 &&
+      mode.skillSlugs.length === activeSkillSlugs.length &&
+      mode.skillSlugs.every((s) => activeSkillSlugs.includes(s))
+    ) {
+      return mode.id;
+    }
   }
-  return null;
+
+  // If manual override results in everything on, show Almighty
+  if (isAlmightyConfig(currentSoul, currentTools)) {
+    return "almighty";
+  }
+
+  return null; // Custom
 }
 
-export function KronusModes({ onApply, currentSoul, currentTools }: KronusModesProps) {
+export function KronusModes({
+  onApply,
+  onApplySkills,
+  currentSoul,
+  currentTools,
+  activeSkillSlugs,
+}: KronusModesProps) {
   const [open, setOpen] = useState(false);
-  const activeMode = detectCurrentMode(currentSoul, currentTools);
+  const activeMode = detectCurrentMode(activeSkillSlugs, currentSoul, currentTools);
 
-  const handleSelect = (mode: KronusMode) => {
-    onApply(mode.soul, mode.tools);
+  const handleSelect = (mode: KronusModeConfig) => {
+    // Use skill-based activation (primary path)
+    onApplySkills(mode.skillSlugs);
     setOpen(false);
   };
 
   const activeModeData = KRONUS_MODES.find((m) => m.id === activeMode);
   const ActiveIcon = activeModeData?.icon ?? Zap;
-  const activeColor = activeModeData?.color ?? TARTARUS.textMuted;
+  const activeColor = activeModeData?.color ?? TARTARUS.gold;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -189,7 +149,7 @@ export function KronusModes({ onApply, currentSoul, currentTools }: KronusModesP
           variant="ghost"
           size="sm"
           className="gap-1.5 transition-colors"
-          style={{ color: activeMode ? activeColor : TARTARUS.textMuted }}
+          style={{ color: activeMode ? activeColor : TARTARUS.gold }}
         >
           <ActiveIcon className="h-4 w-4" />
           <span className="hidden sm:inline">
@@ -210,7 +170,7 @@ export function KronusModes({ onApply, currentSoul, currentTools }: KronusModesP
             style={{ borderBottom: `1px solid ${TARTARUS.borderSubtle}` }}
           >
             <h4 style={headerStyles.title}>Kronus Mode</h4>
-            <p style={headerStyles.subtitle}>Preset soul + tools</p>
+            <p style={headerStyles.subtitle}>Quick skill presets</p>
           </div>
 
           {/* Mode Cards */}
@@ -276,7 +236,7 @@ export function KronusModes({ onApply, currentSoul, currentTools }: KronusModesP
             }}
           >
             <p className="text-[11px]" style={{ color: TARTARUS.textDim }}>
-              Overrides Soul & Tools config
+              Sets active skills — dynamic, changes anytime
             </p>
           </div>
         </div>

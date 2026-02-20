@@ -45,6 +45,8 @@ export interface SoulConfigState {
   linearProjects: boolean;
   linearIssues: boolean;
   linearIncludeCompleted: boolean;
+  // Slite context - cached knowledge base notes
+  sliteNotes: boolean;
 }
 
 // Linear breakdown stats
@@ -92,15 +94,16 @@ interface SoulConfigProps {
 }
 
 const DEFAULT_CONFIG: SoulConfigState = {
-  writings: true,
-  portfolioProjects: true,
-  skills: true,
-  workExperience: true,
-  education: true,
-  journalEntries: true,
-  linearProjects: true,
-  linearIssues: true,
+  writings: false,
+  portfolioProjects: false,
+  skills: false,
+  workExperience: false,
+  education: false,
+  journalEntries: false,
+  linearProjects: false,
+  linearIssues: false,
   linearIncludeCompleted: false,
+  sliteNotes: false,
 };
 
 const FALLBACK_STATS: SectionStats = {

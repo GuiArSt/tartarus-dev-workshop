@@ -212,17 +212,17 @@ Be thorough but concise. This is reference documentation for engineers.`;
 
   // Start observability trace
   startTrace(`entry0-analyze:${repository}`);
-  const aiSpanId = startSpan("sonnet-4.5-analyze", {
+  const aiSpanId = startSpan("sonnet-4.6-analyze", {
     type: "generation",
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-6",
     input: { repository, entries_count: entries.length, prompt_length: systemPrompt.length },
   });
 
   let updates: SummaryUpdate;
   try {
-    // Call Sonnet 4.5 for analysis - AI SDK 6.0 pattern
+    // Call Sonnet 4.6 for analysis - AI SDK 6.0 pattern
     const result = await generateText({
-      model: anthropic("claude-sonnet-4-5-20250929"),
+      model: anthropic("claude-sonnet-4-6"),
       output: Output.object({
         schema: SummaryUpdateSchema,
       }),

@@ -3,7 +3,16 @@ import { anthropic, type AnthropicProviderOptions } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { google, type GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { z } from "zod";
-import { getKronusSystemPrompt, SoulConfig, DEFAULT_SOUL_CONFIG } from "@/lib/ai/kronus";
+import {
+  getKronusSystemPrompt,
+  getKronusSystemPromptWithSkills,
+  SoulConfig,
+  DEFAULT_SOUL_CONFIG,
+} from "@/lib/ai/kronus";
+import { getDrizzleDb, documents } from "@/lib/db/drizzle";
+import { eq, inArray } from "drizzle-orm";
+import type { KronusSkill, SkillConfig, SkillInfo } from "@/lib/ai/skills";
+import { mergeSkillConfigs } from "@/lib/ai/skills";
 
 /**
  * Tool configuration - controls which tool categories are enabled
@@ -13,6 +22,7 @@ export interface ToolsConfig {
   journal: boolean; // Journal entries, project summaries
   repository: boolean; // Documents, skills, experience, education
   linear: boolean; // Linear issue tracking
+  slite: boolean; // Slite knowledge base
   git: boolean; // Git repository access (GitHub/GitLab)
   media: boolean; // Media library, attachments
 
@@ -25,6 +35,7 @@ export const DEFAULT_TOOLS_CONFIG: ToolsConfig = {
   journal: true,
   repository: true,
   linear: true,
+  slite: false, // Off by default - requires SLITE_API_KEY
   git: false, // Off by default - requires GitHub/GitLab token
   media: true,
   imageGeneration: false, // Off by default - heavy
@@ -36,9 +47,10 @@ export const DEFAULT_TOOLS_CONFIG: ToolsConfig = {
  * Models with reasoning support will have thinking enabled automatically
  */
 export type ModelSelection =
+  | "gemini-3.1-pro" // Google - latest, most capable reasoning
   | "gemini-3-flash" // Google - fast, has thinking
-  | "gemini-3-pro" // Google - most capable, deep reasoning
-  | "claude-opus-4.5" // Anthropic - powerful, has extended thinking
+  | "gemini-3-pro" // Google - deep reasoning
+  | "claude-sonnet-4.6" // Anthropic - best value, matches Opus performance
   | "claude-opus-4.6" // Anthropic - latest, most capable, 1M context
   | "claude-haiku-4.5" // Anthropic - fast, no thinking
   | "gpt-5.2"; // OpenAI - latest, has reasoning
@@ -54,6 +66,11 @@ const MODEL_CONFIG: Record<
     hasThinking: boolean;
   }
 > = {
+  "gemini-3.1-pro": {
+    provider: "google",
+    modelId: "gemini-3.1-pro-preview",
+    hasThinking: true,
+  },
   "gemini-3-flash": {
     provider: "google",
     modelId: "gemini-3-flash-preview",
@@ -64,9 +81,9 @@ const MODEL_CONFIG: Record<
     modelId: "gemini-3-pro-preview",
     hasThinking: true,
   },
-  "claude-opus-4.5": {
+  "claude-sonnet-4.6": {
     provider: "anthropic",
-    modelId: "claude-opus-4-5-20251101",
+    modelId: "claude-sonnet-4-6",
     hasThinking: true,
   },
   "claude-opus-4.6": {
@@ -91,13 +108,13 @@ const MODEL_CONFIG: Record<
  *
  * Models:
  * - gemini-3-flash: Gemini 3 Flash (1M context, fast with thinking)
- * - claude-opus-4.5: Claude Opus 4.5 (200K context, most capable)
+ * - claude-sonnet-4.6: Claude Sonnet 4.6 (1M context, best value)
  * - claude-opus-4.6: Claude Opus 4.6 (1M context, latest, most capable)
  * - claude-haiku-4.5: Claude Haiku 4.5 (200K context, fast)
  * - gpt-5.2: GPT-5.2 (400K context, reasoning)
  */
 function getModel(selectedModel?: ModelSelection) {
-  const defaultModel: ModelSelection = "gemini-3-flash";
+  const defaultModel: ModelSelection = "gemini-3.1-pro";
   const modelKey = selectedModel || defaultModel;
   const config = MODEL_CONFIG[modelKey];
 
@@ -379,6 +396,47 @@ const tools = {
       "Get full project details from local cache by ID. Use this to read complete project descriptions and content. Does NOT hit Linear API - reads from synced local database.",
     inputSchema: z.object({
       projectId: z.string().describe("Linear project ID"),
+    }),
+  },
+  // ===== Slite Integration Tools =====
+  slite_search_notes: {
+    description:
+      "Search notes in the Slite knowledge base. Returns matching notes with highlights.",
+    inputSchema: z.object({
+      query: z.string().min(1).describe("Search query"),
+      parentNoteId: z.string().optional().describe("Filter to children of this note"),
+      hitsPerPage: z.number().optional().default(10).describe("Max results per page"),
+    }),
+  },
+  slite_get_note: {
+    description:
+      "Get the full content of a Slite note by ID. Returns markdown content.",
+    inputSchema: z.object({
+      noteId: z.string().describe("Slite note ID"),
+    }),
+  },
+  slite_create_note: {
+    description:
+      "Create a new note in Slite. Content should be markdown.",
+    inputSchema: z.object({
+      title: z.string().min(1).describe("Note title"),
+      markdown: z.string().optional().describe("Note content in markdown"),
+      parentNoteId: z.string().optional().describe("Parent note ID for nesting"),
+    }),
+  },
+  slite_update_note: {
+    description: "Update an existing Slite note's title or content.",
+    inputSchema: z.object({
+      noteId: z.string().describe("Note ID to update"),
+      title: z.string().optional().describe("New title"),
+      markdown: z.string().optional().describe("New content in markdown"),
+    }),
+  },
+  slite_ask: {
+    description:
+      "Ask Slite AI a question about the workspace knowledge base. Returns an AI-generated answer with sources.",
+    inputSchema: z.object({
+      question: z.string().min(1).describe("Question to ask"),
     }),
   },
   // ===== Image Generation Tool =====
@@ -686,6 +744,17 @@ const gitTools = {
   },
 };
 
+// ===== Gemini Search Grounding Tool =====
+const geminiSearchTools = {
+  gemini_search: {
+    description:
+      "Search the web using Google Search grounding via Gemini. Returns a synthesized answer with cited sources. Use for current events, real-time data, factual lookups, or anything requiring up-to-date web information.",
+    inputSchema: z.object({
+      query: z.string().min(1).describe("Search query"),
+    }),
+  },
+};
+
 // ===== Web Search Tools (Perplexity) =====
 const webSearchTools = {
   perplexity_search: {
@@ -724,6 +793,30 @@ const webSearchTools = {
         .optional()
         .default(true)
         .describe("Remove thinking tags to save tokens"),
+    }),
+  },
+};
+
+// ===== Skill Management Tools (always available) =====
+const skillTools = {
+  activate_skill: {
+    description:
+      "Activate a Kronus skill by slug. Skills load additional context and tools on demand. You can activate multiple skills — they stack additively. Use this when the user asks to switch modes or wants specific capabilities. Check the Available Skills section in your system prompt for valid slugs.",
+    inputSchema: z.object({
+      slug: z
+        .string()
+        .min(1)
+        .describe("The skill slug to activate (e.g., 'skill-developer')"),
+    }),
+  },
+  deactivate_skill: {
+    description:
+      "Deactivate a currently active Kronus skill. This removes its context and tools from the next message, reducing token usage. Use this when the user wants to switch focus or reduce context.",
+    inputSchema: z.object({
+      slug: z
+        .string()
+        .min(1)
+        .describe("The skill slug to deactivate (e.g., 'skill-developer')"),
     }),
   },
 };
@@ -768,6 +861,17 @@ function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
       // Cache tools (read from local DB)
       linear_get_issue: tools.linear_get_issue,
       linear_get_project: tools.linear_get_project,
+    });
+  }
+
+  // Slite tools
+  if (toolsConfig.slite) {
+    Object.assign(enabledTools, {
+      slite_search_notes: tools.slite_search_notes,
+      slite_get_note: tools.slite_get_note,
+      slite_create_note: tools.slite_create_note,
+      slite_update_note: tools.slite_update_note,
+      slite_ask: tools.slite_ask,
     });
   }
 
@@ -821,46 +925,143 @@ function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
     });
   }
 
-  // Web search tools (Perplexity)
+  // Web search tools (Perplexity + Gemini Search Grounding)
   if (toolsConfig.webSearch) {
-    Object.assign(enabledTools, webSearchTools);
+    Object.assign(enabledTools, geminiSearchTools, webSearchTools);
   }
+
+  // Skill management tools — always available so Kronus can activate/deactivate via natural language
+  Object.assign(enabledTools, skillTools);
 
   return enabledTools;
 }
 
 export async function POST(req: Request) {
   try {
-    const { messages, soulConfig, toolsConfig, modelConfig } = await req.json();
+    const { messages, soulConfig, toolsConfig, modelConfig, activeSkillSlugs } =
+      await req.json();
 
-    // Parse soul config from request, default to all sections enabled
-    const config: SoulConfig = soulConfig
-      ? {
-          writings: soulConfig.writings ?? true,
-          portfolioProjects: soulConfig.portfolioProjects ?? true,
-          skills: soulConfig.skills ?? true,
-          workExperience: soulConfig.workExperience ?? true,
-          education: soulConfig.education ?? true,
-          journalEntries: soulConfig.journalEntries ?? true,
-          // Linear context
-          linearProjects: soulConfig.linearProjects ?? true,
-          linearIssues: soulConfig.linearIssues ?? true,
-          linearIncludeCompleted: soulConfig.linearIncludeCompleted ?? false,
-        }
-      : DEFAULT_SOUL_CONFIG;
+    // Determine system prompt and tools based on skill mode vs legacy mode
+    let systemPrompt: string;
+    let enabledToolsConfig: ToolsConfig;
 
-    // Parse tools config from request
-    const enabledToolsConfig: ToolsConfig = toolsConfig
-      ? {
-          journal: toolsConfig.journal ?? true,
-          repository: toolsConfig.repository ?? true,
-          linear: toolsConfig.linear ?? true,
-          git: toolsConfig.git ?? false,
-          media: toolsConfig.media ?? true,
-          imageGeneration: toolsConfig.imageGeneration ?? false,
-          webSearch: toolsConfig.webSearch ?? false,
-        }
-      : DEFAULT_TOOLS_CONFIG;
+    if (activeSkillSlugs && Array.isArray(activeSkillSlugs)) {
+      // ===== SKILL MODE =====
+      // Load ALL skill documents from DB (for available skills reference)
+      const db = getDrizzleDb();
+      const allSkillDocs = db
+        .select()
+        .from(documents)
+        .where(eq(documents.type, "prompt"))
+        .all()
+        .filter((d) => {
+          try {
+            const meta = JSON.parse(d.metadata || "{}");
+            return meta.type === "kronus-skill" && meta.skillConfig;
+          } catch {
+            return false;
+          }
+        });
+
+      // Build full available skills list (lightweight, for system prompt reference)
+      const allAvailableSkills: SkillInfo[] = allSkillDocs.map((d) => {
+        const meta = JSON.parse(d.metadata || "{}");
+        const config: SkillConfig = meta.skillConfig || { soul: {}, tools: {} };
+        return {
+          id: d.id,
+          slug: d.slug,
+          title: d.title,
+          description: d.summary || d.content.substring(0, 120),
+          icon: config.icon || "Zap",
+          color: config.color || "#00CED1",
+          priority: config.priority ?? 50,
+          config,
+        };
+      }).sort((a, b) => a.priority - b.priority);
+
+      // Build active skills (full content, for prompt injection)
+      const activeSkills: KronusSkill[] = allSkillDocs
+        .filter((d) => activeSkillSlugs.includes(d.slug))
+        .map((doc) => {
+          const meta = JSON.parse(doc.metadata || "{}");
+          const config: SkillConfig = meta.skillConfig || { soul: {}, tools: {} };
+          return {
+            id: doc.id,
+            slug: doc.slug,
+            title: doc.title,
+            description: doc.summary || doc.content.substring(0, 120),
+            content: doc.content,
+            config,
+            icon: config.icon || "Zap",
+            color: config.color || "#00CED1",
+            priority: config.priority ?? 50,
+          };
+        });
+
+      // Build skill-aware system prompt with available skills reference
+      systemPrompt = await getKronusSystemPromptWithSkills(activeSkills, allAvailableSkills);
+
+      // Derive tools from skill merge (OR with any explicit toolsConfig from client)
+      if (activeSkills.length > 0) {
+        const merged = mergeSkillConfigs(activeSkills);
+        enabledToolsConfig = {
+          journal: merged.tools.journal || (toolsConfig?.journal ?? false),
+          repository: merged.tools.repository || (toolsConfig?.repository ?? false),
+          linear: merged.tools.linear || (toolsConfig?.linear ?? false),
+          slite: merged.tools.slite || (toolsConfig?.slite ?? false),
+          git: merged.tools.git || (toolsConfig?.git ?? false),
+          media: merged.tools.media || (toolsConfig?.media ?? false),
+          imageGeneration:
+            merged.tools.imageGeneration || (toolsConfig?.imageGeneration ?? false),
+          webSearch: merged.tools.webSearch || (toolsConfig?.webSearch ?? false),
+        };
+      } else {
+        // Lean baseline tools (no skills active)
+        enabledToolsConfig = toolsConfig
+          ? {
+              journal: toolsConfig.journal ?? true,
+              repository: toolsConfig.repository ?? true,
+              linear: toolsConfig.linear ?? false,
+              slite: toolsConfig.slite ?? false,
+              git: toolsConfig.git ?? false,
+              media: toolsConfig.media ?? false,
+              imageGeneration: toolsConfig.imageGeneration ?? false,
+              webSearch: toolsConfig.webSearch ?? false,
+            }
+          : { journal: true, repository: true, linear: false, slite: false, git: false, media: false, imageGeneration: false, webSearch: false };
+      }
+    } else {
+      // ===== LEGACY MODE (backward compatible) =====
+      const config: SoulConfig = soulConfig
+        ? {
+            writings: soulConfig.writings ?? true,
+            portfolioProjects: soulConfig.portfolioProjects ?? true,
+            skills: soulConfig.skills ?? true,
+            workExperience: soulConfig.workExperience ?? true,
+            education: soulConfig.education ?? true,
+            journalEntries: soulConfig.journalEntries ?? true,
+            linearProjects: soulConfig.linearProjects ?? true,
+            linearIssues: soulConfig.linearIssues ?? true,
+            linearIncludeCompleted: soulConfig.linearIncludeCompleted ?? false,
+            sliteNotes: soulConfig.sliteNotes ?? false,
+          }
+        : DEFAULT_SOUL_CONFIG;
+
+      systemPrompt = await getKronusSystemPrompt(config);
+
+      enabledToolsConfig = toolsConfig
+        ? {
+            journal: toolsConfig.journal ?? true,
+            repository: toolsConfig.repository ?? true,
+            linear: toolsConfig.linear ?? true,
+            slite: toolsConfig.slite ?? false,
+            git: toolsConfig.git ?? false,
+            media: toolsConfig.media ?? true,
+            imageGeneration: toolsConfig.imageGeneration ?? false,
+            webSearch: toolsConfig.webSearch ?? false,
+          }
+        : DEFAULT_TOOLS_CONFIG;
+    }
 
     // Get model based on selected model (default: gemini-3-flash)
     const selectedModel = modelConfig?.model as ModelSelection | undefined;
@@ -872,7 +1073,6 @@ export async function POST(req: Request) {
     // Reasoning is enabled if model supports it AND user hasn't disabled it
     const reasoningEnabled = modelConfig?.reasoningEnabled ?? true;
     const hasThinking = modelSupportsThinking && reasoningEnabled;
-    const systemPrompt = await getKronusSystemPrompt(config);
     const enabledTools = buildTools(enabledToolsConfig);
 
     // Sanitize messages - remove control characters that can cause issues

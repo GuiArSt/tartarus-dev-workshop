@@ -28,6 +28,7 @@ export interface ToolsConfigState {
   journal: boolean;
   repository: boolean;
   linear: boolean;
+  slite: boolean;
   git: boolean;
   media: boolean;
   imageGeneration: boolean;
@@ -42,9 +43,10 @@ interface ToolsConfigProps {
 const DEFAULT_CONFIG: ToolsConfigState = {
   journal: true,
   repository: true,
-  linear: true,
+  linear: false,
+  slite: false,
   git: false,
-  media: true,
+  media: false,
   imageGeneration: false,
   webSearch: false,
 };
@@ -66,6 +68,7 @@ const CORE_TOOLS = [
     count: 11,
   },
   { key: "linear", name: "Linear", icon: Briefcase, description: "Issues & projects", count: 7 },
+  { key: "slite", name: "Slite", icon: BookOpen, description: "Knowledge base", count: 5 },
   { key: "git", name: "Git", icon: Github, description: "GitHub/GitLab repos", count: 3 },
   { key: "media", name: "Media", icon: Image, description: "Asset management", count: 3 },
 ] as const;
@@ -78,7 +81,7 @@ const MULTIMODAL_TOOLS = [
     description: "FLUX, Gemini, Imagen",
     count: 1,
   },
-  { key: "webSearch", name: "Web Search", icon: Search, description: "Perplexity AI", count: 4 },
+  { key: "webSearch", name: "Web Search", icon: Search, description: "Google, Perplexity", count: 5 },
 ] as const;
 
 export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
@@ -93,6 +96,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
       journal: true,
       repository: true,
       linear: true,
+      slite: true,
       git: true,
       media: true,
       imageGeneration: true,
@@ -105,6 +109,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
       journal: true,
       repository: true,
       linear: true,
+      slite: true,
       git: false,
       media: true,
       imageGeneration: false,
@@ -117,10 +122,11 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
     ...(config.journal ? [12] : []),
     ...(config.repository ? [11] : []),
     ...(config.linear ? [7] : []),
+    ...(config.slite ? [5] : []),
     ...(config.git ? [3] : []),
     ...(config.media ? [3] : []),
     ...(config.imageGeneration ? [1] : []),
-    ...(config.webSearch ? [4] : []),
+    ...(config.webSearch ? [5] : []),
   ].reduce((a, b) => a + b, 0);
 
   const hasMultimodal = config.imageGeneration || config.webSearch;
