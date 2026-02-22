@@ -166,6 +166,11 @@
   border-color: hsl(var(--border));
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
@@ -191,6 +196,12 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--tartarus-teal-dim);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tartarus-border-light) var(--tartarus-deep);
 }
 
 /* Mermaid diagram styling */
@@ -595,6 +606,7 @@ body {
   font-family: var(--font-sans);
   background: var(--kronus-void);
   color: var(--kronus-ivory);
+  overflow: hidden;
 }
 
 /* Light mode - ivory parchment with dark ink */
@@ -632,8 +644,9 @@ body {
   box-shadow: 0 0 15px rgba(0, 206, 209, 0.1);
   border-radius: 0.5rem;
   position: relative;
-  overflow: hidden;
   max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .kronus-message::before {
@@ -654,8 +667,38 @@ body {
   border-right: 3px solid var(--kronus-gold);
   box-shadow: 0 0 15px rgba(212, 175, 55, 0.1);
   border-radius: 0.5rem;
-  overflow: hidden;
   max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Force safe wrapping for rendered markdown on narrow screens */
+.kronus-chamber .kronus-content,
+.kronus-chamber .kronus-content * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.kronus-chamber .kronus-content p,
+.kronus-chamber .kronus-content li,
+.kronus-chamber .kronus-content blockquote,
+.kronus-chamber .kronus-content span,
+.kronus-chamber .kronus-content strong,
+.kronus-chamber .kronus-content em,
+.kronus-chamber .kronus-content a {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.kronus-chamber .kronus-content code {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.kronus-chamber .kronus-content pre {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 /* Tool invocations - arcane operations */

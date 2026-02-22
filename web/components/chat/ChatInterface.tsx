@@ -132,7 +132,9 @@ const markdownComponents = {
     </h6>
   ),
   p: ({ children }: any) => (
-    <p className="mb-3 leading-relaxed text-[var(--kronus-ivory-dim)]">{children}</p>
+    <p className="mb-3 break-words leading-relaxed [overflow-wrap:anywhere] text-[var(--kronus-ivory-dim)]">
+      {children}
+    </p>
   ),
   ul: ({ children }: any) => (
     <ul className="mt-2 mb-3 ml-4 list-outside list-disc space-y-1.5 text-[var(--kronus-ivory-dim)] md:ml-6">
@@ -145,7 +147,9 @@ const markdownComponents = {
     </ol>
   ),
   li: ({ children }: any) => (
-    <li className="pl-1.5 leading-relaxed marker:text-[var(--kronus-teal)]">{children}</li>
+    <li className="pl-1.5 break-words leading-relaxed [overflow-wrap:anywhere] marker:text-[var(--kronus-teal)]">
+      {children}
+    </li>
   ),
   pre: ({ children }: any) => (
     <pre className="my-3 overflow-x-auto rounded-lg border border-[var(--kronus-border)] bg-[var(--kronus-deep)] p-4">
@@ -155,7 +159,7 @@ const markdownComponents = {
   code: ({ children, className }: any) => {
     const isInline = !className;
     return isInline ? (
-      <code className="rounded bg-[var(--kronus-deep)] px-1.5 py-0.5 font-mono text-[0.85em] text-[var(--kronus-teal)]">
+      <code className="rounded bg-[var(--kronus-deep)] px-1.5 py-0.5 font-mono text-[0.85em] break-all text-[var(--kronus-teal)]">
         {children}
       </code>
     ) : (
@@ -170,7 +174,7 @@ const markdownComponents = {
     );
   },
   blockquote: ({ children }: any) => (
-    <blockquote className="my-5 ml-2 rounded-r-md border-l-3 border-[var(--kronus-teal)]/60 bg-[var(--kronus-teal-soft)] py-3 pr-4 pl-6 text-[var(--kronus-ivory-muted)] italic [&>p]:mb-0 [&>p]:py-1">
+    <blockquote className="my-5 ml-0 rounded-r-md border-l-3 border-[var(--kronus-teal)]/60 bg-[var(--kronus-teal-soft)] py-3 pr-4 pl-4 break-words [overflow-wrap:anywhere] text-[var(--kronus-ivory-muted)] italic md:ml-2 md:pl-6 [&>p]:mb-0 [&>p]:py-1">
       {children}
     </blockquote>
   ),
@@ -264,14 +268,15 @@ function processKronusTags(text: string): React.ReactNode[] {
       const beforeText = text.slice(lastIndex, match.index);
       if (beforeText.trim()) {
         elements.push(
-          <ReactMarkdown
-            key={`md-${keyIndex++}`}
-            remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            components={markdownComponents}
-          >
-            {beforeText}
-          </ReactMarkdown>
+          <div key={`md-${keyIndex++}`} className="kronus-content">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+              rehypePlugins={[rehypeKatex]}
+              components={markdownComponents}
+            >
+              {beforeText}
+            </ReactMarkdown>
+          </div>
         );
       }
     }
@@ -291,13 +296,15 @@ function processKronusTags(text: string): React.ReactNode[] {
           <span>{tagName}</span>
         </div>
         <div className="text-[var(--kronus-ivory-dim)] italic">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            components={markdownComponents}
-          >
-            {content.trim()}
-          </ReactMarkdown>
+          <div className="kronus-content">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+              rehypePlugins={[rehypeKatex]}
+              components={markdownComponents}
+            >
+              {content.trim()}
+            </ReactMarkdown>
+          </div>
         </div>
       </div>
     );
@@ -310,14 +317,15 @@ function processKronusTags(text: string): React.ReactNode[] {
     const afterText = text.slice(lastIndex);
     if (afterText.trim()) {
       elements.push(
-        <ReactMarkdown
-          key={`md-${keyIndex++}`}
-          remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-          rehypePlugins={[rehypeKatex]}
-          components={markdownComponents}
-        >
-          {afterText}
-        </ReactMarkdown>
+        <div key={`md-${keyIndex++}`} className="kronus-content">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+            components={markdownComponents}
+          >
+            {afterText}
+          </ReactMarkdown>
+        </div>
       );
     }
   }
@@ -325,14 +333,15 @@ function processKronusTags(text: string): React.ReactNode[] {
   return elements.length > 0
     ? elements
     : [
-        <ReactMarkdown
-          key="fallback"
-          remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-          rehypePlugins={[rehypeKatex]}
-          components={markdownComponents}
-        >
-          {text}
-        </ReactMarkdown>,
+        <div key="fallback" className="kronus-content">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+            components={markdownComponents}
+          >
+            {text}
+          </ReactMarkdown>
+        </div>,
       ];
 }
 
@@ -349,13 +358,15 @@ const MemoizedMarkdown = memo(function MemoizedMarkdown({ text }: { text: string
   }
 
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-      rehypePlugins={[rehypeKatex]}
-      components={markdownComponents}
-    >
-      {text}
-    </ReactMarkdown>
+    <div className="kronus-content">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={markdownComponents}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
   );
 });
 
@@ -2005,13 +2016,7 @@ Details: ${data.details}`
     }
     scrollTimeoutRef.current = requestAnimationFrame(() => {
       if (scrollRef.current) {
-        // Find the actual viewport element inside Radix ScrollArea
-        const viewport = scrollRef.current.querySelector(
-          "[data-radix-scroll-area-viewport]"
-        ) as HTMLElement | null;
-        if (viewport) {
-          viewport.scrollTop = viewport.scrollHeight;
-        }
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
     });
     return () => {
@@ -2023,11 +2028,7 @@ Details: ${data.details}`
 
   // Helper to get the actual scrollable viewport inside ScrollArea
   const getScrollViewport = useCallback(() => {
-    if (!scrollRef.current) return null;
-    // Radix ScrollArea puts the scrollable content inside a viewport element
-    return scrollRef.current.querySelector(
-      "[data-radix-scroll-area-viewport]"
-    ) as HTMLElement | null;
+    return scrollRef.current;
   }, []);
 
   // Scroll to first message
@@ -3217,9 +3218,10 @@ Details: ${data.details}`
         )}
 
         {/* Messages Area */}
-        <ScrollArea className="z-10 flex-1" ref={scrollRef}>
+        <div className="z-10 min-w-0 w-full flex-1 overflow-hidden">
+          <div className="h-full w-full overflow-x-auto overflow-y-auto" ref={scrollRef}>
           <div
-            className="mx-auto max-w-3xl space-y-2 p-2 md:p-4"
+            className="mx-auto w-full max-w-3xl space-y-2 p-2 md:p-4"
             style={{
               fontFamily: KRONUS_FONTS[formatConfig.font || "inter"].family,
               fontSize: KRONUS_FONT_SIZES[formatConfig.fontSize || "base"].size,
@@ -3280,15 +3282,15 @@ Details: ${data.details}`
               return (
                 <div
                   key={message.id}
-                  className="space-y-2"
+                  className="w-full min-w-0 space-y-2"
                   ref={(el) => {
                     if (el) messageRefs.current.set(message.id, el);
                   }}
                 >
                   <div
                     className={cn(
-                      "overflow-hidden rounded-xl p-2.5 transition-all",
-                      message.role === "user" ? "user-message ml-4 md:ml-12" : "kronus-message",
+                      "min-w-0 rounded-xl p-2.5 transition-all",
+                      message.role === "user" ? "user-message ml-1 sm:ml-4 md:ml-12" : "kronus-message",
                       isSearchMatch && "ring-2 ring-[var(--kronus-teal)]/50",
                       isCurrentSearchResult &&
                         "bg-[var(--kronus-gold)]/5 ring-2 ring-[var(--kronus-gold)]"
@@ -3300,7 +3302,7 @@ Details: ${data.details}`
                         <div className="user-avatar flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full">
                           <User className="h-4 w-4 text-white" />
                         </div>
-                        <div className="overflow-wrap-anywhere min-w-0 flex-1 break-words">
+                        <div className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
                           <div className="mb-1.5 flex items-center justify-between">
                             <p className="text-xs font-semibold text-[var(--kronus-gold)]">You</p>
                             {/* Edit button - visible on hover, hidden during streaming or when editing */}
@@ -3346,7 +3348,7 @@ Details: ${data.details}`
                               </div>
                             </div>
                           ) : (
-                            <div className="overflow-wrap-anywhere max-w-none break-words">
+                            <div className="max-w-none break-words [overflow-wrap:anywhere]">
                               {message.parts?.map((part, i) => {
                                 if (
                                   part.type === "file" &&
@@ -3391,7 +3393,7 @@ Details: ${data.details}`
                           </p>
                         </div>
                         {/* Content below header - indented for visual hierarchy */}
-                        <div className="overflow-wrap-anywhere min-w-0 max-w-full pr-1 pl-2 break-words md:pr-2 md:pl-6">
+                        <div className="min-w-0 max-w-full pr-1 pl-1 break-words [overflow-wrap:anywhere] md:pr-2 md:pl-6">
                           {/* Reasoning/Thinking display - shown above the response */}
                           {(() => {
                             const reasoningParts =
@@ -3469,7 +3471,7 @@ Details: ${data.details}`
                           if (!canRegenerate) return null;
 
                           return (
-                            <div className="mt-2 pl-6 opacity-0 transition-opacity group-hover/kronus-msg:opacity-100">
+                            <div className="mt-2 pl-2 opacity-0 transition-opacity group-hover/kronus-msg:opacity-100 md:pl-6">
                               <button
                                 onClick={handleRegenerateResponse}
                                 className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-[var(--kronus-ivory-muted)] transition-colors hover:bg-[var(--kronus-surface)] hover:text-[var(--kronus-teal)]"
@@ -3511,7 +3513,7 @@ Details: ${data.details}`
                           if (!isConfirmation) return null;
 
                           return (
-                            <div className="pl-6">
+                            <div className="pl-2 md:pl-6">
                               <ConfirmationButtons
                                 onConfirm={() => {
                                   // Send "yes" as user response - include config in body
@@ -3565,7 +3567,7 @@ Details: ${data.details}`
                         <div
                           key={toolCallId}
                           className={cn(
-                            "tool-invocation mt-2 ml-12 p-3",
+                            "tool-invocation mt-2 ml-2 p-3 md:ml-12",
                             state?.completed && "success"
                           )}
                         >
@@ -3748,7 +3750,8 @@ Details: ${data.details}`
               </div>
             )}
           </div>
-        </ScrollArea>
+          </div>
+        </div>
 
         {/* Input Area */}
         <div className="kronus-input-area z-10 p-2 md:p-4" onDrop={handleDrop} onDragOver={handleDragOver}>
