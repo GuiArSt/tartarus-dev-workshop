@@ -3090,27 +3090,27 @@ Details: ${data.details}`
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="border-[var(--kronus-border)] bg-[var(--kronus-surface)]">
-                <DropdownMenuItem onSelect={() => setShowSearch(!showSearch)}>
+              <DropdownMenuContent align="end" className="border-[var(--kronus-border)] bg-[var(--kronus-surface)] text-[var(--kronus-ivory)] shadow-lg shadow-black/40 backdrop-blur-sm">
+                <DropdownMenuItem onSelect={() => setShowSearch(!showSearch)} className="focus:bg-[var(--kronus-elevated)] focus:text-[var(--kronus-ivory)]">
                   <Search className="mr-2 h-4 w-4" />
                   Search
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={scrollToFirst}>
+                <DropdownMenuItem onSelect={scrollToFirst} className="focus:bg-[var(--kronus-elevated)] focus:text-[var(--kronus-ivory)]">
                   <ChevronUp className="mr-2 h-4 w-4" />
                   Jump to first
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={scrollToLast}>
+                <DropdownMenuItem onSelect={scrollToLast} className="focus:bg-[var(--kronus-elevated)] focus:text-[var(--kronus-ivory)]">
                   <ChevronDown className="mr-2 h-4 w-4" />
                   Jump to last
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="bg-[var(--kronus-border)]" />
                 <DropdownMenuItem onSelect={() => {
                   const firstTextPart = messages[0]?.parts?.find(
                     (p): p is { type: "text"; text: string } => p.type === "text"
                   );
                   setSaveTitle(firstTextPart?.text?.substring(0, 50) || "Untitled");
                   setShowSaveDialog(true);
-                }}>
+                }} className="focus:bg-[var(--kronus-elevated)] focus:text-[var(--kronus-ivory)]">
                   <Save className="mr-2 h-4 w-4" />
                   Save Chat
                 </DropdownMenuItem>
@@ -3247,27 +3247,37 @@ Details: ${data.details}`
                       keeper of the Developer Journal and guardian of your coding journey.
                     </p>
                     <p className="mt-2 text-sm leading-relaxed text-[var(--kronus-ivory-muted)]">
-                      I can help you create and modify journal entries, explore your development
-                      history, access your repository of writings and skills, and manage Linear
-                      issues. Configure my capabilities via{" "}
-                      <span className="text-[var(--kronus-purple)]">Tools</span> above.
+                      I start lean and load context on demand. Activate{" "}
+                      <span className="text-[var(--kronus-purple)]">Skills</span> to shape my focus,
+                      or configure{" "}
+                      <span className="text-[var(--kronus-purple)]">Tools</span> and{" "}
+                      <span className="text-[var(--kronus-purple)]">Soul</span> directly.
+                      Write operations require your approval.
                     </p>
-                    <div className="mt-4 space-y-2 text-xs">
+                    <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        📜 <strong className="text-[var(--kronus-ivory)]">Journal:</strong> Create
-                        entries, explore history, manage attachments
+                        📜 <strong className="text-[var(--kronus-ivory)]">Journal:</strong> Entries,
+                        history, project summaries
                       </p>
                       <p className="text-[var(--kronus-ivory-muted)]">
                         📚 <strong className="text-[var(--kronus-ivory)]">Repository:</strong>{" "}
-                        Writings, skills, experience, education
+                        Writings, skills, CV, portfolio
                       </p>
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        🔗 <strong className="text-[var(--kronus-ivory)]">Linear:</strong> Issues &
-                        projects (drafts require approval)
+                        🔗 <strong className="text-[var(--kronus-ivory)]">Linear:</strong> Issues,
+                        projects, status updates
                       </p>
                       <p className="text-[var(--kronus-ivory-muted)]">
-                        🌐 <strong className="text-[var(--kronus-ivory)]">Multimodal:</strong> Web
-                        search, image generation (enable in Tools)
+                        📝 <strong className="text-[var(--kronus-ivory)]">Slite:</strong> Search,
+                        read & write team notes
+                      </p>
+                      <p className="text-[var(--kronus-ivory-muted)]">
+                        🌐 <strong className="text-[var(--kronus-ivory)]">Web:</strong> Gemini
+                        Search, Perplexity research
+                      </p>
+                      <p className="text-[var(--kronus-ivory-muted)]">
+                        🎨 <strong className="text-[var(--kronus-ivory)]">Media:</strong> Image
+                        generation, media library
                       </p>
                     </div>
                   </div>
