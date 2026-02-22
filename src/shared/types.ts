@@ -2,6 +2,13 @@
  * Common types shared across all modules
  */
 
+/**
+ * Normalize repository name to prevent case-sensitive duplicates.
+ * "Jobilla" and "jobilla" → "jobilla"
+ */
+export const normalizeRepository = (name: string): string =>
+  name.trim().toLowerCase();
+
 export interface ToolResponse {
   content: Array<{
     type: "text";

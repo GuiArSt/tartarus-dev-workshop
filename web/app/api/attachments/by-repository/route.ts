@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDatabase } from "@/lib/db";
 import { withErrorHandler } from "@/lib/api-handler";
 import { requireQuery } from "@/lib/validations";
+import { normalizeRepository } from "@/lib/utils";
 import { z } from "zod";
 
 const byRepoQuerySchema = z.object({
-  repository: z.string().min(1, "Repository parameter is required"),
+  repository: z.string().min(1, "Repository parameter is required").transform(normalizeRepository),
 });
 
 /**

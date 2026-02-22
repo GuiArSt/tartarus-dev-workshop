@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
+import { normalizeRepository } from "@/lib/utils";
 
 function getObservabilityDbPath(): string {
   let currentDir = process.cwd();
@@ -45,7 +46,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
-    const repository = searchParams.get("repository");
+    const rawRepository = searchParams.get("repository");
+    const repository = rawRepository ? normalizeRepository(rawRepository) : null;
 
     const dbPath = getObservabilityDbPath();
     if (!fs.existsSync(dbPath)) {

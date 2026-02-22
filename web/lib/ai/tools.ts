@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeRepository } from "@/lib/utils";
 
 /**
  * Tool definitions for Kronus chat
@@ -12,7 +13,7 @@ export const toolSpecs = {
       "Create a new journal entry for a git commit. Use this when the user provides a commit report or asks to document their work.",
     inputSchema: z.object({
       commit_hash: z.string().min(7).describe("Git commit SHA (minimum 7 chars)"),
-      repository: z.string().min(1).describe("Repository/project name"),
+      repository: z.string().min(1).transform(normalizeRepository).describe("Repository/project name"),
       branch: z.string().min(1).describe("Git branch name"),
       author: z.string().min(1).describe("Git commit author"),
       date: z.string().describe("Commit date (ISO 8601 format)"),
@@ -32,7 +33,7 @@ export const toolSpecs = {
     description:
       "List all journal entries for a repository. Use this to browse development history.",
     inputSchema: z.object({
-      repository: z.string().min(1).describe("Repository name to search"),
+      repository: z.string().min(1).transform(normalizeRepository).describe("Repository name to search"),
       limit: z.number().optional().default(20).describe("Max entries to return"),
       offset: z.number().optional().default(0).describe("Pagination offset"),
     }),
@@ -41,7 +42,7 @@ export const toolSpecs = {
   journal_list_by_branch: {
     description: "List journal entries for a specific branch in a repository.",
     inputSchema: z.object({
-      repository: z.string().min(1).describe("Repository name"),
+      repository: z.string().min(1).transform(normalizeRepository).describe("Repository name"),
       branch: z.string().min(1).describe("Branch name"),
       limit: z.number().optional().default(20).describe("Max entries to return"),
       offset: z.number().optional().default(0).describe("Pagination offset"),
@@ -57,7 +58,7 @@ export const toolSpecs = {
   journal_list_branches: {
     description: "List all branches in a repository that have journal entries.",
     inputSchema: z.object({
-      repository: z.string().min(1).describe("Repository name"),
+      repository: z.string().min(1).transform(normalizeRepository).describe("Repository name"),
     }),
   },
 
@@ -97,14 +98,14 @@ export const toolSpecs = {
     description:
       "Get the high-level project summary for a repository. Contains architecture, purpose, and key decisions.",
     inputSchema: z.object({
-      repository: z.string().min(1).describe("Repository name"),
+      repository: z.string().min(1).transform(normalizeRepository).describe("Repository name"),
     }),
   },
 
   journal_upsert_project_summary: {
     description: "Create or update the project summary for a repository.",
     inputSchema: z.object({
-      repository: z.string().min(1).describe("Repository name"),
+      repository: z.string().min(1).transform(normalizeRepository).describe("Repository name"),
       git_url: z.string().url().describe("Git repository URL"),
       summary: z.string().min(10).describe("High-level project summary"),
       purpose: z.string().min(10).describe("Why this project exists"),

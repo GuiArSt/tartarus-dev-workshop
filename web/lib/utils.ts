@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Normalize repository name to prevent case-sensitive duplicates.
+ * "Jobilla" and "jobilla" → "jobilla"
+ */
+export const normalizeRepository = (name: string): string =>
+  name.trim().toLowerCase();
+
+/**
  * Parse a date string in European format (dd/mm/yyyy, dd.mm.yyyy, dd-mm-yyyy)
  * Also handles: yyyy, mm/yyyy, ISO dates
  * Returns { day?, month?, year } or null if unparseable

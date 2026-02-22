@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDatabase } from "@/lib/db";
 import { withErrorHandler } from "@/lib/api-handler";
+import { normalizeRepository } from "@/lib/utils";
 
 /**
  * GET /api/project-summaries
@@ -76,12 +77,14 @@ export const GET = withErrorHandler(async () => {
  */
 export const DELETE = withErrorHandler(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
-  const repository = searchParams.get("repository");
+  const rawRepository = searchParams.get("repository");
   const deleteEntries = searchParams.get("deleteEntries") === "true";
 
-  if (!repository) {
+  if (!rawRepository) {
     return NextResponse.json({ error: "Repository is required" }, { status: 400 });
   }
+
+  const repository = normalizeRepository(rawRepository);
 
   const db = getDatabase();
 

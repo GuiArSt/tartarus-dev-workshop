@@ -11,6 +11,7 @@ import {
 import { withErrorHandler } from "@/lib/api-handler";
 import { requireQuery, journalQuerySchema } from "@/lib/validations";
 import { ValidationError, NotFoundError, ForbiddenError } from "@/lib/errors";
+import { normalizeRepository } from "@/lib/utils";
 import { triggerBackup } from "@/lib/backup";
 import type { JournalEntry } from "@/lib/db/schema";
 
@@ -116,12 +117,13 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
   requireManualAction(request);
 
   const url = new URL(request.url);
-  const repository = url.searchParams.get("repository");
+  const rawRepository = url.searchParams.get("repository");
 
-  if (!repository) {
+  if (!rawRepository) {
     throw new ValidationError("repository query parameter is required");
   }
 
+  const repository = normalizeRepository(rawRepository);
   const db = getDrizzleDb();
 
   // Get all entries for this repository

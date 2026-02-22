@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { normalizeRepository } from "@/lib/utils";
 
 // ============================================================================
 // COMMON SCHEMAS
@@ -29,7 +30,7 @@ export type PaginationParams = z.infer<typeof paginationSchema>;
  * Query params for listing journal entries
  */
 export const journalQuerySchema = paginationSchema.extend({
-  repository: z.string().min(1).optional(),
+  repository: z.string().min(1).transform(normalizeRepository).optional(),
   branch: z.string().min(1).optional(),
 });
 
@@ -49,7 +50,7 @@ export type CommitHashParam = z.infer<typeof commitHashSchema>;
  */
 export const createJournalEntrySchema = z.object({
   commit_hash: z.string().min(7),
-  repository: z.string().min(1),
+  repository: z.string().min(1).transform(normalizeRepository),
   branch: z.string().min(1),
   author: z.string().min(1),
   date: z.string(),

@@ -5,6 +5,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { startTrace, startSpan, endSpan, endTrace } from "@/lib/observability";
+import { normalizeRepository } from "@/lib/utils";
 
 /**
  * Entry 0 Analysis - Living Project Summary
@@ -131,7 +132,9 @@ function formatExistingSummary(summary: ProjectSummary): string {
 }
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
-  const { repository, entries_to_analyze = 10 } = await request.json();
+  const body = await request.json();
+  const repository = body.repository ? normalizeRepository(body.repository) : null;
+  const entries_to_analyze = body.entries_to_analyze ?? 10;
 
   if (!repository) {
     return NextResponse.json({ error: "Repository is required" }, { status: 400 });

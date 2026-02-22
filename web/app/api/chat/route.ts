@@ -3,6 +3,7 @@ import { anthropic, type AnthropicProviderOptions } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { google, type GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { z } from "zod";
+import { normalizeRepository } from "@/lib/utils";
 import {
   getKronusSystemPrompt,
   getKronusSystemPromptWithSkills,
@@ -200,7 +201,7 @@ const tools = {
     description: "Create a new journal entry for a git commit",
     inputSchema: z.object({
       commit_hash: z.string().min(7),
-      repository: z.string().min(1),
+      repository: z.string().min(1).transform(normalizeRepository),
       branch: z.string().min(1),
       author: z.string().min(1),
       date: z.string(),
@@ -216,7 +217,7 @@ const tools = {
   journal_list_by_repository: {
     description: "List all journal entries for a repository",
     inputSchema: z.object({
-      repository: z.string().min(1),
+      repository: z.string().min(1).transform(normalizeRepository),
       limit: z.number().optional().default(20),
       offset: z.number().optional().default(0),
     }),
@@ -224,7 +225,7 @@ const tools = {
   journal_list_by_branch: {
     description: "List journal entries for a specific branch",
     inputSchema: z.object({
-      repository: z.string().min(1),
+      repository: z.string().min(1).transform(normalizeRepository),
       branch: z.string().min(1),
       limit: z.number().optional().default(20),
       offset: z.number().optional().default(0),
@@ -237,7 +238,7 @@ const tools = {
   journal_list_branches: {
     description: "List all branches in a repository with journal entries",
     inputSchema: z.object({
-      repository: z.string().min(1),
+      repository: z.string().min(1).transform(normalizeRepository),
     }),
   },
   journal_edit_entry: {
@@ -262,7 +263,7 @@ const tools = {
   journal_get_project_summary: {
     description: "Get the project summary for a repository",
     inputSchema: z.object({
-      repository: z.string().min(1),
+      repository: z.string().min(1).transform(normalizeRepository),
     }),
   },
   journal_list_project_summaries: {
@@ -275,7 +276,7 @@ const tools = {
   journal_upsert_project_summary: {
     description: "Create or update the project summary for a repository",
     inputSchema: z.object({
-      repository: z.string().min(1).describe("Repository name"),
+      repository: z.string().min(1).transform(normalizeRepository).describe("Repository name"),
       git_url: z.string().url().describe("Git repository URL"),
       summary: z.string().min(10).describe("High-level project summary"),
       purpose: z.string().min(10).describe("Why this project exists"),

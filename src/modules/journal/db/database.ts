@@ -24,6 +24,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { logger } from "../../../shared/logger.js";
+import { normalizeRepository } from "../../../shared/types.js";
 import type {
   JournalEntry,
   JournalEntryInsert,
@@ -537,7 +538,7 @@ export const insertJournalEntry = (entry: JournalEntryInsert): number => {
 
   const params = {
     commit_hash: entry.commit_hash,
-    repository: entry.repository,
+    repository: normalizeRepository(entry.repository),
     branch: entry.branch,
     author: entry.author,
     date: entry.date,
@@ -591,6 +592,7 @@ export const getEntriesByRepositoryPaginated = (
   if (!db) {
     throw new Error("Database not initialized");
   }
+  const repo = normalizeRepository(repository);
   const rows = db
     .prepare(
       `
@@ -600,13 +602,13 @@ export const getEntriesByRepositoryPaginated = (
     LIMIT ? OFFSET ?
   `,
     )
-    .all(repository, limit, offset);
+    .all(repo, limit, offset);
 
   const totalRow = db
     .prepare(
       "SELECT COUNT(*) as count FROM journal_entries WHERE repository = ?",
     )
-    .get(repository) as { count: number };
+    .get(repo) as { count: number };
 
   return {
     entries: rows.map(mapRow),
@@ -623,6 +625,7 @@ export const getEntriesByBranchPaginated = (
   if (!db) {
     throw new Error("Database not initialized");
   }
+  const repo = normalizeRepository(repository);
   const rows = db
     .prepare(
       `
@@ -632,13 +635,13 @@ export const getEntriesByBranchPaginated = (
     LIMIT ? OFFSET ?
   `,
     )
-    .all(repository, branch, limit, offset);
+    .all(repo, branch, limit, offset);
 
   const totalRow = db
     .prepare(
       "SELECT COUNT(*) as count FROM journal_entries WHERE repository = ? AND branch = ?",
     )
-    .get(repository, branch) as { count: number };
+    .get(repo, branch) as { count: number };
 
   return {
     entries: rows.map(mapRow),
@@ -704,7 +707,7 @@ export const listBranches = (repository: string): string[] => {
     ORDER BY branch ASC
   `,
     )
-    .all(repository);
+    .all(normalizeRepository(repository));
   return rows.map((row: any) => row.branch as string);
 };
 
@@ -719,22 +722,23 @@ export const getRepositoryEntryStats = (
     throw new Error("Database not initialized");
   }
 
+  const repo = normalizeRepository(repository);
   const countRow = db
     .prepare(
       "SELECT COUNT(*) as count FROM journal_entries WHERE repository = ?",
     )
-    .get(repository) as { count: number };
+    .get(repo) as { count: number };
 
   const lastEntryRow = db
     .prepare(
       `
-      SELECT date FROM journal_entries 
-      WHERE repository = ? 
-      ORDER BY created_at DESC 
+      SELECT date FROM journal_entries
+      WHERE repository = ?
+      ORDER BY created_at DESC
       LIMIT 1
     `,
     )
-    .get(repository) as { date: string } | undefined;
+    .get(repo) as { date: string } | undefined;
 
   return {
     count: countRow.count,
@@ -873,7 +877,7 @@ export const upsertProjectSummary = (summary: ProjectSummaryInsert): number => {
   }
 
   const params = {
-    repository: summary.repository,
+    repository: normalizeRepository(summary.repository),
     git_url: summary.git_url,
     summary: summary.summary,
     purpose: summary.purpose,
@@ -952,7 +956,7 @@ export const getProjectSummary = (
   }
   const row = db
     .prepare("SELECT * FROM project_summaries WHERE repository = ? LIMIT 1")
-    .get(repository);
+    .get(normalizeRepository(repository));
   return row ? mapProjectSummaryRow(row) : null;
 };
 
@@ -1006,7 +1010,7 @@ export const getProjectSummaryV2 = (
   if (!db) throw new Error("Database not initialized");
   const row = db
     .prepare("SELECT * FROM project_summaries WHERE repository = ? LIMIT 1")
-    .get(repository);
+    .get(normalizeRepository(repository));
   return row ? mapProjectSummaryV2Row(row) : null;
 };
 
@@ -1088,7 +1092,7 @@ export const createProjectSummaryV2 = (params: {
 
   // Also write to legacy flat columns for backward compatibility
   const legacyParams: Record<string, any> = {
-    repository: params.repository,
+    repository: normalizeRepository(params.repository),
     git_url: params.git_url || null,
     schema_version: CURRENT_SCHEMA_VERSION,
     sections_json: JSON.stringify(sectionsJson),
@@ -1146,8 +1150,9 @@ export const updateProjectTechnicalV2 = (params: {
 }): { updatedSections: string[]; totalUpdates: number } => {
   if (!db) throw new Error("Database not initialized");
 
-  const existing = getProjectSummaryV2(params.repository);
-  if (!existing) throw new Error(`No Entry 0 found for "${params.repository}"`);
+  const repo = normalizeRepository(params.repository);
+  const existing = getProjectSummaryV2(repo);
+  if (!existing) throw new Error(`No Entry 0 found for "${repo}"`);
 
   const now = new Date().toISOString();
   const currentSections: SectionsJson = existing.sections_json || {};
@@ -1176,7 +1181,7 @@ export const updateProjectTechnicalV2 = (params: {
     last_scanned_commit: params.to_commit,
     total_updates: newTotalUpdates,
     schema_version: CURRENT_SCHEMA_VERSION,
-    repository: params.repository,
+    repository: repo,
   };
 
   // Also update legacy flat columns for backward compatibility
@@ -1214,8 +1219,9 @@ export const updateProjectNarrativeV2 = (params: {
 }): { updatedSections: string[] } => {
   if (!db) throw new Error("Database not initialized");
 
-  const existing = getProjectSummaryV2(params.repository);
-  if (!existing) throw new Error(`No Entry 0 found for "${params.repository}"`);
+  const repo = normalizeRepository(params.repository);
+  const existing = getProjectSummaryV2(repo);
+  if (!existing) throw new Error(`No Entry 0 found for "${repo}"`);
 
   const now = new Date().toISOString();
   const commit = params.commit || "narrative-update";
@@ -1240,7 +1246,7 @@ export const updateProjectNarrativeV2 = (params: {
   const updateParams: Record<string, any> = {
     sections_json: JSON.stringify(currentSections),
     schema_version: CURRENT_SCHEMA_VERSION,
-    repository: params.repository,
+    repository: repo,
   };
 
   for (const key of updatedSections) {
