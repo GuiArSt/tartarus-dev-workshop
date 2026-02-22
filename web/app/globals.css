@@ -632,6 +632,8 @@ body {
   box-shadow: 0 0 15px rgba(0, 206, 209, 0.1);
   border-radius: 0.5rem;
   position: relative;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .kronus-message::before {
@@ -652,6 +654,8 @@ body {
   border-right: 3px solid var(--kronus-gold);
   box-shadow: 0 0 15px rgba(212, 175, 55, 0.1);
   border-radius: 0.5rem;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 /* Tool invocations - arcane operations */

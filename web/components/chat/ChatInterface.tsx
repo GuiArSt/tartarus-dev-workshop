@@ -135,12 +135,12 @@ const markdownComponents = {
     <p className="mb-3 leading-relaxed text-[var(--kronus-ivory-dim)]">{children}</p>
   ),
   ul: ({ children }: any) => (
-    <ul className="mt-2 mb-3 ml-6 list-outside list-disc space-y-1.5 text-[var(--kronus-ivory-dim)]">
+    <ul className="mt-2 mb-3 ml-4 list-outside list-disc space-y-1.5 text-[var(--kronus-ivory-dim)] md:ml-6">
       {children}
     </ul>
   ),
   ol: ({ children }: any) => (
-    <ol className="mt-2 mb-3 ml-6 list-outside list-decimal space-y-2 text-[var(--kronus-ivory-dim)]">
+    <ol className="mt-2 mb-3 ml-4 list-outside list-decimal space-y-2 text-[var(--kronus-ivory-dim)] md:ml-6">
       {children}
     </ol>
   ),
@@ -3226,16 +3226,16 @@ Details: ${data.details}`
             }}
           >
             {messages.length === 0 && (
-              <div className="kronus-message p-4">
-                <div className="flex items-start gap-4">
-                  <div className="kronus-avatar flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full p-0">
+              <div className="kronus-message p-3 md:p-4">
+                <div className="flex items-start gap-3 md:gap-4">
+                  <div className="kronus-avatar flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full p-0 md:h-12 md:w-12">
                     <img
                       src="/chronus-logo.png"
                       alt={agentName}
                       className="h-full w-full object-cover"
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h3 className="text-gradient-teal-gold text-xl font-semibold">
                       {agentName} — Oracle of Tartarus
                     </h3>
@@ -3287,8 +3287,8 @@ Details: ${data.details}`
                 >
                   <div
                     className={cn(
-                      "overflow-visible rounded-xl p-2.5 transition-all",
-                      message.role === "user" ? "user-message ml-12" : "kronus-message",
+                      "overflow-hidden rounded-xl p-2.5 transition-all",
+                      message.role === "user" ? "user-message ml-4 md:ml-12" : "kronus-message",
                       isSearchMatch && "ring-2 ring-[var(--kronus-teal)]/50",
                       isCurrentSearchResult &&
                         "bg-[var(--kronus-gold)]/5 ring-2 ring-[var(--kronus-gold)]"
@@ -3391,7 +3391,7 @@ Details: ${data.details}`
                           </p>
                         </div>
                         {/* Content below header - indented for visual hierarchy */}
-                        <div className="overflow-wrap-anywhere max-w-none pr-2 pl-6 break-words">
+                        <div className="overflow-wrap-anywhere min-w-0 max-w-full pr-1 pl-2 break-words md:pr-2 md:pl-6">
                           {/* Reasoning/Thinking display - shown above the response */}
                           {(() => {
                             const reasoningParts =
