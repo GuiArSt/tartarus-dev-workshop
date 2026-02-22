@@ -1283,7 +1283,7 @@ What project would you like to add?`;
 
   return (
     <div className="journal-page flex h-full flex-col">
-      <header className="journal-header flex h-14 items-center justify-between px-6">
+      <header className="journal-header flex min-h-14 flex-col gap-2 px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
         <div className="flex items-center gap-3">
           <h1 className="journal-title text-lg">Repository</h1>
           {hasActiveFilters && (
@@ -1317,8 +1317,8 @@ What project would you like to add?`;
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col">
-        <div className="journal-tabs flex items-center gap-4 px-6 py-3">
-          <TabsList className="h-auto flex-wrap gap-1">
+        <div className="journal-tabs flex flex-col gap-2 px-3 py-2 md:flex-row md:items-center md:gap-4 md:px-6 md:py-3">
+          <TabsList className="h-auto flex-wrap gap-1 overflow-x-auto">
             <TabsTrigger value="writings">
               <FileText className="mr-2 h-4 w-4" />
               Writings
@@ -2547,7 +2547,7 @@ What project would you like to add?`;
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                   <Card className="border-[#5E6AD2]/20 bg-[#5E6AD2]/5">
                     <CardContent className="p-4">
                       <div className="text-2xl font-bold text-[#5E6AD2]">{linearProjects.length}</div>
@@ -2742,7 +2742,7 @@ What project would you like to add?`;
                 ) : (
                   <>
                     {/* Stats Cards */}
-                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                       <Card className="border-[#8B5CF6]/20 bg-[#8B5CF6]/5">
                         <CardContent className="p-4">
                           <div className="text-2xl font-bold text-[#8B5CF6]">{mediaTotal}</div>
@@ -2776,7 +2776,7 @@ What project would you like to add?`;
                     </div>
 
                     {/* Media Grid */}
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                       {mediaAssets.slice(0, 18).map((asset) => (
                         <Link key={asset.id} href={`/multimedia?id=${asset.id}`}>
                           <Card className="group cursor-pointer overflow-hidden transition-colors hover:border-[#8B5CF6]/50">
@@ -2956,7 +2956,7 @@ What project would you like to add?`;
                       </div>
 
                       {/* Kronus Stats */}
-                      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
                         <Card className="border-[var(--tartarus-gold)]/20 bg-[var(--tartarus-gold)]/5">
                           <CardContent className="p-3">
                             <div className="text-xl font-bold text-[var(--tartarus-gold)]">

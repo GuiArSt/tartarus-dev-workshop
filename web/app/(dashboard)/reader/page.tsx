@@ -404,7 +404,7 @@ What changes would you like to make? You can update any field using the journal_
   return (
     <div className="flex h-full flex-col bg-[var(--tartarus-void)]">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between border-b border-[var(--tartarus-border)] px-6">
+      <header className="flex min-h-14 flex-col gap-2 border-b border-[var(--tartarus-border)] px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
         <div className="flex items-center gap-3">
           <Layers className="h-5 w-5 text-[var(--tartarus-teal)]" />
           <h1 className="text-lg font-semibold text-[var(--tartarus-ivory)]">Developer Journal</h1>
@@ -432,7 +432,7 @@ What changes would you like to make? You can update any field using the journal_
       </header>
 
       {/* Search & Tabs */}
-      <div className="flex items-center gap-4 border-b border-[var(--tartarus-border)] px-6 py-3">
+      <div className="flex flex-col gap-2 border-b border-[var(--tartarus-border)] px-3 py-2 md:flex-row md:items-center md:gap-4 md:px-6 md:py-3">
         <div className="relative max-w-md flex-1">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--tartarus-ivory-muted)]" />
           <Input
@@ -463,7 +463,7 @@ What changes would you like to make? You can update any field using the journal_
       {/* Content */}
       <ScrollArea className="flex-1">
         {activeTab === "projects" ? (
-          <div className="space-y-4 p-6">
+          <div className="space-y-4 p-3 md:p-6">
             {loading ? (
               // Loading skeletons
               Array.from({ length: 3 }).map((_, i) => (
@@ -770,7 +770,7 @@ What changes would you like to make? You can update any field using the journal_
           </div>
         ) : (
           // Timeline View - All entries chronologically
-          <div className="space-y-4 p-6">
+          <div className="space-y-4 p-3 md:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-medium text-[var(--tartarus-ivory)]">All Entries</h2>
               <Button

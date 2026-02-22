@@ -14,6 +14,7 @@ import {
   Languages,
   PanelLeftClose,
   PanelLeft,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,8 +27,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useState, useEffect } from "react";
 import { DatabaseOperations } from "@/components/db/DatabaseOperations";
+import { useIsMobile } from "@/hooks/useMobile";
 
 const navItems = [
   {
@@ -62,71 +65,60 @@ const navItems = [
   },
 ];
 
-export function Sidebar() {
+// Page title mapping for mobile header
+const pageTitles: Record<string, string> = {
+  "/chat": "Kronus",
+  "/reader": "Reader",
+  "/atropos": "Atropos",
+  "/hermes": "Hermes",
+  "/repository": "Repository",
+  "/kronus": "Kronus History",
+  "/multimedia": "Multimedia",
+  "/prompts": "Prompts",
+  "/integrations": "Integrations",
+};
+
+function getPageTitle(pathname: string): string {
+  if (pageTitles[pathname]) return pageTitles[pathname];
+  // Check prefix matches for dynamic routes
+  for (const [prefix, title] of Object.entries(pageTitles)) {
+    if (pathname.startsWith(prefix + "/")) return title;
+  }
+  return "Tartarus";
+}
+
+/** Shared sidebar content used by both desktop sidebar and mobile drawer */
+function SidebarContent({
+  expanded,
+  isDark,
+  toggleTheme,
+  handleLogout,
+  isPinned,
+  togglePinned,
+  showPinToggle,
+  onNavigate,
+}: {
+  expanded: boolean;
+  isDark: boolean;
+  toggleTheme: () => void;
+  handleLogout: () => void;
+  isPinned: boolean;
+  togglePinned: () => void;
+  showPinToggle: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const [isDark, setIsDark] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  // Default to collapsed, user can pin it expanded
-  const [isPinned, setIsPinned] = useState(false);
-
-  useEffect(() => {
-    const isDarkMode = document.documentElement.classList.contains("dark");
-    setIsDark(isDarkMode);
-
-    // Check localStorage for theme
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "dark") {
-      document.documentElement.classList.add("dark");
-      setIsDark(true);
-    }
-
-    // Check localStorage for sidebar pinned state
-    const savedPinned = localStorage.getItem("sidebar-pinned");
-    if (savedPinned === "true") {
-      setIsPinned(true);
-    }
-  }, []);
-
-  // Sidebar expands on hover OR if pinned
-  const showExpanded = isPinned || isHovered;
-
-  const togglePinned = () => {
-    const newPinned = !isPinned;
-    setIsPinned(newPinned);
-    localStorage.setItem("sidebar-pinned", newPinned ? "true" : "false");
-  };
-
-  const toggleTheme = () => {
-    const newIsDark = !isDark;
-    setIsDark(newIsDark);
-    document.documentElement.classList.toggle("dark", newIsDark);
-    localStorage.setItem("theme", newIsDark ? "dark" : "light");
-    // Dispatch event for Kronus chat to listen to
-    window.dispatchEvent(new CustomEvent("theme-change", { detail: { isDark: newIsDark } }));
-  };
-
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
-  };
 
   return (
-    <div
-      className={cn(
-        "tartarus-sidebar flex h-full flex-col bg-[var(--tartarus-deep)] transition-all duration-200",
-        showExpanded ? "w-64" : "w-16"
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <>
       {/* Logo / Brand */}
       <div
         className={cn(
           "flex h-16 items-center border-b border-[var(--tartarus-border)]",
-          showExpanded ? "px-6" : "justify-center px-2"
+          expanded ? "px-6" : "justify-center px-2"
         )}
       >
-        <Link href="/chat" className="flex items-center gap-3">
+        <Link href="/chat" className="flex items-center gap-3" onClick={onNavigate}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--tartarus-gold)] bg-[var(--tartarus-surface)] shadow-[0_0_12px_var(--tartarus-teal-glow),_0_0_4px_var(--tartarus-gold-glow)]">
             <img
               src="/chronus-logo.png"
@@ -135,7 +127,7 @@ export function Sidebar() {
               style={{ filter: "brightness(1.4) contrast(1.1)" }}
             />
           </div>
-          {showExpanded && (
+          {expanded && (
             <span className="text-gradient-teal-gold text-lg font-semibold tracking-tight">
               Tartarus
             </span>
@@ -144,11 +136,11 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className={cn("flex-1 space-y-1", showExpanded ? "p-4" : "p-2")}>
+      <nav className={cn("flex-1 space-y-1", expanded ? "p-4" : "p-2")}>
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
 
-          if (!showExpanded) {
+          if (!expanded) {
             return (
               <Tooltip key={item.href}>
                 <TooltipTrigger asChild>
@@ -158,6 +150,7 @@ export function Sidebar() {
                       "tartarus-sidebar-item flex items-center justify-center rounded-md p-2.5 transition-colors",
                       isActive && "active"
                     )}
+                    onClick={onNavigate}
                   >
                     <item.icon
                       className={cn("h-5 w-5", isActive ? "text-[var(--tartarus-teal)]" : "")}
@@ -180,6 +173,7 @@ export function Sidebar() {
                 "tartarus-sidebar-item flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
                 isActive && "active"
               )}
+              onClick={onNavigate}
             >
               <item.icon
                 className={cn("h-5 w-5 shrink-0", isActive ? "text-[var(--tartarus-teal)]" : "")}
@@ -198,9 +192,9 @@ export function Sidebar() {
       <Separator className="bg-[var(--tartarus-border)]" />
 
       {/* Footer Actions */}
-      <div className={cn("space-y-2", showExpanded ? "p-4" : "p-2")}>
-        {/* Pin/Unpin toggle - only show when expanded */}
-        {showExpanded && (
+      <div className={cn("space-y-2", expanded ? "p-4" : "p-2")}>
+        {/* Pin/Unpin toggle - only show when expanded on desktop */}
+        {showPinToggle && expanded && (
           <Button
             variant="ghost"
             size="sm"
@@ -224,7 +218,7 @@ export function Sidebar() {
         {/* Settings Dialog */}
         <Dialog>
           <DialogTrigger asChild>
-            {!showExpanded ? (
+            {!expanded ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -259,7 +253,7 @@ export function Sidebar() {
         </Dialog>
 
         {/* Theme toggle */}
-        {!showExpanded ? (
+        {!expanded ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -286,7 +280,7 @@ export function Sidebar() {
         )}
 
         {/* Logout */}
-        {!showExpanded ? (
+        {!expanded ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -312,6 +306,134 @@ export function Sidebar() {
           </Button>
         )}
       </div>
+    </>
+  );
+}
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const isMobile = useIsMobile();
+  const [isDark, setIsDark] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  useEffect(() => {
+    const isDarkMode = document.documentElement.classList.contains("dark");
+    setIsDark(isDarkMode);
+
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") {
+      document.documentElement.classList.add("dark");
+      setIsDark(true);
+    }
+
+    const savedPinned = localStorage.getItem("sidebar-pinned");
+    if (savedPinned === "true") {
+      setIsPinned(true);
+    }
+  }, []);
+
+  // Close sheet on navigation
+  useEffect(() => {
+    setSheetOpen(false);
+  }, [pathname]);
+
+  const showExpanded = isPinned || isHovered;
+
+  const togglePinned = () => {
+    const newPinned = !isPinned;
+    setIsPinned(newPinned);
+    localStorage.setItem("sidebar-pinned", newPinned ? "true" : "false");
+  };
+
+  const toggleTheme = () => {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    document.documentElement.classList.toggle("dark", newIsDark);
+    localStorage.setItem("theme", newIsDark ? "dark" : "light");
+    window.dispatchEvent(new CustomEvent("theme-change", { detail: { isDark: newIsDark } }));
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  };
+
+  // Mobile: Sheet drawer + top header bar
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile top bar */}
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] px-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 p-0 text-[var(--tartarus-ivory-dim)]"
+            onClick={() => setSheetOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--tartarus-gold)] bg-[var(--tartarus-surface)]">
+              <img
+                src="/chronus-logo.png"
+                alt="Tartarus"
+                className="h-full w-full object-cover"
+                style={{ filter: "brightness(1.4) contrast(1.1)" }}
+              />
+            </div>
+            <span className="text-sm font-medium text-[var(--tartarus-ivory)]">
+              {getPageTitle(pathname)}
+            </span>
+          </div>
+        </div>
+
+        {/* Mobile sheet drawer */}
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetContent
+            side="left"
+            showCloseButton={false}
+            className="w-64 border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] p-0"
+          >
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <div className="flex h-full flex-col">
+              <SidebarContent
+                expanded={true}
+                isDark={isDark}
+                toggleTheme={toggleTheme}
+                handleLogout={handleLogout}
+                isPinned={false}
+                togglePinned={() => {}}
+                showPinToggle={false}
+                onNavigate={() => setSheetOpen(false)}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+
+  // Desktop: hover-expand sidebar
+  return (
+    <div
+      className={cn(
+        "tartarus-sidebar flex h-full flex-col bg-[var(--tartarus-deep)] transition-all duration-200",
+        showExpanded ? "w-64" : "w-16"
+      )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <SidebarContent
+        expanded={showExpanded}
+        isDark={isDark}
+        toggleTheme={toggleTheme}
+        handleLogout={handleLogout}
+        isPinned={isPinned}
+        togglePinned={togglePinned}
+        showPinToggle={true}
+      />
     </div>
   );
 }

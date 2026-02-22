@@ -385,7 +385,7 @@ export function HermesTranslator() {
   return (
     <div className="flex h-full flex-col">
       {/* Main content area */}
-      <div className="flex-1 space-y-6 overflow-auto p-6">
+      <div className="flex-1 space-y-4 overflow-auto p-3 md:space-y-6 md:p-6">
         {/* Language and Tone Selection */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-end gap-2">
@@ -733,7 +733,7 @@ export function HermesTranslator() {
               loadMemory();
             }
           }}
-          className="flex w-full items-center justify-between px-6 py-3 text-[var(--tartarus-ivory-dim)] transition-colors hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)]"
+          className="flex w-full items-center justify-between px-3 py-2 text-[var(--tartarus-ivory-dim)] transition-colors hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)] md:px-6 md:py-3"
         >
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
@@ -749,7 +749,7 @@ export function HermesTranslator() {
         </button>
 
         {showMemory && (
-          <div className="space-y-4 bg-[var(--tartarus-deep)]/50 px-6 pb-4">
+          <div className="space-y-4 bg-[var(--tartarus-deep)]/50 px-3 pb-3 md:px-6 md:pb-4">
             {isLoadingMemory ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-[var(--tartarus-teal)]" />
@@ -757,7 +757,7 @@ export function HermesTranslator() {
             ) : memory ? (
               <>
                 {/* Stats Row */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                   <div className="rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] p-3">
                     <p className="text-2xl font-bold text-[var(--tartarus-teal)]">
                       {stats?.totalTranslations || 0}

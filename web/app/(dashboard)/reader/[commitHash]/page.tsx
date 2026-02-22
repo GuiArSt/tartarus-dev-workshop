@@ -312,10 +312,10 @@ export default function EntryDetailPage() {
   if (loading) {
     return (
       <div className="flex h-full flex-col">
-        <header className="flex h-14 items-center border-b px-6">
+        <header className="flex h-14 items-center border-b px-3 md:px-6">
           <Skeleton className="h-6 w-48" />
         </header>
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-3 md:p-6">
           <Skeleton className="mb-4 h-8 w-1/3" />
           <Skeleton className="mb-8 h-4 w-1/4" />
           <Skeleton className="mb-4 h-32 w-full" />
@@ -330,16 +330,16 @@ export default function EntryDetailPage() {
   return (
     <div className="journal-page flex h-full flex-col">
       {/* Header */}
-      <header className="journal-header flex h-14 items-center justify-between px-6">
-        <div className="flex items-center gap-4">
+      <header className="journal-header flex min-h-14 flex-col gap-2 px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
+        <div className="flex items-center gap-2 md:gap-4">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/reader">
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="mr-1 h-4 w-4 md:mr-2" />
               Back
             </Link>
           </Button>
-          <Separator orientation="vertical" className="h-6" />
-          <div className="flex items-center gap-2">
+          <Separator orientation="vertical" className="hidden h-6 md:block" />
+          <div className="flex items-center gap-1 text-sm md:gap-2 md:text-base">
             <FolderGit2 className="text-primary h-4 w-4" />
             <span className="font-medium">{entry.repository}</span>
             <span className="text-muted-foreground">/</span>
@@ -347,7 +347,7 @@ export default function EntryDetailPage() {
             <span className="text-muted-foreground">{entry.branch}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {editMode ? (
             <>
               <Button variant="ghost" size="sm" onClick={() => setEditMode(false)}>
@@ -398,7 +398,7 @@ export default function EntryDetailPage() {
 
       {/* Content */}
       <ScrollArea className="flex-1 bg-[var(--journal-paper)]">
-        <div className="mx-auto max-w-4xl rounded-lg border border-[#E5E0D8] bg-[#FEFDFB] p-6 shadow-sm">
+        <div className="mx-auto max-w-4xl rounded-lg border border-[#E5E0D8] bg-[#FEFDFB] p-3 shadow-sm md:p-6">
           {/* Meta - Clean Grid Layout */}
           <div className="mb-6 space-y-4">
             {/* Row 1: Commit Hash and Date */}

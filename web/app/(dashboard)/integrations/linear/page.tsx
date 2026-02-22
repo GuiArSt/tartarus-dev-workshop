@@ -212,8 +212,8 @@ export default function LinearPage() {
   return (
     <div className="journal-page flex h-full flex-col">
       {/* Header */}
-      <header className="journal-header flex h-14 items-center justify-between px-6">
-        <div className="flex items-center gap-3">
+      <header className="journal-header flex min-h-14 flex-col gap-2 px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           <h1 className="journal-title text-lg">Linear Integration</h1>
           {viewer && (
             <Badge
@@ -275,7 +275,7 @@ export default function LinearPage() {
 
       {/* Config Warning */}
       {viewer && !viewer.configuredUserId && (
-        <div className="border-b border-[var(--tartarus-gold-dim)]/30 bg-[var(--tartarus-gold-soft)] px-6 py-3">
+        <div className="border-b border-[var(--tartarus-gold-dim)]/30 bg-[var(--tartarus-gold-soft)] px-3 py-2 md:px-6 md:py-3">
           <p className="text-sm text-[var(--tartarus-gold)]">
             <strong>Tip:</strong> Set{" "}
             <code className="rounded bg-[var(--tartarus-deep)] px-1 text-[var(--tartarus-gold-bright)]">
@@ -291,8 +291,8 @@ export default function LinearPage() {
 
       {/* Content */}
       <Tabs defaultValue="issues" className="flex flex-1 flex-col">
-        <div className="journal-tabs px-6">
-          <TabsList className="h-12 bg-[var(--tartarus-deep)]">
+        <div className="journal-tabs px-3 md:px-6">
+          <TabsList className="h-auto flex-wrap gap-1 bg-[var(--tartarus-deep)] md:h-12">
             <TabsTrigger
               value="issues"
               className="gap-2 data-[state=active]:bg-[var(--tartarus-surface)] data-[state=active]:text-[var(--tartarus-teal)]"

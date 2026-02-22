@@ -49,8 +49,17 @@ import {
   Eye,
   EyeOff,
   Wand2,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn, formatDateShort } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useMobile";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -519,6 +528,7 @@ interface SavedConversation {
 }
 
 export function ChatInterface() {
+  const isMobile = useIsMobile();
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [toolStates, setToolStates] = useState<Record<string, ToolState>>({});
@@ -2758,7 +2768,10 @@ Details: ${data.details}`
     >
       {/* Conversation History Sidebar */}
       {showHistory && (
-        <div className="kronus-sidebar z-10 flex w-96 flex-col">
+        <div className={cn(
+          "kronus-sidebar z-10 flex flex-col",
+          isMobile ? "absolute inset-0 z-20 w-full" : "w-96"
+        )}>
           <div className="flex items-center justify-between border-b p-3">
             <h3 className="text-sm font-semibold">Saved Chats</h3>
             <div className="flex items-center gap-1">
@@ -3010,16 +3023,15 @@ Details: ${data.details}`
       {/* Main Chat Area */}
       <div className="flex flex-1 flex-col">
         {/* Toolbar */}
-        <div className="kronus-toolbar z-10 flex items-center gap-2 px-4 py-2">
+        <div className="kronus-toolbar z-10 flex items-center gap-1 px-2 py-2 md:gap-2 md:px-4">
           <Button variant="ghost" size="sm" onClick={() => setShowHistory(!showHistory)}>
-            <History className="mr-1 h-4 w-4" />
-            History
+            <History className={cn("h-4 w-4", !isMobile && "mr-1")} />
+            {!isMobile && "History"}
           </Button>
           <Button variant="ghost" size="sm" onClick={handleNewConversation}>
-            <Plus className="mr-1 h-4 w-4" />
-            New
+            <Plus className={cn("h-4 w-4", !isMobile && "mr-1")} />
+            {!isMobile && "New"}
           </Button>
-          {/* Kronus Mode - preset combos of soul + tools */}
           {/* Skills — on-demand context loading (primary control) */}
           <SkillSelector
             activeSkillSlugs={activeSkillSlugs}
@@ -3039,15 +3051,14 @@ Details: ${data.details}`
               setIsManualOverride(true);
             }}
           />
-          {/* Model Config - select AI provider (Gemini, Claude, GPT-4o) */}
+
           <ModelConfig config={modelConfig} onChange={setModelConfig} />
-          {/* Format Config - font/size, applies immediately */}
           <FormatConfig config={formatConfig} onChange={setFormatConfig} />
 
-          {/* Context Usage Indicator - shows total context (soul + conversation) */}
+          {/* Context Usage Indicator */}
           {messages.length > 0 && (
             <div
-              className="ml-2 flex items-center gap-1.5 rounded-md px-2 py-1"
+              className="ml-1 flex items-center gap-1 rounded-md px-1.5 py-1 md:ml-2 md:gap-1.5 md:px-2"
               style={{
                 backgroundColor:
                   contextUsagePercent > 70 ? "rgba(212, 175, 55, 0.15)" : "rgba(0, 206, 209, 0.1)",
@@ -3069,7 +3080,43 @@ Details: ${data.details}`
           )}
 
           <div className="flex-1" />
-          {messages.length > 0 && (
+
+          {/* Mobile: overflow menu for secondary actions */}
+          {isMobile ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="border-[var(--kronus-border)] bg-[var(--kronus-surface)]">
+                <DropdownMenuItem onSelect={() => setShowSearch(!showSearch)}>
+                  <Search className="mr-2 h-4 w-4" />
+                  Search
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={scrollToFirst}>
+                  <ChevronUp className="mr-2 h-4 w-4" />
+                  Jump to first
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={scrollToLast}>
+                  <ChevronDown className="mr-2 h-4 w-4" />
+                  Jump to last
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => {
+                  const firstTextPart = messages[0]?.parts?.find(
+                    (p): p is { type: "text"; text: string } => p.type === "text"
+                  );
+                  setSaveTitle(firstTextPart?.text?.substring(0, 50) || "Untitled");
+                  setShowSaveDialog(true);
+                }}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Chat
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            messages.length > 0 && (
             <>
               {/* Search toggle */}
               <Button
@@ -3109,6 +3156,7 @@ Details: ${data.details}`
                 Save Chat
               </Button>
             </>
+            )
           )}
         </div>
 
@@ -3171,7 +3219,7 @@ Details: ${data.details}`
         {/* Messages Area */}
         <ScrollArea className="z-10 flex-1" ref={scrollRef}>
           <div
-            className="mx-auto max-w-3xl space-y-2 p-4"
+            className="mx-auto max-w-3xl space-y-2 p-2 md:p-4"
             style={{
               fontFamily: KRONUS_FONTS[formatConfig.font || "inter"].family,
               fontSize: KRONUS_FONT_SIZES[formatConfig.fontSize || "base"].size,
@@ -3703,8 +3751,8 @@ Details: ${data.details}`
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="kronus-input-area z-10 p-4" onDrop={handleDrop} onDragOver={handleDragOver}>
-          <form onSubmit={handleSubmit} className="mx-auto max-w-3xl">
+        <div className="kronus-input-area z-10 p-2 md:p-4" onDrop={handleDrop} onDragOver={handleDragOver}>
+          <form onSubmit={handleSubmit} className="mx-auto md:max-w-3xl">
             {/* Error Banner */}
             {error && (
               <div className="mb-3 flex items-start gap-3 rounded-lg border border-[var(--kronus-error)]/30 bg-[var(--kronus-error)]/10 p-3">
@@ -3768,7 +3816,7 @@ Details: ${data.details}`
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--tartarus-error)] text-white opacity-0 transition-opacity group-hover:opacity-100"
+                          className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--tartarus-error)] text-white opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                         >
                           <X className="h-3 w-3" />
                         </button>

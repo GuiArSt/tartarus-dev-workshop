@@ -495,7 +495,7 @@ export function AtroposInterface() {
   return (
     <div className="flex h-full flex-col">
       {/* Main content area */}
-      <div className="flex-1 space-y-6 overflow-auto p-6">
+      <div className="flex-1 space-y-4 overflow-auto p-3 md:space-y-6 md:p-6">
         {/* Draft Input */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-[var(--tartarus-ivory)]">Your Draft</label>
@@ -927,7 +927,7 @@ export function AtroposInterface() {
               loadMemory();
             }
           }}
-          className="flex w-full items-center justify-between px-6 py-3 text-[var(--tartarus-ivory-dim)] transition-colors hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)]"
+          className="flex w-full items-center justify-between px-3 py-2 text-[var(--tartarus-ivory-dim)] transition-colors hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)] md:px-6 md:py-3"
         >
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
@@ -943,7 +943,7 @@ export function AtroposInterface() {
         </button>
 
         {showMemory && (
-          <div className="space-y-4 bg-[var(--tartarus-deep)]/50 px-6 pb-4">
+          <div className="space-y-4 bg-[var(--tartarus-deep)]/50 px-3 pb-3 md:px-6 md:pb-4">
             {isLoadingMemory ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-[var(--tartarus-teal)]" />

@@ -48,14 +48,14 @@ export default function LoginPage() {
 
       {/* Login card */}
       <div className="relative mx-4 w-full max-w-md">
-        <div className="rounded-2xl border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]/80 p-8 shadow-2xl backdrop-blur-md">
+        <div className="rounded-2xl border border-[var(--tartarus-border)] bg-[var(--tartarus-surface)]/80 p-6 shadow-2xl backdrop-blur-md md:p-8">
           {/* Logo & Title */}
           <div className="mb-8 flex flex-col items-center">
             {/* Large Kronus Logo */}
             <div className="relative mb-6">
               {/* Glow effect behind logo */}
               <div className="absolute inset-0 scale-150 rounded-full bg-gradient-to-br from-[var(--tartarus-gold)]/30 to-[var(--tartarus-teal)]/20 blur-2xl" />
-              <div className="relative h-32 w-32 overflow-hidden rounded-full shadow-2xl ring-4 ring-[var(--tartarus-gold)]/30 ring-offset-4 ring-offset-[var(--tartarus-surface)]">
+              <div className="relative h-24 w-24 overflow-hidden rounded-full shadow-2xl ring-4 ring-[var(--tartarus-gold)]/30 ring-offset-4 ring-offset-[var(--tartarus-surface)] md:h-32 md:w-32">
                 <Image
                   src="/chronus-logo.png"
                   alt="Kronus"

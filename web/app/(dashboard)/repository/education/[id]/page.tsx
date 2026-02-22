@@ -180,8 +180,8 @@ What would you like to change?`;
   return (
     <div className="flex h-full flex-col bg-[var(--tartarus-void)]">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between border-b border-[var(--tartarus-border)] px-6">
-        <div className="flex items-center gap-4">
+      <header className="flex min-h-14 flex-col gap-2 border-b border-[var(--tartarus-border)] px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
+        <div className="flex items-center gap-2 md:gap-4">
           <Button
             variant="ghost"
             size="sm"

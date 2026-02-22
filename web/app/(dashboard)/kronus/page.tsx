@@ -126,8 +126,8 @@ export default function KronusPage() {
   };
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="container mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-8">
+      <div className="mb-4 flex flex-col gap-3 md:mb-8 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <Brain className="h-8 w-8 text-[var(--tartarus-gold)]" />
           <div>
@@ -218,7 +218,7 @@ export default function KronusPage() {
                       {chat.question_preview}
                     </p>
 
-                    <div className="mt-2 flex items-center gap-4 text-xs text-[var(--tartarus-ivory-muted)]">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--tartarus-ivory-muted)] md:gap-4">
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {formatDate(chat.created_at)}

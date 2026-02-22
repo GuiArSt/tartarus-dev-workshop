@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import {
   Geist,
   Geist_Mono,
@@ -68,6 +68,12 @@ const spectral = Spectral({
 export const metadata: Metadata = {
   title: "Tartarus | Developer Journal",
   description: "AI-powered developer journal - Chronicle your code with Kronus",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({

@@ -11,7 +11,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen overflow-hidden bg-[var(--tartarus-deep)]">
+      <div className="flex h-screen flex-col overflow-hidden bg-[var(--tartarus-deep)] md:flex-row">
         <Sidebar />
         <main className="relative flex-1 overflow-auto bg-[var(--tartarus-void)]">
           {/* ChatInterface stays mounted, hidden when not on /chat */}

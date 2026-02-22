@@ -311,7 +311,7 @@ export default function MultimediaPage() {
 
   return (
     <div className="journal-page flex h-full flex-col">
-      <header className="journal-header flex h-14 items-center justify-between px-6">
+      <header className="journal-header flex min-h-14 items-center justify-between px-3 md:px-6">
         <h1 className="journal-title text-lg">Multimedia</h1>
         <div className="flex items-center gap-2">
           <Button
@@ -332,8 +332,8 @@ export default function MultimediaPage() {
       </header>
 
       <Tabs defaultValue="media" className="flex flex-1 flex-col">
-        <div className="journal-tabs px-6">
-          <TabsList className="h-12">
+        <div className="journal-tabs px-3 md:px-6">
+          <TabsList className="h-auto flex-wrap gap-1 md:h-12">
             <TabsTrigger value="media" className="gap-2">
               <ImageIcon className="h-4 w-4" />
               Media Library
@@ -369,8 +369,8 @@ export default function MultimediaPage() {
         </div>
 
         <ScrollArea className="flex-1 bg-[var(--journal-paper)]">
-          <TabsContent value="media" className="mt-0 p-6">
-            <div className="mb-6 flex items-center justify-between">
+          <TabsContent value="media" className="mt-0 p-3 md:p-6">
+            <div className="mb-4 flex flex-col gap-2 md:mb-6 md:flex-row md:items-center md:justify-between">
               <Select value={mediaFilter} onValueChange={(v) => setMediaFilter(v as MediaFilter)}>
                 <SelectTrigger className="w-[200px]">
                   <Filter className="mr-2 h-4 w-4" />

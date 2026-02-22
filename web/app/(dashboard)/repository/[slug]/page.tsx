@@ -434,7 +434,7 @@ export default function DocumentDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col bg-[var(--tartarus-void)] p-6">
+      <div className="flex h-full flex-col bg-[var(--tartarus-void)] p-3 md:p-6">
         <Skeleton className="mb-4 h-8 w-1/3 bg-[var(--tartarus-elevated)]" />
         <Skeleton className="h-64 w-full bg-[var(--tartarus-elevated)]" />
       </div>
@@ -452,8 +452,8 @@ export default function DocumentDetailPage() {
   return (
     <div className="flex h-full flex-col bg-[var(--tartarus-void)]">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between border-b border-[var(--tartarus-border)] px-6">
-        <div className="flex items-center gap-4">
+      <header className="flex min-h-14 flex-col gap-2 border-b border-[var(--tartarus-border)] px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
+        <div className="flex items-center gap-2 md:gap-4">
           <Button
             variant="ghost"
             size="sm"
@@ -583,7 +583,7 @@ export default function DocumentDetailPage() {
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-3 md:p-6">
         <div className="mx-auto max-w-4xl">
           <Card className="border-[var(--tartarus-border)] bg-[var(--tartarus-surface)] shadow-lg">
             <CardHeader>

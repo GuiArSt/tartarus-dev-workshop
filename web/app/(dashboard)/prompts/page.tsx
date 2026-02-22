@@ -226,10 +226,10 @@ export default function PromptsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-border flex items-center justify-between border-b p-6">
+      <div className="border-border flex flex-col gap-3 border-b p-3 md:flex-row md:items-center md:justify-between md:p-6">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold">
-            <Sparkles className="h-6 w-6 text-[var(--kronus-teal)]" />
+          <h1 className="flex items-center gap-2 text-xl font-bold md:text-2xl">
+            <Sparkles className="h-5 w-5 text-[var(--kronus-teal)] md:h-6 md:w-6" />
             Prompt Engineering
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -237,11 +237,11 @@ export default function PromptsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setShowCreateProjectDialog(true)}>
+          <Button variant="outline" size="sm" onClick={() => setShowCreateProjectDialog(true)}>
             <FolderOpen className="mr-2 h-4 w-4" />
             New Project
           </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button size="sm" onClick={() => setShowCreateDialog(true)}>
             <Plus className="mr-2 h-4 w-4" />
             New Prompt
           </Button>
@@ -249,7 +249,7 @@ export default function PromptsPage() {
       </div>
 
       {/* Filters */}
-      <div className="border-border bg-muted/30 flex items-center gap-4 border-b p-4">
+      <div className="border-border bg-muted/30 flex flex-col gap-2 border-b p-3 md:flex-row md:items-center md:gap-4 md:p-4">
         <div className="relative max-w-md flex-1">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
@@ -260,7 +260,7 @@ export default function PromptsPage() {
           />
         </div>
         <Select value={projectFilter} onValueChange={setProjectFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full md:w-48">
             <SelectValue placeholder="All Projects" />
           </SelectTrigger>
           <SelectContent>
@@ -273,7 +273,7 @@ export default function PromptsPage() {
           </SelectContent>
         </Select>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-full md:w-36">
             <SelectValue placeholder="All Roles" />
           </SelectTrigger>
           <SelectContent>
@@ -285,7 +285,7 @@ export default function PromptsPage() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-full md:w-36">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>

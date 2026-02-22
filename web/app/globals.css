@@ -1283,3 +1283,56 @@ body {
   height: 2px;
   background: linear-gradient(90deg, transparent, var(--tartarus-teal), transparent);
 }
+
+/* ===== MOBILE RESPONSIVENESS ===== */
+
+/* Safe area insets for notched devices (iPhone etc.) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Touch-friendly tap targets on non-hover devices */
+@media (hover: none) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Active states for touch devices (replaces hover) */
+@media (hover: none) {
+  .tartarus-card:active {
+    border-color: var(--tartarus-teal-dim);
+    box-shadow: var(--tartarus-glow-teal), 0 4px 20px var(--tartarus-shadow);
+  }
+
+  .tartarus-card-gold:active {
+    border-color: var(--tartarus-gold-dim);
+  }
+
+  .tartarus-sidebar-item:active {
+    background: var(--tartarus-surface);
+    color: var(--tartarus-ivory);
+  }
+
+  .kronus-sidebar-item:active {
+    background: var(--kronus-surface);
+  }
+
+  .tartarus-btn:active {
+    filter: brightness(1.1);
+  }
+
+  .tartarus-btn-gold:active {
+    filter: brightness(1.1);
+  }
+
+  .tartarus-reader-card:active {
+    border-color: var(--tartarus-teal-dim);
+  }
+}

@@ -5,7 +5,7 @@ export default function AtroposPage() {
   return (
     <div className="flex h-full flex-col bg-[var(--tartarus-void)]">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-[var(--tartarus-border)] px-6 py-4">
+      <div className="flex items-center gap-3 border-b border-[var(--tartarus-border)] px-3 py-3 md:px-6 md:py-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--tartarus-gold)]/30 bg-[var(--tartarus-gold)]/20">
           <Scissors className="h-5 w-5 text-[var(--tartarus-gold)]" />
         </div>
