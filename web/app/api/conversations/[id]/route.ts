@@ -53,8 +53,14 @@ export const PATCH = withErrorHandler(
       body = await request.json();
     }
 
-    const { title, messages } = saveConversationSchema.parse(body);
-    updateConversation(id, title, messages);
+    const { title, messages, sessionConfig } = saveConversationSchema.parse(body);
+    const sessionJson =
+      sessionConfig !== undefined
+        ? sessionConfig === null
+          ? null
+          : JSON.stringify(sessionConfig)
+        : undefined;
+    updateConversation(id, title, messages, sessionJson);
 
     return NextResponse.json({
       message: "Conversation updated successfully",

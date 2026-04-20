@@ -56,6 +56,12 @@ export function getDatabase(): Database.Database {
   db.pragma("foreign_keys = ON");
   db.pragma("busy_timeout = 5000");
 
+  try {
+    migrateMonorepoRepositoryNames(db);
+  } catch (error) {
+    console.warn("Repository name migration skipped:", error);
+  }
+
   // Initialize Repository schema immediately after database connection
   try {
     const { initRepositorySchema } = require("./db-schema");
@@ -86,6 +92,40 @@ export function getDatabase(): Database.Database {
 export function initDatabase(): Database.Database {
   // getDatabase() already initializes the schema, so just return it
   return getDatabase();
+}
+
+
+/**
+ * Rename legacy monorepo repository labels to tartarus-workspace (matches normalizeRepository).
+ */
+export function migrateMonorepoRepositoryNames(database: Database.Database): void {
+  const renames: Array<[string, string]> = [
+    ["Developer Journal Workspace", "tartarus-workspace"],
+    ["developer journal workspace", "tartarus-workspace"],
+  ];
+  const tables = [
+    "journal_entries",
+    "project_summaries",
+    "athena_learning_items",
+    "athena_sessions",
+  ] as const;
+  for (const table of tables) {
+    const row = database
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+      )
+      .get(table);
+    if (!row) continue;
+    for (const [from, to] of renames) {
+      try {
+        database
+          .prepare(`UPDATE ${table} SET repository = ? WHERE repository = ?`)
+          .run(to, from);
+      } catch {
+        // ignore
+      }
+    }
+  }
 }
 
 /**

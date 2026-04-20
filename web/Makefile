@@ -70,7 +70,7 @@ sync-compare:
 # Help
 help:
 	@echo ""
-	@echo "📚 Developer Journal Workspace - Web"
+	@echo "📚 Tartarus - Web"
 	@echo "======================================"
 	@echo ""
 	@echo "Development:"

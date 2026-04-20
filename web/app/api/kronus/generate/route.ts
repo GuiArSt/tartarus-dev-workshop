@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
 ## Your Current Task
 
-You are analyzing a git commit and its context to create a structured developer journal entry.`;
+You are analyzing a git commit and its context to create a structured Tartarus journal entry.`;
 
     if (edit_mode && existing_entry) {
       systemPrompt += `

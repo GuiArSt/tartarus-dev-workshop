@@ -2,7 +2,7 @@
 -- TARTARUS - Supabase PostgreSQL Schema
 -- ============================================
 -- Run this in Supabase SQL Editor (SQL tab in dashboard)
--- This creates all tables needed for the Developer Journal
+-- This creates all tables needed for Tartarus
 
 -- ============================================
 -- 1. JOURNAL ENTRIES (core table)

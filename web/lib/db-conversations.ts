@@ -23,8 +23,14 @@ export interface Conversation {
   id: number;
   title: string;
   messages: ChatMessage[];
+  /** JSON string of ChatSessionSnapshotV1 — restored in ChatInterface on load */
+  session_config?: string | null;
   summary?: string | null;
   summary_updated_at?: string | null;
+  tags?: string | null;
+  importance?: number | null;
+  message_count?: number | null;
+  estimated_tokens?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,37 +62,108 @@ export function initConversationsTable(): void {
       `);
     }
   }
+
+  // Migration: Add metadata columns (tags, importance, message_count, estimated_tokens)
+  try {
+    db.prepare("SELECT estimated_tokens FROM chat_conversations LIMIT 1").get();
+  } catch (error: any) {
+    if (error.message?.includes("no such column")) {
+      db.exec(`
+        ALTER TABLE chat_conversations ADD COLUMN tags TEXT DEFAULT '[]';
+        ALTER TABLE chat_conversations ADD COLUMN importance INTEGER DEFAULT 0;
+        ALTER TABLE chat_conversations ADD COLUMN message_count INTEGER DEFAULT 0;
+        ALTER TABLE chat_conversations ADD COLUMN estimated_tokens INTEGER DEFAULT 0;
+      `);
+    }
+  }
+
+  // Migration: Kronus UI snapshot (model, soul, tools, skills, format)
+  try {
+    db.prepare("SELECT session_config FROM chat_conversations LIMIT 1").get();
+  } catch (error: any) {
+    if (error.message?.includes("no such column")) {
+      db.exec(`ALTER TABLE chat_conversations ADD COLUMN session_config TEXT`);
+    }
+  }
+}
+
+/**
+ * Estimate token count for a messages array (~4 chars per token).
+ * Only counts user + assistant text content, not tool invocations or system messages.
+ */
+function estimateMessageTokens(messages: ChatMessage[]): number {
+  let chars = 0;
+  for (const msg of messages) {
+    if (msg.role === "user" || msg.role === "assistant") {
+      chars += (msg.content || "").length;
+    }
+  }
+  return Math.ceil(chars / 4);
 }
 
 // Save a new conversation
-export function saveConversation(title: string, messages: ChatMessage[]): number {
+export function saveConversation(
+  title: string,
+  messages: ChatMessage[],
+  sessionConfigJson?: string | null
+): number {
   const db = getDatabase();
   initConversationsTable();
 
   const result = db
     .prepare(
       `
-    INSERT INTO chat_conversations (title, messages, updated_at)
-    VALUES (?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO chat_conversations (title, messages, session_config, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
   `
     )
-    .run(title, JSON.stringify(messages));
+    .run(title, JSON.stringify(messages), sessionConfigJson ?? null);
 
-  return result.lastInsertRowid as number;
+  const id = result.lastInsertRowid as number;
+
+  // Register in object registry
+  try {
+    const { registerObject } = require("./object-registry");
+    registerObject({ type: "conversation", sourceTable: "chat_conversations", sourceId: String(id), title });
+  } catch { /* registry is non-critical */ }
+
+  return id;
 }
 
 // Update an existing conversation
-export function updateConversation(id: number, title: string, messages: ChatMessage[]): void {
+// Pass sessionConfigJson === undefined to leave session_config unchanged in DB.
+export function updateConversation(
+  id: number,
+  title: string,
+  messages: ChatMessage[],
+  sessionConfigJson?: string | null | undefined
+): void {
   const db = getDatabase();
   initConversationsTable();
 
-  db.prepare(
-    `
+  if (sessionConfigJson === undefined) {
+    db.prepare(
+      `
     UPDATE chat_conversations
     SET title = ?, messages = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `
-  ).run(title, JSON.stringify(messages), id);
+    ).run(title, JSON.stringify(messages), id);
+  } else {
+    db.prepare(
+      `
+    UPDATE chat_conversations
+    SET title = ?, messages = ?, session_config = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `
+    ).run(title, JSON.stringify(messages), sessionConfigJson, id);
+  }
+
+  // Update registry
+  try {
+    const { registerObject } = require("./object-registry");
+    registerObject({ type: "conversation", sourceTable: "chat_conversations", sourceId: String(id), title });
+  } catch { /* registry is non-critical */ }
 }
 
 // Update only the title without touching updated_at (for summary generation)
@@ -115,6 +192,7 @@ export function getConversation(id: number): Conversation | null {
   return {
     ...row,
     messages: JSON.parse(row.messages),
+    session_config: row.session_config ?? null,
   };
 }
 

@@ -1,4 +1,4 @@
-# Developer Journal MCP Server - Docker Image
+# Tartarus MCP Server - Docker Image
 # Exposes journal tools via HTTP API for Docker deployment
 
 # ============================================

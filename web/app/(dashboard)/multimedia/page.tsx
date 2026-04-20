@@ -310,9 +310,9 @@ export default function MultimediaPage() {
   const journalLinkedCount = mediaAssets.filter((a) => !!a.commit_hash).length;
 
   return (
-    <div className="journal-page flex h-full flex-col">
-      <header className="journal-header flex min-h-14 items-center justify-between px-3 md:px-6">
-        <h1 className="journal-title text-lg">Multimedia</h1>
+    <div className="flex h-full flex-col bg-[var(--tartarus-void)] text-[var(--tartarus-ivory)]">
+      <header className="border-b border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] flex min-h-14 items-center justify-between px-3 md:px-6">
+        <h1 className="font-semibold text-[var(--tartarus-ivory)] text-lg">Multimedia</h1>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -332,7 +332,7 @@ export default function MultimediaPage() {
       </header>
 
       <Tabs defaultValue="media" className="flex flex-1 flex-col">
-        <div className="journal-tabs px-3 md:px-6">
+        <div className="border-b border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] px-3 md:px-6">
           <TabsList className="h-auto flex-wrap gap-1 md:h-12">
             <TabsTrigger value="media" className="gap-2">
               <ImageIcon className="h-4 w-4" />
@@ -368,7 +368,7 @@ export default function MultimediaPage() {
           </TabsList>
         </div>
 
-        <ScrollArea className="flex-1 bg-[var(--journal-paper)]">
+        <ScrollArea className="flex-1 bg-[var(--tartarus-void)]">
           <TabsContent value="media" className="mt-0 p-3 md:p-6">
             <div className="mb-4 flex flex-col gap-2 md:mb-6 md:flex-row md:items-center md:justify-between">
               <Select value={mediaFilter} onValueChange={(v) => setMediaFilter(v as MediaFilter)}>
@@ -413,7 +413,7 @@ export default function MultimediaPage() {
                 {filteredMedia.map((asset) => (
                   <Card
                     key={asset.id}
-                    className="hover:ring-primary cursor-pointer overflow-hidden transition-all hover:ring-2"
+                    className="hover:ring-primary cursor-pointer overflow-hidden transition-[box-shadow] duration-150 hover:ring-2"
                     onClick={() => viewMediaAsset(asset)}
                   >
                     <div className="bg-muted relative flex aspect-square items-center justify-center overflow-hidden">
@@ -528,7 +528,7 @@ export default function MultimediaPage() {
                 {mermaidAttachments.map((attachment) => (
                   <Card
                     key={attachment.id}
-                    className="hover:ring-primary cursor-pointer overflow-hidden transition-all hover:ring-2"
+                    className="hover:ring-primary cursor-pointer overflow-hidden transition-[box-shadow] duration-150 hover:ring-2"
                     onClick={() => viewAttachment(attachment)}
                   >
                     <div className="bg-muted flex aspect-video items-center justify-center">

@@ -103,6 +103,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   // Generate summary asynchronously (don't block response)
   generateExperienceSummary(body.id, exp).catch(console.error);
 
+  try {
+    const { registerObject } = await import("@/lib/object-registry");
+    registerObject({ type: 'work_experience', sourceTable: 'work_experience', sourceId: body.id, title: `${body.title} at ${body.company}` });
+  } catch { /* registry is non-critical */ }
+
   return NextResponse.json({
     ...exp,
     achievements: JSON.parse(exp.achievements || "[]"),

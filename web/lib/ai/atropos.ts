@@ -17,11 +17,12 @@ export const IntentQuestionSchema = z.object({
     .string()
     .describe("A clarifying question when the text has ambiguity (double meaning, unclear intent)"),
   context: z.string().describe("Brief explanation of why this clarification is needed"),
+  // No .min/.max on arrays: Anthropic structured output rejects minItems/maxItems on arrays.
   options: z
     .array(z.string())
-    .min(2)
-    .max(3)
-    .describe("2-3 quick-select options (A, B, C style). User can also provide free text."),
+    .describe(
+      "Exactly 2 or 3 quick-select options (A, B, C style). Never 0, 1, or more than 3. User can also provide free text."
+    ),
 });
 
 /**
@@ -38,10 +39,9 @@ export const CorrectionResponseSchema = z.object({
     .describe("True if any corrections were made, false if text was already correct"),
   intentQuestions: z
     .array(IntentQuestionSchema)
-    .max(3)
     .optional()
     .describe(
-      "RARELY used. Only ask when genuine ambiguity exists. Most corrections need no questions. Max 3 questions."
+      "RARELY used. Only ask when genuine ambiguity exists. Most corrections need no questions. At most 3 questions."
     ),
 });
 

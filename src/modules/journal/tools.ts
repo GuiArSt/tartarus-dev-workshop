@@ -4,12 +4,15 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolveMonorepoRootFromImportMeta } from "../../shared/project-root.js";
 import { z } from "zod";
 
 import { toMcpError } from "../../shared/errors.js";
 import { logger } from "../../shared/logger.js";
-import type { JournalConfig } from "../../shared/types.js";
+import {
+  type JournalConfig,
+  journalConfigHasAi,
+} from "../../shared/types.js";
 import { generateJournalEntry } from "./ai/generate-entry.js";
 import { normalizeReport, mergeSummaryUpdates } from "./ai/normalize-report.js";
 import {
@@ -41,6 +44,9 @@ import {
   listSliteNotes,
   getSliteNote,
   getSliteCacheStats,
+  listNotionPages,
+  getNotionPage,
+  getNotionCacheStats,
   // Entry 0 v2
   getProjectSummaryV2,
   createProjectSummaryV2,
@@ -48,6 +54,12 @@ import {
   updateProjectNarrativeV2,
   getShallowView,
   getDeepView,
+  getUnifiedMediaLibrary,
+  getObjectByUUID,
+  getObjectBySource,
+  searchTartarusObjects,
+  getDocumentBySlug,
+  getConversationById,
 } from "./db/database.js";
 import {
   AgentInputSchema,
@@ -66,42 +78,7 @@ import {
  * This is different from process.cwd() which returns where the agent is running from
  */
 function getProjectRoot(): string {
-  // Use import.meta.url to find where this module is located
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-
-  // Walk up from dist/modules/journal/tools.js to find project root
-  let currentDir = __dirname;
-  for (let i = 0; i < 5; i++) {
-    // Look for Developer Journal Workspace directory with package.json or Soul.xml
-    if (
-      path.basename(currentDir) === "Developer Journal Workspace" &&
-      (fs.existsSync(path.join(currentDir, "package.json")) ||
-        fs.existsSync(path.join(currentDir, "Soul.xml")))
-    ) {
-      return currentDir;
-    }
-    const parent = path.dirname(currentDir);
-    if (parent === currentDir) break; // Reached filesystem root
-    currentDir = parent;
-  }
-
-  // Fallback: if we can't find it, use __dirname and walk up to find package.json
-  currentDir = __dirname;
-  for (let i = 0; i < 10; i++) {
-    if (
-      fs.existsSync(path.join(currentDir, "package.json")) ||
-      fs.existsSync(path.join(currentDir, "Soul.xml"))
-    ) {
-      return currentDir;
-    }
-    const parent = path.dirname(currentDir);
-    if (parent === currentDir) break;
-    currentDir = parent;
-  }
-
-  // Last resort: return __dirname (shouldn't happen)
-  return currentDir;
+  return resolveMonorepoRootFromImportMeta(import.meta.url);
 }
 
 /**
@@ -179,6 +156,154 @@ function formatEntrySummary(
   return formatted;
 }
 
+function buildRegistryDownloadUrl(
+  journalConfig: JournalConfig,
+  sourceTable: string,
+  sourceId: string,
+): string | null {
+  const tartarusUrl = journalConfig.tartarusUrl;
+  if (!tartarusUrl) return null;
+
+  if (sourceTable === "entry_attachments") {
+    return `${tartarusUrl}/api/mcp/attachments/${encodeURIComponent(sourceId)}/raw`;
+  }
+
+  if (sourceTable === "media_assets") {
+    return `${tartarusUrl}/api/media/${encodeURIComponent(sourceId)}/raw`;
+  }
+
+  return null;
+}
+
+function formatRegistryObjectDetail(
+  obj: {
+    uuid: string;
+    type: string;
+    source_table: string;
+    source_id: string;
+    title: string | null;
+    summary: string | null;
+    tags: string[];
+    importance: number;
+    estimated_tokens: number;
+    created_at: string;
+    updated_at: string;
+  },
+  journalConfig: JournalConfig,
+): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    uuid: obj.uuid,
+    type: obj.type,
+    source_table: obj.source_table,
+    source_id: obj.source_id,
+    title: obj.title,
+    summary: obj.summary,
+    tags: obj.tags,
+    importance: obj.importance,
+    estimated_tokens: obj.estimated_tokens,
+    created_at: obj.created_at,
+    updated_at: obj.updated_at,
+  };
+
+  const downloadUrl = buildRegistryDownloadUrl(
+    journalConfig,
+    obj.source_table,
+    obj.source_id,
+  );
+  if (downloadUrl) {
+    base.download_url = downloadUrl;
+  }
+
+  switch (obj.type) {
+    case "journal_entry": {
+      const entry = getEntryByCommit(obj.source_id);
+      if (!entry) {
+        base.error = "Source journal entry not found";
+        return base;
+      }
+
+      return {
+        ...base,
+        object: {
+          commit_hash: entry.commit_hash,
+          repository: entry.repository,
+          branch: entry.branch,
+          author: entry.author,
+          date: entry.date,
+          why: entry.why,
+          what_changed: entry.what_changed,
+          decisions: entry.decisions,
+          technologies: entry.technologies,
+          kronus_wisdom: entry.kronus_wisdom,
+          summary: entry.summary ?? null,
+          files_changed: entry.files_changed ?? null,
+        },
+      };
+    }
+
+    case "project_summary": {
+      const summary = getProjectSummary(obj.source_id);
+      if (!summary) {
+        base.error = "Source project summary not found";
+        return base;
+      }
+
+      return {
+        ...base,
+        object: summary,
+        note: "Entry 0 full section history is available via journal://project-summary/{repository}/deep",
+      };
+    }
+
+    case "document":
+    case "prompt": {
+      const document = getDocumentBySlug(obj.source_id);
+      if (!document) {
+        base.error = "Source document not found";
+        return base;
+      }
+
+      return {
+        ...base,
+        object: {
+          id: document.id,
+          slug: document.slug,
+          type: document.type,
+          title: document.title,
+          language: document.language,
+          summary: document.summary,
+          metadata: document.metadata,
+          content: document.content,
+          created_at: document.createdAt,
+          updated_at: document.updatedAt,
+        },
+      };
+    }
+
+    case "conversation": {
+      const conversation = getConversationById(Number(obj.source_id));
+      if (!conversation) {
+        base.error = "Source conversation not found";
+        return base;
+      }
+
+      return {
+        ...base,
+        object: conversation,
+      };
+    }
+
+    default:
+      return {
+        ...base,
+        note:
+          downloadUrl
+            ? "Binary or external object. Use download_url for raw content."
+            : "Registry metadata available. Full source fetch is not exposed for this type yet.",
+      };
+  }
+}
+
 /**
  * Truncate text output to safe limits
  * Accounts for truncation warning message size to ensure final output stays within limits
@@ -243,16 +368,26 @@ export async function registerJournalTools(
     throw new Error("JournalConfig is required for journal tools");
   }
 
+  const requireJournalAi = () => ({
+    content: [
+      {
+        type: "text" as const,
+        text: "This tool needs an AI API key on the MCP server. Add ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY to your MCP config `env` so the Tartarus subprocess can call the model.",
+      },
+    ],
+    isError: true as const,
+  });
+
   // Tool 1: Create Journal Entry
   server.registerTool(
     "journal_create_entry",
     {
       title: "Create Journal Entry",
-      description: `Create a developer journal entry for a git commit. This tool documents the work done, decisions made, and context behind code changes.
+      description: `Create a Tartarus journal entry for a git commit. This tool documents the work done, decisions made, and context behind code changes.
 
 ## What You Provide (Required Metadata)
 - commit_hash: The git commit SHA (at least 7 chars)
-- repository: Project/repo name (e.g., "my-app", "Developer Journal Workspace")
+- repository: Project/repo name (e.g., "my-app", "tartarus-workspace")
 - branch: Git branch name (e.g., "main", "feature/auth")
 - author: Commit author name
 - date: Commit date in ISO 8601 format (e.g., "2026-01-12T10:30:00Z")
@@ -304,6 +439,10 @@ Example file mentions in report:
               },
             ],
           };
+        }
+
+        if (!journalConfigHasAi(journalConfig)) {
+          return requireJournalAi();
         }
 
         // Generate AI analysis
@@ -815,6 +954,17 @@ Use journal_update_project_technical for technical sections instead.`,
 
         // If no direct sections but raw_report provided, use AI normalization
         if (Object.keys(sections).length === 0 && input.raw_report) {
+          if (!journalConfigHasAi(journalConfig)) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "AI-assisted narrative update requires ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY on the MCP server. Provide individual narrative sections (summary, purpose, …) instead, or add a key to your MCP env.",
+                },
+              ],
+              isError: true,
+            };
+          }
           const entriesLimit = Math.min(input.include_recent_entries || 5, 20);
           const { entries: recentEntries } = getEntriesByRepositoryPaginated(
             input.repository,
@@ -994,7 +1144,7 @@ Returns a paginated index with download URLs that models can fetch directly, avo
 
 ## Example Usage
 1. List all images: \`{ mime_type_prefix: "image/" }\`
-2. Get assets for a repo: \`{ repository: "Developer Journal Workspace" }\`
+2. Get assets for a repo: \`{ repository: "tartarus-workspace" }\`
 3. Find AI-generated images: \`{ destination: "media" }\``,
       inputSchema: {
         repository: z
@@ -1122,6 +1272,146 @@ Returns a paginated index with download URLs that models can fetch directly, avo
         };
 
         const text = `📚 Media Library (${result.total} items)\n\n${JSON.stringify(response, null, 2)}`;
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: truncateOutput(text),
+            },
+          ],
+        };
+      } catch (error) {
+        throw toMcpError(error);
+      }
+    },
+  );
+
+  // Tool 12: Search registry objects
+  server.registerTool(
+    "registry_search_objects",
+    {
+      title: "Search Registry Objects",
+      description:
+        "Search the Tartarus object registry across journal entries, Entry 0 summaries, documents, conversations, CV records, media, and synced integration objects. " +
+        "Use this as the universal discovery layer before fetching a specific object by UUID.",
+      inputSchema: {
+        query: z.string().min(1).describe("Search keyword or phrase"),
+        type: z
+          .string()
+          .optional()
+          .describe(
+            "Optional type filter (e.g. journal_entry, project_summary, document, conversation, media_asset, attachment)",
+          ),
+        limit: z
+          .number()
+          .optional()
+          .default(20)
+          .describe("Maximum results to return (default: 20, max: 50)"),
+      },
+    },
+    async ({ query, type, limit }) => {
+      try {
+        const safeLimit = Math.min(limit ?? 20, 50);
+        const results = searchTartarusObjects(query, type, safeLimit).map((obj) => ({
+          uuid: obj.uuid,
+          type: obj.type,
+          source_table: obj.source_table,
+          source_id: obj.source_id,
+          title: obj.title,
+          summary: obj.summary,
+          tags: obj.tags,
+          updated_at: obj.updated_at,
+          download_url: buildRegistryDownloadUrl(
+            journalConfig,
+            obj.source_table,
+            obj.source_id,
+          ),
+        }));
+
+        const text = `Registry search results for "${query}"${
+          type ? ` (type: ${type})` : ""
+        }\n\n${JSON.stringify(
+          {
+            query,
+            type: type || null,
+            total_results: results.length,
+            results,
+          },
+          null,
+          2,
+        )}`;
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: truncateOutput(text),
+            },
+          ],
+        };
+      } catch (error) {
+        throw toMcpError(error);
+      }
+    },
+  );
+
+  // Tool 13: Fetch registry object
+  server.registerTool(
+    "registry_fetch_object",
+    {
+      title: "Fetch Registry Object",
+      description:
+        "Fetch a Tartarus object by UUID or by source reference. Returns full content for core text objects (journal entries, Entry 0, documents, conversations) " +
+        "and metadata plus download_url for binary-backed objects like attachments and media.",
+      inputSchema: {
+        uuid: z.string().optional().describe("Registry UUID"),
+        source_table: z
+          .string()
+          .optional()
+          .describe("Source table name (e.g. documents, project_summaries, entry_attachments)"),
+        source_id: z
+          .string()
+          .optional()
+          .describe("Source ID in that table (slug, commit hash, numeric ID as string, etc.)"),
+      },
+    },
+    async ({ uuid, source_table, source_id }) => {
+      try {
+        if (!uuid && !(source_table && source_id)) {
+          throw new Error("Provide either uuid or source_table + source_id");
+        }
+
+        const obj = uuid
+          ? getObjectByUUID(uuid)
+          : getObjectBySource(source_table as string, source_id as string);
+
+        if (!obj) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    error: "Registry object not found",
+                    uuid: uuid || null,
+                    source_table: source_table || null,
+                    source_id: source_id || null,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+            isError: true as const,
+          };
+        }
+
+        const text = JSON.stringify(
+          formatRegistryObjectDetail(obj, journalConfig),
+          null,
+          2,
+        );
 
         return {
           content: [
@@ -1425,7 +1715,7 @@ Skills grouped by category with:
           level: levelMap[s.magnitude] || "Unknown",
           magnitude: s.magnitude,
           description: s.description,
-          tags: s.tags ? JSON.parse(s.tags) : [],
+          tags: Array.isArray(s.tags) ? s.tags : [],
         }));
 
         // Group by category
@@ -1476,7 +1766,7 @@ Useful for understanding professional background and career history.`,
           location: job.location,
           period: `${job.dateStart} → ${job.dateEnd || "Present"}`,
           tagline: job.tagline,
-          achievements: job.achievements ? JSON.parse(job.achievements) : [],
+          achievements: Array.isArray(job.achievements) ? job.achievements : [],
         }));
 
         const text = `💼 Work Experience (${formatted.length} entries)\n\n${JSON.stringify(formatted, null, 2)}`;
@@ -1519,8 +1809,8 @@ Useful for understanding academic background and qualifications.`,
           location: edu.location,
           period: `${edu.dateStart} → ${edu.dateEnd || "Present"}`,
           tagline: edu.tagline,
-          focusAreas: edu.focusAreas ? JSON.parse(edu.focusAreas) : [],
-          achievements: edu.achievements ? JSON.parse(edu.achievements) : [],
+          focusAreas: Array.isArray(edu.focusAreas) ? edu.focusAreas : [],
+          achievements: Array.isArray(edu.achievements) ? edu.achievements : [],
         }));
 
         const text = `🎓 Education (${formatted.length} entries)\n\n${JSON.stringify(formatted, null, 2)}`;
@@ -1572,9 +1862,10 @@ Returns projects with titles, categories, technologies, and metrics.`,
         if (featured !== undefined) params.set("featured", featured.toString());
 
         const queryString = params.toString();
-        const projects = await fetchTartarus<any[]>(
+        const response = await fetchTartarus<{ projects: any[]; total: number }>(
           `/api/portfolio-projects${queryString ? `?${queryString}` : ""}`,
         );
+        const projects = response.projects || [];
 
         const formatted = projects.map((p) => ({
           id: p.id,
@@ -1586,9 +1877,9 @@ Returns projects with titles, categories, technologies, and metrics.`,
           role: p.role,
           dateCompleted: p.dateCompleted,
           excerpt: p.excerpt,
-          technologies: p.technologies ? JSON.parse(p.technologies) : [],
-          metrics: p.metrics ? JSON.parse(p.metrics) : {},
-          links: p.links ? JSON.parse(p.links) : {},
+          technologies: Array.isArray(p.technologies) ? p.technologies : [],
+          metrics: p.metrics && typeof p.metrics === "object" ? p.metrics : {},
+          links: p.links && typeof p.links === "object" ? p.links : {},
         }));
 
         const text = `🚀 Portfolio Projects (${formatted.length} found)\n\n${JSON.stringify(formatted, null, 2)}`;
@@ -1602,9 +1893,10 @@ Returns projects with titles, categories, technologies, and metrics.`,
     },
   );
 
-  // Tool 20 removed - use resource repository://portfolio-project/{id} instead
+  // Repository write tools - agents can create notes/prompts and update documents.
+  // Linear sync tools removed from MCP - those are Tartarus-exclusive.
 
-  // Fetch current metadata values for schema description (sync before tool registration)
+  // Fetch current metadata values for schema description
   let currentTagsDescription = "Tags are free-form strings for categorization.";
   let currentTypesDescription =
     "Optional secondary category (different from primary type field).";
@@ -2506,13 +2798,17 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
           }
         }
 
+        if (!journalConfigHasAi(journalConfig)) {
+          return requireJournalAi();
+        }
+
         // Import the generateDocument function
         const { generateDocument } = await import("./ai/generate-document.js");
 
         // Generate structured data from agent report
         const aiOutput = await generateDocument(
           { raw_agent_report, document_type },
-          journalConfig!,
+          journalConfig,
         );
 
         // RESTRICTION: Also block if AI extracted type as 'writing'
@@ -2913,7 +3209,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
   );
 
   logger.success(
-    "Journal tools registered (7 tools) + Repository tools (9 tools via Tartarus API)",
+    "Journal tools registered (10 tools including registry) + Repository tools (9 tools via Tartarus API)",
   );
 
   // ============================================
@@ -3322,6 +3618,99 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
               mimeType: "application/json",
               text: JSON.stringify({
                 error: `Failed to fetch attachment: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  // Resource Template: Get registry object by UUID
+  server.registerResource(
+    "registry-object",
+    new ResourceTemplate("registry://object/{uuid}", { list: undefined }),
+    {
+      description:
+        "Get a Tartarus registry object by UUID. Returns full text content for journal entries, Entry 0 summaries, documents, and conversations, or metadata plus download_url for binary-backed objects.",
+      mimeType: "application/json",
+    },
+    async (uri, { uuid }) => {
+      try {
+        const obj = getObjectByUUID(uuid as string);
+        const output = obj
+          ? formatRegistryObjectDetail(obj, journalConfig)
+          : { error: `Registry object not found: ${uuid}` };
+
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(output, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch registry object: ${
+                  error instanceof Error ? error.message : "Unknown error"
+                }`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  // Resource Template: Get registry object by source reference
+  server.registerResource(
+    "registry-object-by-source",
+    new ResourceTemplate("registry://source/{source_table}/{source_id}", {
+      list: undefined,
+    }),
+    {
+      description:
+        "Get a Tartarus registry object by source table and source ID. Useful when you know the underlying object key but not its UUID.",
+      mimeType: "application/json",
+    },
+    async (uri, { source_table, source_id }) => {
+      try {
+        const obj = getObjectBySource(
+          source_table as string,
+          source_id as string,
+        );
+        const output = obj
+          ? formatRegistryObjectDetail(obj, journalConfig)
+          : {
+              error: `Registry object not found for ${source_table}/${source_id}`,
+            };
+
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(output, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to fetch registry object by source: ${
+                  error instanceof Error ? error.message : "Unknown error"
+                }`,
               }),
             },
           ],
@@ -4072,7 +4461,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
   );
 
   // Resource Template: Get single Slite note with full content
-  server.registerResourceTemplate(
+  server.registerResource(
     "slite-note",
     new ResourceTemplate("slite://note/{id}", { list: undefined }),
     {
@@ -4121,6 +4510,153 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
   );
 
   logger.success("Slite cache resources registered (3 resources)");
+
+  // ============================================
+  // NOTION CACHE RESOURCES (read-only, synced via Tartarus)
+  // ============================================
+
+  // Resource: Notion cache stats
+  server.registerResource(
+    "notion-cache-stats",
+    "notion://cache/stats",
+    {
+      description:
+        "Notion cache statistics - page counts and sync times. Workspace data is read-only via cache, synced externally through Tartarus.",
+      mimeType: "application/json",
+    },
+    async (uri) => {
+      try {
+        const stats = getNotionCacheStats();
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(stats, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to get Notion cache stats: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  // Resource: List Notion pages (cached)
+  server.registerResource(
+    "notion-pages",
+    "notion://pages",
+    {
+      description:
+        "List all cached Notion pages (read-only cache, synced via Tartarus). Includes AI-generated summaries. Use notion://page/{id} for full content.",
+      mimeType: "application/json",
+    },
+    async (uri) => {
+      try {
+        const pages = listNotionPages({ includeDeleted: false });
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(
+                {
+                  total: pages.length,
+                  note: "Read-only cache, synced via Tartarus.",
+                  pages: pages.map((p) => ({
+                    id: p.id,
+                    title: p.title,
+                    icon: p.icon,
+                    parentId: p.parent_id,
+                    parentType: p.parent_type,
+                    summary: p.summary,
+                    lastEditedAt: p.last_edited_at,
+                    lastEditedByName: p.last_edited_by_name,
+                    updatedAt: p.updated_at,
+                  })),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to list Notion pages: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  // Resource Template: Get single Notion page with full content
+  server.registerResource(
+    "notion-page",
+    new ResourceTemplate("notion://page/{id}", { list: undefined }),
+    {
+      description:
+        "Get a single Notion page with full content by ID. Read-only cache, synced via Tartarus.",
+      mimeType: "application/json",
+    },
+    async (uri, { id }) => {
+      try {
+        const pageId = Array.isArray(id) ? id[0] : id;
+        const page = getNotionPage(pageId);
+        if (!page) {
+          return {
+            contents: [
+              {
+                uri: uri.href,
+                mimeType: "application/json",
+                text: JSON.stringify({ error: `Page ${pageId} not found in cache` }),
+              },
+            ],
+          };
+        }
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify(page, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "application/json",
+              text: JSON.stringify({
+                error: `Failed to get Notion page: ${error instanceof Error ? error.message : "Unknown error"}`,
+              }),
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  logger.success("Notion cache resources registered (3 resources)");
 
   // ============================================
   // CV RESOURCES - Skills, Experience, Education from repository
@@ -4289,7 +4825,7 @@ Requires TARTARUS_URL and MCP_API_KEY to be configured.`,
             role: "user",
             content: {
               type: "text",
-              text: `Create a developer journal entry for this commit:
+              text: `Create a Tartarus journal entry for this commit:
 
 Repository: ${repository}
 Branch: ${branch}

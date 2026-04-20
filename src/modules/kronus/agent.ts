@@ -1,18 +1,19 @@
 /**
- * Kronus Agent - Knowledge Oracle for the Developer Journal
+ * Kronus Agent - Knowledge Oracle for Tartarus
  *
  * Provides intelligent answers about projects, work history, and repository data
  * without polluting the main conversation context.
  *
  * Architecture:
- * - Quick mode (Sonnet 4.5): Summaries-only index, recommends MCP resources for more detail
- * - Deep mode (Opus 4.6): Full context from local DB (like Tartarus chat), no tool calling
+ * - Quick mode: Summaries index + tools (search/fetch) for drill-down
+ * - Deep mode: Full context + tools with more steps
  * - All data loaded directly from shared SQLite DB - no HTTP calls to Tartarus
+ * - Two generic tools: search (discover objects) + fetch (get full content by UUID)
  */
 
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
-import { generateText } from "ai";
+import { generateText, stepCountIs } from "ai";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -43,10 +44,12 @@ import type {
   PortfolioProjectIndex,
   ConversationIndex,
 } from "./types.js";
+import { buildKronusTools } from "./kronus-tools.js";
 import {
   getEntriesByRepositoryPaginated,
   listAllProjectSummariesPaginated,
   getAttachmentMetadataByCommit,
+  getObjectUUIDs,
   listLinearProjects,
   listLinearIssues,
   listDocuments,
@@ -98,12 +101,12 @@ function loadKronusSoulMinimal(): string {
     const soulContent = fs.readFileSync(soulPath, "utf-8");
     const coreMatch = soulContent.match(/<soul[^>]*>([\s\S]*?)<\/soul>/i);
     if (coreMatch) {
-      return `You are ${agentName}, a knowledge oracle from the Developer Journal system.
+      return `You are ${agentName}, a knowledge oracle from the Tartarus system.
 Your voice is wise, empathetic, with subtle humor. You speak with precision.`;
     }
     return soulContent.substring(0, 500);
   } catch {
-    return `You are ${agentName}, a knowledge oracle for the Developer Journal system.`;
+    return `You are ${agentName}, a knowledge oracle for the Tartarus system.`;
   }
 }
 
@@ -262,6 +265,20 @@ export function buildSummariesIndex(
     messageCount: c.messageCount || 0,
   }));
 
+  // Enrich with UUIDs from the object registry (batch lookups)
+  try {
+    const entryUUIDs = getObjectUUIDs("journal_entries", journalEntries.map((e) => e.commit_hash));
+    for (const e of journalEntries) e.uuid = entryUUIDs.get(e.commit_hash);
+
+    const docUUIDs = getObjectUUIDs("documents", documents.map((d) => d.slug));
+    for (const d of documents) d.uuid = docUUIDs.get(d.slug);
+
+    const convUUIDs = getObjectUUIDs("chat_conversations", conversations.map((c) => c.id));
+    for (const c of conversations) c.uuid = convUUIDs.get(c.id);
+  } catch {
+    // Registry may not be populated yet — UUIDs are optional
+  }
+
   return {
     projectSummaries,
     journalEntries,
@@ -299,7 +316,8 @@ function formatIndexForPrompt(index: SummariesIndex, deep = false): string {
   if (index.journalEntries.length > 0) {
     formatted += "\n## Recent Journal Entries\n";
     for (const e of index.journalEntries) {
-      formatted += `\n- **${e.commit_hash.substring(0, 7)}** (${e.repository}/${e.branch}) [${e.date}]\n`;
+      const uid = e.uuid ? ` [uuid:${e.uuid}]` : "";
+      formatted += `\n- **${e.commit_hash.substring(0, 7)}** (${e.repository}/${e.branch}) [${e.date}]${uid}\n`;
       formatted += `  ${e.summary || e.why?.substring(0, 100) || "No summary"}\n`;
     }
   }
@@ -331,7 +349,8 @@ function formatIndexForPrompt(index: SummariesIndex, deep = false): string {
   if (index.documents.length > 0) {
     formatted += "\n## Documents\n";
     for (const d of index.documents) {
-      formatted += `- **${d.slug}** (${d.type}): ${d.title}\n`;
+      const uid = d.uuid ? ` [uuid:${d.uuid}]` : "";
+      formatted += `- **${d.slug}** (${d.type}): ${d.title}${uid}\n`;
       if (deep && (d as any).content) {
         // Deep mode: include full content
         formatted += `  ${(d as any).content.substring(0, 500)}\n`;
@@ -407,7 +426,8 @@ function formatIndexForPrompt(index: SummariesIndex, deep = false): string {
   if (index.conversations.length > 0) {
     formatted += "\n## Conversations\n";
     for (const c of index.conversations) {
-      formatted += `- **${c.title || "Untitled"}** (${c.messageCount} messages, ${c.createdAt})\n`;
+      const uid = c.uuid ? ` [uuid:${c.uuid}]` : "";
+      formatted += `- **${c.title || "Untitled"}** (${c.messageCount} messages, ${c.createdAt})${uid}\n`;
       if (c.summary) formatted += `  ${c.summary}\n`;
     }
   }
@@ -467,24 +487,30 @@ export async function askKronus(
 - Answer the question using the knowledge index above
 - Entry 0 (project_summaries) may be outdated - cross-check with recent journal entries dates
 - Be concise and direct
-- Cite sources by identifier (commit_hash, slug, ENG-XXX, project name)
+- Cite sources by identifier (commit_hash, slug, ENG-XXX, project name, or UUID)
 - For dates, note recency - newest entries are most accurate for current state
-- If the index doesn't have enough information, say so clearly
-- Do not make up information not in the index`;
+- If the index doesn't have enough information, use your tools to find more
+- Do not make up information not in the index or tool results
+
+## Your Tools
+You have two tools for drilling deeper into the Tartarus knowledge base:
+- **search**: Find objects by keyword. Returns UUIDs, titles, summaries. Filter by type.
+- **fetch**: Get the full content of any object by UUID.
+
+Use tools judiciously:
+- For simple questions, answer directly from the index — don't over-fetch
+- Use search when you need to discover objects not in the index
+- Use fetch when you have a UUID and need full details (entry content, document text, conversation messages)
+- The index already shows UUIDs — you can fetch directly without searching first`;
 
   const depthInstructions = isDeep
     ? `\n\n## Mode: Deep
-You have the full knowledge context loaded. Answer comprehensively from the data above.
-Do not say "let me fetch" or "let me look up" - you already have everything.`
+You have the full knowledge context loaded AND tools for drilling deeper.
+Use tools when the loaded index gives you a pointer but not enough detail.
+Do not say "let me fetch" — just use the tool and incorporate the result naturally.`
     : `\n\n## Mode: Quick
-Answer using summaries only. If the caller needs more detail, recommend these MCP resources:
-- **journal://project-summary/{repository}** - Entry 0 shallow view (LLM context)
-- **journal://project-summary/{repository}/deep** - Entry 0 deep view (full history)
-- **journal://entries/{repository}** - Recent journal entries with full details
-- **linear://projects** or **linear://project/{id}** - Linear project details
-- **linear://issues** or **linear://issue/{identifier}** - Linear issue details
-- **linear://project/{projectId}/updates** - Project status updates
-Tell the caller which specific resource(s) would answer their question in more depth.`;
+Answer using summaries from the index. Use search/fetch tools when the summary isn't enough.
+Prefer answering from the index directly for simple lookups.`;
 
   const systemPrompt = `${kronusSoul}
 
@@ -492,12 +518,13 @@ Tell the caller which specific resource(s) would answer their question in more d
 ${formattedIndex}
 ${baseInstructions}${depthInstructions}`;
 
-  // Model selection: Gemini Flash 3 (quick) / Gemini 3 Pro (deep) / Opus 4.6 (serious)
+  // Model selection: flash-lite (quick) / flash (deep) / Opus 4.6 (serious)
+  // askKronus should be fast and cheap — flash-lite handles most queries well
   const modelName = serious
     ? "claude-opus-4-6"
     : isDeep
-      ? "gemini-3-pro"
-      : "gemini-3-flash";
+      ? "gemini-3-flash"
+      : "gemini-3.1-flash-lite";
 
   try {
     const genSpanId = startSpan("kronus_generation", {
@@ -509,29 +536,59 @@ ${baseInstructions}${depthInstructions}`;
     const model = serious
       ? anthropic("claude-opus-4-6")
       : isDeep
-        ? google("gemini-3-pro-preview")
-        : google("gemini-3-flash-preview");
+        ? google("gemini-3-flash-preview")
+        : google("gemini-3.1-flash-lite-preview");
 
-    // No tool calling - both modes answer directly from loaded context
+    // Agentic loop: Kronus can use search/fetch tools to drill deeper
+    const kronusTools = buildKronusTools();
     const result = await generateText({
       model,
       system: systemPrompt,
       prompt: question,
+      tools: kronusTools,
+      stopWhen: stepCountIs(isDeep ? 5 : 3),
       temperature: 0.5,
-      maxOutputTokens: isDeep ? 4096 : 2048,
+      maxOutputTokens: isDeep ? 8192 : 4096,
     });
 
     const inputTokens = result.usage?.inputTokens ?? 0;
     const outputTokens = result.usage?.outputTokens ?? 0;
 
+    // Count tool usage across all steps
+    const toolCallCount = result.steps?.reduce(
+      (acc, step) => acc + (step.toolCalls?.length ?? 0),
+      0,
+    ) ?? 0;
+    const stepCount = result.steps?.length ?? 1;
+
+    if (toolCallCount > 0) {
+      logger.info(`Kronus used ${toolCallCount} tool call(s) across ${stepCount} step(s)`);
+    }
+
     endSpan(genSpanId, {
-      output: { text: result.text.substring(0, 200) },
+      output: { text: result.text.substring(0, 200), toolCalls: toolCallCount, steps: stepCount },
       inputTokens,
       outputTokens,
     });
 
-    // Extract sources from the answer
+    // Extract sources from the answer text
     const sources = extractSources(result.text, index);
+
+    // Also extract sources from tool calls (fetched UUIDs = explicit source references)
+    for (const step of result.steps ?? []) {
+      for (const call of step.toolCalls ?? []) {
+        if (call.toolName === "fetch" && (call.args as any)?.uuid) {
+          const uuid = (call.args as any).uuid;
+          if (!sources.find((s) => s.identifier === uuid)) {
+            sources.push({
+              type: "tartarus_object",
+              identifier: uuid,
+              title: `Fetched via tool`,
+            });
+          }
+        }
+      }
+    }
 
     const cost = calculateCost(modelName, inputTokens, outputTokens);
     const latencyMs = Date.now() - startTime;
@@ -544,6 +601,9 @@ ${baseInstructions}${depthInstructions}`;
       repository,
       depth,
       sources,
+      tool_calls: toolCallCount > 0 ? JSON.stringify(
+        result.steps?.flatMap((s) => s.toolCalls?.map((c) => ({ tool: c.toolName, args: c.args })) ?? []) ?? [],
+      ) : undefined,
       input_tokens: inputTokens,
       output_tokens: outputTokens,
       latency_ms: latencyMs,

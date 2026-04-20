@@ -108,6 +108,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   // Generate summary asynchronously (don't block response)
   generateEducationSummary(body.id, edu).catch(console.error);
 
+  try {
+    const { registerObject } = await import("@/lib/object-registry");
+    registerObject({ type: 'education', sourceTable: 'education', sourceId: body.id, title: `${body.degree} in ${body.field}` });
+  } catch { /* registry is non-critical */ }
+
   return NextResponse.json({
     ...edu,
     focusAreas: JSON.parse(edu.focusAreas || "[]"),

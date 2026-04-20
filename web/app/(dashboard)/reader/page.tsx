@@ -407,7 +407,7 @@ What changes would you like to make? You can update any field using the journal_
       <header className="flex min-h-14 flex-col gap-2 border-b border-[var(--tartarus-border)] px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
         <div className="flex items-center gap-3">
           <Layers className="h-5 w-5 text-[var(--tartarus-teal)]" />
-          <h1 className="text-lg font-semibold text-[var(--tartarus-ivory)]">Developer Journal</h1>
+          <h1 className="text-lg font-semibold text-[var(--tartarus-ivory)]">Tartarus</h1>
         </div>
         <div className="flex items-center gap-2">
           <Badge
@@ -733,7 +733,9 @@ What changes would you like to make? You can update any field using the journal_
                           ))}
                           {entries.length > 10 && (
                             <div className="py-2 text-center">
-                              <Link href={`/reader?project=${project.repository}`}>
+                              <Link
+                                href={`/reader/project/${encodeURIComponent(project.repository)}`}
+                              >
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -866,7 +868,7 @@ function TimelineEntries({
                   <div className="flex-1">
                     <div className="flex items-center gap-2 text-sm">
                       <FolderGit2 className="h-4 w-4 text-[var(--tartarus-teal)]" />
-                      <span className="font-medium text-[var(--tartarus-ivory)]">
+                      <span className="font-medium capitalize text-[var(--tartarus-ivory)]">
                         {entry.repository}
                       </span>
                       <span className="text-[var(--tartarus-ivory-muted)]">/</span>

@@ -355,7 +355,7 @@ export function MermaidEditor({ initialCode, onSave, readOnly = false }: Mermaid
                 {Object.entries(TEMPLATES).map(([key, value]) => (
                   <Card
                     key={key}
-                    className="hover:ring-primary cursor-pointer transition-all hover:ring-2"
+                    className="hover:ring-primary cursor-pointer transition-[box-shadow] duration-150 hover:ring-2"
                     onClick={() => {
                       loadTemplate(key as keyof typeof TEMPLATES);
                       setActiveTab("preview");

@@ -97,6 +97,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Media Upload] Saved asset with id: ${result.lastInsertRowid}`);
 
+    try {
+      const { registerObject } = await import("@/lib/object-registry");
+      registerObject({ type: 'media_asset', sourceTable: 'media_assets', sourceId: String(result.lastInsertRowid), title: file.name });
+    } catch { /* registry is non-critical */ }
+
     // Fetch the created record
     const asset = db
       .prepare(

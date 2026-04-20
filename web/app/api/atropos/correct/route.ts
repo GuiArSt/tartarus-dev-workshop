@@ -157,6 +157,15 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     throw new Error("AI generation returned no structured output");
   }
 
+  // Schema avoids array minItems/maxItems (Anthropic rejects them); clamp here.
+  const intentQuestions = (response.intentQuestions ?? [])
+    .slice(0, 3)
+    .map((q) => ({
+      ...q,
+      options: (q.options ?? []).slice(0, 3),
+    }))
+    .filter((q) => q.options.length >= 2);
+
   // Calculate character difference for stats
   const charsDiff = Math.abs(response.correctedText.length - text.length);
 
@@ -168,7 +177,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       text,
       response.correctedText,
       response.hadChanges,
-      (response.intentQuestions || []).map((q) => q.question),
+      intentQuestions.map((q) => q.question),
       sourceContext
     );
   } catch (e) {
@@ -185,6 +194,6 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   return NextResponse.json({
     correctedText: response.correctedText,
     hadChanges: response.hadChanges,
-    intentQuestions: response.intentQuestions || [],
+    intentQuestions,
   });
 });

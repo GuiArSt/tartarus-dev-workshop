@@ -57,8 +57,8 @@ const KRONUS_MODES: KronusModeConfig[] = [
     name: "Writer",
     description: "Writings, creativity",
     icon: PenTool,
-    color: "#9B59B6",
-    colorGlow: "rgba(155, 89, 182, 0.15)",
+    color: TARTARUS.purple,
+    colorGlow: TARTARUS.purpleGlow,
     skillSlugs: ["skill-writer"],
   },
   {
@@ -184,7 +184,7 @@ export function KronusModes({
                   key={mode.id}
                   onClick={() => handleSelect(mode)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-[background-color,border-color] duration-150",
                     "hover:bg-white/[0.04]"
                   )}
                   style={{

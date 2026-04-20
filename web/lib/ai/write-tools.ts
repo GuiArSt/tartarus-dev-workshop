@@ -44,6 +44,19 @@ export const WRITE_TOOLS = new Set([
   // Slite write operations
   "slite_create_note",
   "slite_update_note",
+
+  // Notion write operations
+  "notion_create_page",
+  "notion_update_page",
+
+  // Google Workspace write operations
+  "google_drive_create_file",
+  "google_gmail_send",
+  "google_gmail_reply",
+  "google_gmail_modify",
+  "google_gmail_create_draft",
+  "google_calendar_create_event",
+  "google_calendar_update_event",
 ]);
 
 // Tools that are read-only (no confirmation needed)
@@ -79,6 +92,10 @@ export const READ_TOOLS = new Set([
   "slite_get_note",
   "slite_ask",
 
+  // Notion read operations
+  "notion_search_pages",
+  "notion_get_page",
+
   // Web search (read-only by nature)
   "gemini_search",
   "perplexity_search",
@@ -88,6 +105,16 @@ export const READ_TOOLS = new Set([
 
   // Image generation (creates externally, doesn't modify our DB)
   "replicate_generate_image",
+
+  // Google Workspace read operations
+  "google_drive_list_files",
+  "google_drive_get_file",
+  "google_drive_search",
+  "google_gmail_list_messages",
+  "google_gmail_get_message",
+  "google_gmail_get_thread",
+  "google_calendar_list_events",
+  "google_calendar_get_event",
 ]);
 
 /**
@@ -165,6 +192,28 @@ export function getToolActionDescription(toolName: string, args: Record<string, 
       return `Create Slite note: "${args.title}"`;
     case "slite_update_note":
       return `Update Slite note ${args.noteId}`;
+
+    // Notion
+    case "notion_create_page":
+      return `Create Notion page: "${args.title}"`;
+    case "notion_update_page":
+      return `Update Notion page ${args.pageId}${args.title ? `: "${args.title}"` : ""}`;
+
+    // Google Workspace
+    case "google_drive_create_file":
+      return `Create Google Drive file: "${args.name}" (${args.mimeType})`;
+    case "google_gmail_send":
+      return `Send email to ${args.to}: "${args.subject}"`;
+    case "google_gmail_reply":
+      return `${args.replyAll ? "Reply-all" : "Reply"} to message ${args.messageId}`;
+    case "google_gmail_modify":
+      return `Modify labels on message ${args.messageId}${args.addLabelIds?.length ? ` +[${args.addLabelIds.join(",")}]` : ""}${args.removeLabelIds?.length ? ` -[${args.removeLabelIds.join(",")}]` : ""}`;
+    case "google_gmail_create_draft":
+      return `Create draft to ${args.to}: "${args.subject}"`;
+    case "google_calendar_create_event":
+      return `Create calendar event: "${args.summary}" at ${args.start}`;
+    case "google_calendar_update_event":
+      return `Update calendar event ${args.eventId}`;
 
     default:
       return `Execute ${toolName}`;

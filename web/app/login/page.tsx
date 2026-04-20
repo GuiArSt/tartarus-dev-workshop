@@ -68,7 +68,7 @@ export default function LoginPage() {
             </div>
 
             <h1 className="text-3xl font-bold tracking-tight text-[var(--tartarus-ivory)]">
-              Developer Journal
+              Tartarus
             </h1>
             <p className="mt-2 text-center text-[var(--tartarus-ivory-muted)]">
               Enter the realm of your code chronicles
@@ -89,7 +89,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] px-4 py-3 pr-12 text-[var(--tartarus-ivory)] transition-all placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-teal)] focus:ring-2 focus:ring-[var(--tartarus-teal)]/20 focus:outline-none"
+                  className="w-full rounded-lg border border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] px-4 py-3 pr-12 text-[var(--tartarus-ivory)] transition-[border-color,box-shadow] duration-150 placeholder:text-[var(--tartarus-ivory-faded)] focus:border-[var(--tartarus-teal)] focus:ring-2 focus:ring-[var(--tartarus-teal)]/20 focus:outline-none"
                   placeholder="Enter your password"
                   required
                   autoFocus
@@ -113,7 +113,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[var(--tartarus-gold)] to-[var(--tartarus-gold-bright)] px-4 py-3 font-semibold text-[var(--tartarus-void)] transition-all hover:opacity-90 hover:shadow-[var(--tartarus-gold)]/20 hover:shadow-lg focus:ring-2 focus:ring-[var(--tartarus-gold)] focus:ring-offset-2 focus:ring-offset-[var(--tartarus-surface)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[var(--tartarus-gold)] to-[var(--tartarus-gold-bright)] px-4 py-3 font-semibold text-[var(--tartarus-void)] transition-[opacity,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] hover:opacity-90 hover:shadow-[var(--tartarus-gold)]/20 hover:shadow-lg focus:ring-2 focus:ring-[var(--tartarus-gold)] focus:ring-offset-2 focus:ring-offset-[var(--tartarus-surface)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <>

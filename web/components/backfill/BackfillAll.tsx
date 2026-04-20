@@ -133,7 +133,7 @@ export function BackfillAll() {
                   </div>
                   <div className="bg-secondary h-2 overflow-hidden rounded-full">
                     <div
-                      className="bg-primary h-full transition-all duration-300"
+                      className="bg-primary h-full transition-[width] duration-200"
                       style={{
                         width: `${progress.total > 0 ? (progress.processed / progress.total) * 100 : 0}%`,
                       }}

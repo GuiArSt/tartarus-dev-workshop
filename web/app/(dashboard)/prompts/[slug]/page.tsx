@@ -539,7 +539,7 @@ export default function PromptDetailPage() {
                         key={v.id}
                         className={`flex items-center justify-between rounded-lg border p-3 ${
                           v.version === prompt.version
-                            ? "border-[var(--kronus-teal)] bg-[var(--kronus-teal)]/5"
+                            ? "border-[var(--tartarus-teal)] bg-[var(--tartarus-teal)]/5"
                             : "border-border"
                         }`}
                       >

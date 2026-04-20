@@ -1,9 +1,7 @@
-import { streamText, convertToModelMessages } from "ai";
+import { streamText, convertToModelMessages, type ModelMessage } from "ai";
 import { anthropic, type AnthropicProviderOptions } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { google, type GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
-import { z } from "zod";
-import { normalizeRepository } from "@/lib/utils";
 import {
   getKronusSystemPrompt,
   getKronusSystemPromptWithSkills,
@@ -11,9 +9,10 @@ import {
   DEFAULT_SOUL_CONFIG,
 } from "@/lib/ai/kronus";
 import { getDrizzleDb, documents } from "@/lib/db/drizzle";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { KronusSkill, SkillConfig, SkillInfo } from "@/lib/ai/skills";
 import { mergeSkillConfigs } from "@/lib/ai/skills";
+import { toolSpecs, toolCategories, type ToolName } from "@/lib/ai/tools";
 
 /**
  * Tool configuration - controls which tool categories are enabled
@@ -24,12 +23,32 @@ export interface ToolsConfig {
   repository: boolean; // Documents, skills, experience, education
   linear: boolean; // Linear issue tracking
   slite: boolean; // Slite knowledge base
+  notion: boolean; // Notion workspace pages
   git: boolean; // Git repository access (GitHub/GitLab)
   media: boolean; // Media library, attachments
 
   // Heavy/optional tools
   imageGeneration: boolean; // FLUX, Gemini image generation
   webSearch: boolean; // Perplexity web search/research
+
+  // External integrations
+  google: boolean; // Google Workspace (Drive, Gmail, Calendar)
+}
+
+/** Opus 4.7: steer verbosity and literalism (see Anthropic migration guide). */
+const CLAUDE_OPUS_47_SYSTEM_SUFFIX = `
+When the user wants a short answer, keep it short. Follow their instructions literally; if something essential is missing, ask one brief clarifying question instead of assuming.`;
+
+/**
+ * Opus 4.7 rejects assistant-message prefills. Strip leading assistant turns so the
+ * thread always starts from a user/tool context (common bad shape after imports or bugs).
+ */
+function stripLeadingAssistantMessages(messages: ModelMessage[]): ModelMessage[] {
+  const out = [...messages];
+  while (out.length > 0 && out[0].role === "assistant") {
+    out.shift();
+  }
+  return out;
 }
 
 export const DEFAULT_TOOLS_CONFIG: ToolsConfig = {
@@ -37,10 +56,12 @@ export const DEFAULT_TOOLS_CONFIG: ToolsConfig = {
   repository: true,
   linear: true,
   slite: false, // Off by default - requires SLITE_API_KEY
+  notion: false, // Off by default - requires NOTION_API_KEY
   git: false, // Off by default - requires GitHub/GitLab token
   media: true,
   imageGeneration: false, // Off by default - heavy
   webSearch: false, // Off by default - requires API key
+  google: false, // Off by default - requires gws auth setup
 };
 
 /**
@@ -49,12 +70,12 @@ export const DEFAULT_TOOLS_CONFIG: ToolsConfig = {
  */
 export type ModelSelection =
   | "gemini-3.1-pro" // Google - latest, most capable reasoning
-  | "gemini-3-flash" // Google - fast, has thinking
-  | "gemini-3-pro" // Google - deep reasoning
+  | "gemini-3.1-flash-lite" // Google - ultra-fast, cheapest, high concurrency
   | "claude-sonnet-4.6" // Anthropic - best value, matches Opus performance
-  | "claude-opus-4.6" // Anthropic - latest, most capable, 1M context
-  | "claude-haiku-4.5" // Anthropic - fast, no thinking
-  | "gpt-5.2"; // OpenAI - latest, has reasoning
+  | "claude-opus-4.6" // Anthropic - Opus 4.6, 1M context
+  | "claude-opus-4.7" // Anthropic - Opus 4.7 (API: claude-opus-4-7; adaptive thinking only)
+  | "gpt-5.4" // OpenAI - flagship, 1M context, extreme reasoning
+  | "gpt-5.3-instant"; // OpenAI - fast everyday chat, low hallucination
 
 /**
  * Model configuration - maps selection to provider and model ID
@@ -72,15 +93,10 @@ const MODEL_CONFIG: Record<
     modelId: "gemini-3.1-pro-preview",
     hasThinking: true,
   },
-  "gemini-3-flash": {
+  "gemini-3.1-flash-lite": {
     provider: "google",
-    modelId: "gemini-3-flash-preview",
-    hasThinking: true,
-  },
-  "gemini-3-pro": {
-    provider: "google",
-    modelId: "gemini-3-pro-preview",
-    hasThinking: true,
+    modelId: "gemini-3.1-flash-lite-preview",
+    hasThinking: false,
   },
   "claude-sonnet-4.6": {
     provider: "anthropic",
@@ -92,15 +108,20 @@ const MODEL_CONFIG: Record<
     modelId: "claude-opus-4-6",
     hasThinking: true,
   },
-  "claude-haiku-4.5": {
+  "claude-opus-4.7": {
     provider: "anthropic",
-    modelId: "claude-haiku-4-5-20251001",
-    hasThinking: false, // Haiku is optimized for speed, no extended thinking
-  },
-  "gpt-5.2": {
-    provider: "openai",
-    modelId: "gpt-5.2",
+    modelId: "claude-opus-4-7",
     hasThinking: true,
+  },
+  "gpt-5.4": {
+    provider: "openai",
+    modelId: "gpt-5.4",
+    hasThinking: true,
+  },
+  "gpt-5.3-instant": {
+    provider: "openai",
+    modelId: "gpt-5.3-instant",
+    hasThinking: false,
   },
 };
 
@@ -108,11 +129,13 @@ const MODEL_CONFIG: Record<
  * Get the AI model based on selected model
  *
  * Models:
- * - gemini-3-flash: Gemini 3 Flash (1M context, fast with thinking)
+ * - gemini-3.1-pro: Gemini 3.1 Pro (1M context, most capable reasoning)
+ * - gemini-3.1-flash-lite: Gemini 3.1 Flash-Lite (1M context, ultra-fast, cheapest)
  * - claude-sonnet-4.6: Claude Sonnet 4.6 (1M context, best value)
- * - claude-opus-4.6: Claude Opus 4.6 (1M context, latest, most capable)
- * - claude-haiku-4.5: Claude Haiku 4.5 (200K context, fast)
- * - gpt-5.2: GPT-5.2 (400K context, reasoning)
+ * - claude-opus-4.6: Claude Opus 4.6 (1M context)
+ * - claude-opus-4.7: Claude Opus 4.7 (1M context; adaptive thinking)
+ * - gpt-5.4: GPT-5.4 (1M context, extreme reasoning, agentic)
+ * - gpt-5.3-instant: GPT-5.3 Instant (200K context, fast chat)
  */
 function getModel(selectedModel?: ModelSelection) {
   const defaultModel: ModelSelection = "gemini-3.1-pro";
@@ -133,6 +156,7 @@ function getModel(selectedModel?: ModelSelection) {
           model: google(config.modelId),
           provider: config.provider,
           hasThinking: config.hasThinking,
+          modelId: config.modelId,
         };
       }
       console.warn("Google API key not configured");
@@ -144,6 +168,7 @@ function getModel(selectedModel?: ModelSelection) {
           model: anthropic(config.modelId),
           provider: config.provider,
           hasThinking: config.hasThinking,
+          modelId: config.modelId,
         };
       }
       console.warn("Anthropic API key not configured");
@@ -155,6 +180,7 @@ function getModel(selectedModel?: ModelSelection) {
           model: openai(config.modelId),
           provider: config.provider,
           hasThinking: config.hasThinking,
+          modelId: config.modelId,
         };
       }
       console.warn("OpenAI API key not configured");
@@ -163,30 +189,33 @@ function getModel(selectedModel?: ModelSelection) {
 
   // Fallback: try any available provider
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY) {
-    const fallback = MODEL_CONFIG["gemini-3-flash"];
+    const fallback = MODEL_CONFIG["gemini-3.1-flash-lite"];
     console.log(`Falling back to Google: ${fallback.modelId}`);
     return {
       model: google(fallback.modelId),
       provider: "google" as const,
       hasThinking: fallback.hasThinking,
+      modelId: fallback.modelId,
     };
   }
   if (process.env.ANTHROPIC_API_KEY) {
-    const fallback = MODEL_CONFIG["claude-haiku-4.5"];
+    const fallback = MODEL_CONFIG["claude-sonnet-4.6"];
     console.log(`Falling back to Anthropic: ${fallback.modelId}`);
     return {
       model: anthropic(fallback.modelId),
       provider: "anthropic" as const,
       hasThinking: fallback.hasThinking,
+      modelId: fallback.modelId,
     };
   }
   if (process.env.OPENAI_API_KEY) {
-    const fallback = MODEL_CONFIG["gpt-5.2"];
+    const fallback = MODEL_CONFIG["gpt-5.3-instant"];
     console.log(`Falling back to OpenAI: ${fallback.modelId}`);
     return {
       model: openai(fallback.modelId),
       provider: "openai" as const,
       hasThinking: fallback.hasThinking,
+      modelId: fallback.modelId,
     };
   }
 
@@ -195,744 +224,35 @@ function getModel(selectedModel?: ModelSelection) {
   );
 }
 
-// Define tools with inputSchema (AI SDK 5.x format)
-const tools = {
-  journal_create_entry: {
-    description: "Create a new journal entry for a git commit",
-    inputSchema: z.object({
-      commit_hash: z.string().min(7),
-      repository: z.string().min(1).transform(normalizeRepository),
-      branch: z.string().min(1),
-      author: z.string().min(1),
-      date: z.string(),
-      raw_agent_report: z.string().min(10),
-    }),
-  },
-  journal_get_entry: {
-    description: "Retrieve a journal entry by its commit hash",
-    inputSchema: z.object({
-      commit_hash: z.string().min(7),
-    }),
-  },
-  journal_list_by_repository: {
-    description: "List all journal entries for a repository",
-    inputSchema: z.object({
-      repository: z.string().min(1).transform(normalizeRepository),
-      limit: z.number().optional().default(20),
-      offset: z.number().optional().default(0),
-    }),
-  },
-  journal_list_by_branch: {
-    description: "List journal entries for a specific branch",
-    inputSchema: z.object({
-      repository: z.string().min(1).transform(normalizeRepository),
-      branch: z.string().min(1),
-      limit: z.number().optional().default(20),
-      offset: z.number().optional().default(0),
-    }),
-  },
-  journal_list_repositories: {
-    description: "List all repositories with journal entries",
-    inputSchema: z.object({}),
-  },
-  journal_list_branches: {
-    description: "List all branches in a repository with journal entries",
-    inputSchema: z.object({
-      repository: z.string().min(1).transform(normalizeRepository),
-    }),
-  },
-  journal_edit_entry: {
-    description: "Update fields in an existing journal entry",
-    inputSchema: z.object({
-      commit_hash: z.string().min(7),
-      why: z.string().optional(),
-      what_changed: z.string().optional(),
-      decisions: z.string().optional(),
-      technologies: z.string().optional(),
-      kronus_wisdom: z.string().nullable().optional(),
-    }),
-  },
-  journal_regenerate_entry: {
-    description: "Use AI to regenerate an existing journal entry",
-    inputSchema: z.object({
-      commit_hash: z.string().min(7),
-      new_context: z.string().optional(),
-      use_existing_as_context: z.boolean().optional().default(false),
-    }),
-  },
-  journal_get_project_summary: {
-    description: "Get the project summary for a repository",
-    inputSchema: z.object({
-      repository: z.string().min(1).transform(normalizeRepository),
-    }),
-  },
-  journal_list_project_summaries: {
-    description: "List all project summaries",
-    inputSchema: z.object({
-      limit: z.number().optional().default(30),
-      offset: z.number().optional().default(0),
-    }),
-  },
-  journal_upsert_project_summary: {
-    description: "Create or update the project summary for a repository",
-    inputSchema: z.object({
-      repository: z.string().min(1).transform(normalizeRepository).describe("Repository name"),
-      git_url: z.string().url().describe("Git repository URL"),
-      summary: z.string().min(10).describe("High-level project summary"),
-      purpose: z.string().min(10).describe("Why this project exists"),
-      architecture: z.string().min(10).describe("Overall architecture"),
-      key_decisions: z.string().min(10).describe("Major decisions"),
-      technologies: z.string().min(3).describe("Comma-separated list of technologies"),
-      status: z.string().min(3).describe("Current project status"),
-    }),
-  },
-  journal_list_attachments: {
-    description: "List attachments for a journal entry",
-    inputSchema: z.object({
-      commit_hash: z.string().min(7),
-    }),
-  },
-  journal_backup: {
-    description: "Trigger a database backup",
-    inputSchema: z.object({}),
-  },
-  linear_get_viewer: {
-    description: "Get your Linear user info",
-    inputSchema: z.object({}),
-  },
-  linear_list_issues: {
-    description: "List issues in Linear with optional filters",
-    inputSchema: z.object({
-      assigneeId: z.string().optional(),
-      teamId: z.string().optional(),
-      projectId: z.string().optional(),
-      query: z.string().optional(),
-      limit: z.number().optional().default(50),
-      showAll: z.boolean().optional().default(false),
-    }),
-  },
-  linear_create_issue: {
-    description: "Create a new issue in Linear",
-    inputSchema: z.object({
-      title: z.string().min(1),
-      description: z.string().optional(),
-      teamId: z.string(),
-      projectId: z.string().optional(),
-      priority: z.number().min(0).max(4).optional(),
-      assigneeId: z.string().optional(),
-    }),
-  },
-  linear_update_issue: {
-    description: "Update an existing Linear issue",
-    inputSchema: z.object({
-      issueId: z.string(),
-      title: z.string().optional(),
-      description: z.string().optional(),
-      priority: z.number().min(0).max(4).optional(),
-      stateId: z.string().optional(),
-      assigneeId: z.string().optional(),
-    }),
-  },
-  linear_list_projects: {
-    description: "List all projects in Linear",
-    inputSchema: z.object({
-      teamId: z.string().optional(),
-    }),
-  },
-  linear_create_project: {
-    description:
-      "Create a new project in Linear. Projects help organize related issues and track progress toward goals.",
-    inputSchema: z.object({
-      name: z.string().min(1).describe("Project name"),
-      teamIds: z
-        .array(z.string())
-        .min(1)
-        .describe("Array of team IDs to associate with the project"),
-      description: z.string().optional().describe("Project description (plain text)"),
-      content: z.string().optional().describe("Project content (rich text markdown)"),
-      leadId: z.string().optional().describe("User ID for the project lead"),
-      targetDate: z.string().optional().describe("Target completion date (ISO 8601)"),
-      startDate: z.string().optional().describe("Project start date (ISO 8601)"),
-    }),
-  },
-  linear_update_project: {
-    description: "Update a Linear project",
-    inputSchema: z.object({
-      projectId: z.string(),
-      name: z.string().optional(),
-      description: z.string().optional(),
-      content: z.string().optional(),
-      leadId: z.string().optional(),
-      targetDate: z.string().optional(),
-      startDate: z.string().optional(),
-    }),
-  },
-  linear_create_project_update: {
-    description:
-      "Post a status update on a Linear project. Communicates progress, blockers, or health changes on the project timeline.",
-    inputSchema: z.object({
-      projectId: z.string().describe("Linear project ID"),
-      body: z.string().min(1).describe("Update content in markdown"),
-      health: z
-        .enum(["onTrack", "atRisk", "offTrack"])
-        .describe("Project health: onTrack, atRisk, or offTrack"),
-    }),
-  },
-  linear_list_project_updates: {
-    description: "List recent status updates for a Linear project from cache.",
-    inputSchema: z.object({
-      projectId: z.string().describe("Linear project ID"),
-    }),
-  },
-  // ===== Linear Cache Tools (read from local DB, not API) =====
-  linear_get_issue: {
-    description:
-      "Get full issue details from local cache by identifier (e.g., 'ENG-1234') or ID. Use this to read complete issue descriptions. Does NOT hit Linear API - reads from synced local database.",
-    inputSchema: z.object({
-      identifier: z.string().describe("Issue identifier (e.g., 'ENG-1234') or Linear issue ID"),
-    }),
-  },
-  linear_get_project: {
-    description:
-      "Get full project details from local cache by ID. Use this to read complete project descriptions and content. Does NOT hit Linear API - reads from synced local database.",
-    inputSchema: z.object({
-      projectId: z.string().describe("Linear project ID"),
-    }),
-  },
-  // ===== Slite Integration Tools =====
-  slite_search_notes: {
-    description:
-      "Search notes in the Slite knowledge base. Returns matching notes with highlights.",
-    inputSchema: z.object({
-      query: z.string().min(1).describe("Search query"),
-      parentNoteId: z.string().optional().describe("Filter to children of this note"),
-      hitsPerPage: z.number().optional().default(10).describe("Max results per page"),
-    }),
-  },
-  slite_get_note: {
-    description:
-      "Get the full content of a Slite note by ID. Returns markdown content.",
-    inputSchema: z.object({
-      noteId: z.string().describe("Slite note ID"),
-    }),
-  },
-  slite_create_note: {
-    description:
-      "Create a new note in Slite. Content should be markdown.",
-    inputSchema: z.object({
-      title: z.string().min(1).describe("Note title"),
-      markdown: z.string().optional().describe("Note content in markdown"),
-      parentNoteId: z.string().optional().describe("Parent note ID for nesting"),
-    }),
-  },
-  slite_update_note: {
-    description: "Update an existing Slite note's title or content.",
-    inputSchema: z.object({
-      noteId: z.string().describe("Note ID to update"),
-      title: z.string().optional().describe("New title"),
-      markdown: z.string().optional().describe("New content in markdown"),
-    }),
-  },
-  slite_ask: {
-    description:
-      "Ask Slite AI a question about the workspace knowledge base. Returns an AI-generated answer with sources.",
-    inputSchema: z.object({
-      question: z.string().min(1).describe("Question to ask"),
-    }),
-  },
-  // ===== Image Generation Tool =====
-  replicate_generate_image: {
-    description:
-      "Generate an image using Gemini 3 Pro Image (Nano Banana Pro), FLUX, or other models. Use this when the user wants to create images from text prompts. Gemini 3 Pro has 4K support and excellent text rendering.",
-    inputSchema: z.object({
-      prompt: z.string().min(1).describe("Text prompt describing the image to generate"),
-      model: z
-        .string()
-        .optional()
-        .default("gemini-3-pro-image-preview")
-        .describe(
-          "Model identifier. Options: 'gemini-3-pro-image-preview' or 'nano-banana-pro' (default, 4K, best text rendering), 'gemini-2.5-flash-image-preview' (fast), 'black-forest-labs/flux-2-pro' (FLUX best quality), 'black-forest-labs/flux-schnell' (FLUX fast), 'imagen-3.0-generate-002' (Google Imagen)"
-        ),
-      width: z.number().optional().default(1024).describe("Image width in pixels"),
-      height: z.number().optional().default(1024).describe("Image height in pixels"),
-      num_outputs: z.number().optional().default(1).describe("Number of images to generate"),
-    }),
-  },
-  // ===== Media/Image Storage Tool =====
-  save_image: {
-    description:
-      "Save an image to the Media library. Images are stored centrally and can be linked to Journal entries and/or Repository documents. Use this after generating an image to permanently store it.",
-    inputSchema: z.object({
-      url: z.string().url().describe("URL of the image to download and save"),
-      filename: z
-        .string()
-        .min(1)
-        .describe("Filename for the saved image (e.g., 'architecture-diagram.png')"),
-      description: z.string().optional().describe("Description of what the image shows"),
-      prompt: z
-        .string()
-        .optional()
-        .describe("The prompt used to generate the image (if AI-generated)"),
-      model: z
-        .string()
-        .optional()
-        .describe("The model used to generate the image (if AI-generated)"),
-      tags: z.array(z.string()).optional().default([]).describe("Tags for categorizing the image"),
-      commit_hash: z.string().optional().describe("Link to a journal entry by commit hash"),
-      document_id: z.number().optional().describe("Link to a repository document by ID"),
-    }),
-  },
-  // ===== Media Listing Tool =====
-  list_media: {
-    description:
-      "List saved media assets from the Media library. Can filter by linked journal entry or document.",
-    inputSchema: z.object({
-      commit_hash: z.string().optional().describe("Filter by linked journal entry commit hash"),
-      document_id: z.number().optional().describe("Filter by linked repository document ID"),
-      limit: z.number().optional().default(20).describe("Maximum number of results"),
-    }),
-  },
-  // ===== Media Get Tool =====
-  get_media: {
-    description:
-      "Get a specific media asset by ID and display it inline. Use this to show an image in the chat.",
-    inputSchema: z.object({
-      id: z.number().describe("Media asset ID to fetch and display"),
-    }),
-  },
-  // ===== Media Update Tool =====
-  update_media: {
-    description:
-      "Update metadata for a saved media asset. Use this to add descriptions, tags, or link images to journal entries or documents.",
-    inputSchema: z.object({
-      id: z.number().describe("Media asset ID to update"),
-      filename: z.string().optional().describe("New filename"),
-      description: z.string().optional().describe("New description"),
-      tags: z.array(z.string()).optional().describe("New tags array"),
-      commit_hash: z.string().optional().describe("Link to journal entry by commit hash"),
-      document_id: z.number().optional().describe("Link to repository document by ID"),
-    }),
-  },
-
-  // ===== Repository Tools =====
-  repository_search_documents: {
-    description:
-      "Search and query documents from the Repository. Can filter by type (writing, prompt, note), search by keywords, and control pagination.",
-    inputSchema: z.object({
-      type: z.enum(["writing", "prompt", "note"]).optional().describe("Filter by document type"),
-      search: z.string().optional().describe("Search in title and content"),
-      limit: z.number().optional().default(50).describe("Maximum results"),
-      offset: z.number().optional().default(0).describe("Pagination offset"),
-    }),
-  },
-  repository_get_document: {
-    description: "Get a specific document from the Repository by slug or ID",
-    inputSchema: z.object({
-      slug: z.string().optional().describe("Document slug"),
-      id: z.number().optional().describe("Document ID"),
-    }),
-  },
-  repository_create_document: {
-    description: "Create a new document in the Repository",
-    inputSchema: z.object({
-      title: z.string().min(1).describe("Document title"),
-      content: z.string().min(1).describe("Document content (markdown supported)"),
-      type: z.enum(["writing", "prompt", "note"]).default("writing").describe("Document type"),
-      tags: z.array(z.string()).optional().describe("Tags for categorization"),
-      metadata: z
-        .record(z.string(), z.any())
-        .optional()
-        .describe("Additional metadata (year, language, etc.)"),
-    }),
-  },
-  repository_update_document: {
-    description: "Update an existing document in the Repository",
-    inputSchema: z.object({
-      id: z.number().describe("Document ID to update"),
-      title: z.string().optional().describe("New title"),
-      content: z.string().optional().describe("New content"),
-      tags: z.array(z.string()).optional().describe("New tags"),
-      metadata: z.record(z.string(), z.any()).optional().describe("Updated metadata"),
-    }),
-  },
-  repository_list_skills: {
-    description: "List all skills from the CV/Repository",
-    inputSchema: z.object({
-      category: z.string().optional().describe("Filter by category"),
-    }),
-  },
-  repository_update_skill: {
-    description: "Update a skill entry",
-    inputSchema: z.object({
-      id: z.string().describe("Skill ID"),
-      name: z.string().optional(),
-      category: z.string().optional(),
-      magnitude: z.number().min(1).max(5).optional(),
-      description: z.string().optional(),
-      tags: z.array(z.string()).optional(),
-    }),
-  },
-  repository_create_skill: {
-    description:
-      "Create a new skill entry in the CV. Categories: 'AI & Development', 'Languages & Frameworks', 'Data & Analytics', 'Infrastructure & DevOps', 'Design & UX', 'Leadership & Collaboration'. Magnitude is 1-5 (5=expert).",
-    inputSchema: z.object({
-      id: z.string().describe("Unique skill ID (lowercase, no spaces, e.g. 'react-native')"),
-      name: z.string().describe("Display name (e.g. 'React Native')"),
-      category: z
-        .string()
-        .describe(
-          "One of: 'AI & Development', 'Languages & Frameworks', 'Data & Analytics', 'Infrastructure & DevOps', 'Design & UX', 'Leadership & Collaboration'"
-        ),
-      magnitude: z.number().min(1).max(5).describe("Proficiency level 1-5 (5=expert)"),
-      description: z.string().describe("Brief description of expertise"),
-      icon: z.string().optional().describe("Icon identifier (optional)"),
-      color: z.string().optional().describe("Color hex code (optional)"),
-      url: z.string().optional().describe("Reference URL (optional)"),
-      tags: z.array(z.string()).optional().describe("Tags for categorization"),
-      firstUsed: z.string().optional().describe("Year first used (e.g. '2020')"),
-      lastUsed: z.string().optional().describe("Year last used or 'Present'"),
-    }),
-  },
-  repository_list_experience: {
-    description: "List work experience entries",
-    inputSchema: z.object({}),
-  },
-  repository_create_experience: {
-    description: "Create a new work experience entry in the CV",
-    inputSchema: z.object({
-      id: z.string().describe("Unique ID (lowercase, no spaces, e.g. 'company-role-2024')"),
-      title: z.string().describe("Job title"),
-      company: z.string().describe("Company name"),
-      department: z.string().optional().describe("Department (optional)"),
-      location: z.string().describe("Location (e.g. 'Helsinki, Finland')"),
-      dateStart: z.string().describe("Start date (e.g. '2022-01')"),
-      dateEnd: z.string().optional().describe("End date or leave empty for current"),
-      tagline: z.string().describe("Brief role description/tagline"),
-      note: z.string().optional().describe("Additional notes (optional)"),
-      achievements: z.array(z.string()).optional().describe("List of key achievements"),
-    }),
-  },
-  repository_list_education: {
-    description: "List education entries",
-    inputSchema: z.object({}),
-  },
-  repository_create_education: {
-    description: "Create a new education entry in the CV",
-    inputSchema: z.object({
-      id: z.string().describe("Unique ID (lowercase, no spaces, e.g. 'university-degree-2020')"),
-      degree: z.string().describe("Degree type (e.g. 'Bachelor of Science')"),
-      field: z.string().describe("Field of study (e.g. 'Computer Science')"),
-      institution: z.string().describe("Institution name"),
-      location: z.string().describe("Location (e.g. 'Helsinki, Finland')"),
-      dateStart: z.string().describe("Start date (e.g. '2016-09')"),
-      dateEnd: z.string().describe("End date (e.g. '2020-06')"),
-      tagline: z.string().describe("Brief description/tagline"),
-      note: z.string().optional().describe("Additional notes (optional)"),
-      focusAreas: z.array(z.string()).optional().describe("Areas of focus/specialization"),
-      achievements: z.array(z.string()).optional().describe("Key achievements/honors"),
-    }),
-  },
-  repository_update_experience: {
-    description: "Update an existing work experience entry",
-    inputSchema: z.object({
-      id: z.string().describe("Experience ID to update"),
-      title: z.string().optional().describe("Updated job title"),
-      company: z.string().optional().describe("Updated company name"),
-      tagline: z.string().optional().describe("Updated tagline"),
-      achievements: z.array(z.string()).optional().describe("Updated achievements"),
-      dateStart: z.string().optional().describe("Updated start date (YYYY-MM)"),
-      dateEnd: z
-        .string()
-        .nullable()
-        .optional()
-        .describe("Updated end date (YYYY-MM or null for current)"),
-    }),
-  },
-  repository_update_education: {
-    description: "Update an existing education entry",
-    inputSchema: z.object({
-      id: z.string().describe("Education ID to update"),
-      degree: z.string().optional().describe("Updated degree"),
-      field: z.string().optional().describe("Updated field of study"),
-      institution: z.string().optional().describe("Updated institution"),
-      tagline: z.string().optional().describe("Updated tagline"),
-      focusAreas: z.array(z.string()).optional().describe("Updated focus areas"),
-      achievements: z.array(z.string()).optional().describe("Updated achievements"),
-    }),
-  },
-  // ===== Portfolio Projects Tools =====
-  repository_list_portfolio_projects: {
-    description: "List portfolio projects",
-    inputSchema: z.object({
-      featured: z.boolean().optional().describe("Filter by featured status"),
-      status: z.string().optional().describe("Filter by status (active, completed, archived)"),
-    }),
-  },
-  repository_get_portfolio_project: {
-    description: "Get a specific portfolio project by ID",
-    inputSchema: z.object({
-      id: z.number().describe("Portfolio project ID"),
-    }),
-  },
-  repository_create_portfolio_project: {
-    description: "Create a new portfolio project",
-    inputSchema: z.object({
-      title: z.string().describe("Project title"),
-      category: z.string().describe("Project category (e.g. 'AI/ML', 'Web App', 'Mobile')"),
-      company: z.string().optional().describe("Company/client name"),
-      role: z.string().optional().describe("Your role in the project"),
-      status: z.string().default("active").describe("Project status (active, completed, archived)"),
-      featured: z.boolean().default(false).describe("Whether this is a featured project"),
-      technologies: z.array(z.string()).optional().describe("Technologies used"),
-      tags: z.array(z.string()).optional().describe("Tags for categorization"),
-      description: z.string().optional().describe("Project description (markdown)"),
-      image_url: z.string().optional().describe("URL of project image"),
-    }),
-  },
-  repository_update_portfolio_project: {
-    description: "Update an existing portfolio project",
-    inputSchema: z.object({
-      id: z.number().describe("Portfolio project ID to update"),
-      title: z.string().optional().describe("Updated title"),
-      category: z.string().optional().describe("Updated category"),
-      company: z.string().optional().describe("Updated company"),
-      role: z.string().optional().describe("Updated role"),
-      status: z.string().optional().describe("Updated status"),
-      featured: z.boolean().optional().describe("Updated featured status"),
-      technologies: z.array(z.string()).optional().describe("Updated technologies"),
-      tags: z.array(z.string()).optional().describe("Updated tags"),
-      description: z.string().optional().describe("Updated description"),
-      image_url: z.string().optional().describe("Updated image URL"),
-    }),
-  },
-};
-
-// ===== Git Tools (GitHub/GitLab) =====
-const gitTools = {
-  git_parse_repo_url: {
-    description:
-      "Parse a GitHub or GitLab repository URL to extract platform, owner, and repo name",
-    inputSchema: z.object({
-      url: z.string().url().describe("Repository URL (e.g., https://github.com/user/repo)"),
-    }),
-  },
-  git_read_file: {
-    description: "Read raw file contents from a GitHub or GitLab repository",
-    inputSchema: z.object({
-      platform: z.enum(["github", "gitlab"]).describe("Git platform (github or gitlab)"),
-      owner: z.string().min(1).describe("Repository owner/organization"),
-      repo: z.string().min(1).describe("Repository name"),
-      path: z.string().min(1).describe("File path within repository"),
-      ref: z
-        .string()
-        .optional()
-        .default("main")
-        .describe("Branch, tag, or commit SHA (default: main)"),
-    }),
-  },
-  git_get_file_tree: {
-    description: "Get complete file tree/structure of a GitHub or GitLab repository",
-    inputSchema: z.object({
-      platform: z.enum(["github", "gitlab"]).describe("Git platform (github or gitlab)"),
-      owner: z.string().min(1).describe("Repository owner/organization"),
-      repo: z.string().min(1).describe("Repository name"),
-      ref: z
-        .string()
-        .optional()
-        .default("main")
-        .describe("Branch, tag, or commit SHA (default: main)"),
-    }),
-  },
-};
-
-// ===== Gemini Search Grounding Tool =====
-const geminiSearchTools = {
-  gemini_search: {
-    description:
-      "Search the web using Google Search grounding via Gemini. Returns a synthesized answer with cited sources. Use for current events, real-time data, factual lookups, or anything requiring up-to-date web information.",
-    inputSchema: z.object({
-      query: z.string().min(1).describe("Search query"),
-    }),
-  },
-};
-
-// ===== Web Search Tools (Perplexity) =====
-const webSearchTools = {
-  perplexity_search: {
-    description:
-      "Search the web using Perplexity. Returns ranked search results with metadata. Best for finding current information, news, documentation.",
-    inputSchema: z.object({
-      query: z.string().min(1).describe("Search query"),
-    }),
-  },
-  perplexity_ask: {
-    description:
-      "Ask a question with real-time web search using Perplexity sonar-pro model. Great for quick questions, factual lookups, and conversational research.",
-    inputSchema: z.object({
-      question: z.string().min(1).describe("Question to ask"),
-    }),
-  },
-  perplexity_research: {
-    description:
-      "Deep, comprehensive research using Perplexity sonar-deep-research model. Use for thorough analysis, detailed reports, complex topics. Takes longer but provides exhaustive results.",
-    inputSchema: z.object({
-      topic: z.string().min(1).describe("Topic to research in depth"),
-      strip_thinking: z
-        .boolean()
-        .optional()
-        .default(true)
-        .describe("Remove thinking tags to save tokens"),
-    }),
-  },
-  perplexity_reason: {
-    description:
-      "Advanced reasoning and problem-solving using Perplexity sonar-reasoning-pro model. Perfect for complex analytical tasks, multi-step problems, logical analysis.",
-    inputSchema: z.object({
-      problem: z.string().min(1).describe("Problem or question requiring reasoning"),
-      strip_thinking: z
-        .boolean()
-        .optional()
-        .default(true)
-        .describe("Remove thinking tags to save tokens"),
-    }),
-  },
-};
-
-// ===== Skill Management Tools (always available) =====
-const skillTools = {
-  activate_skill: {
-    description:
-      "Activate a Kronus skill by slug. Skills load additional context and tools on demand. You can activate multiple skills — they stack additively. Use this when the user asks to switch modes or wants specific capabilities. Check the Available Skills section in your system prompt for valid slugs.",
-    inputSchema: z.object({
-      slug: z
-        .string()
-        .min(1)
-        .describe("The skill slug to activate (e.g., 'skill-developer')"),
-    }),
-  },
-  deactivate_skill: {
-    description:
-      "Deactivate a currently active Kronus skill. This removes its context and tools from the next message, reducing token usage. Use this when the user wants to switch focus or reduce context.",
-    inputSchema: z.object({
-      slug: z
-        .string()
-        .min(1)
-        .describe("The skill slug to deactivate (e.g., 'skill-developer')"),
-    }),
-  },
-};
-
 /**
  * Build the tools object based on toolsConfig
+ * Tool definitions imported from tools.ts (single source of truth)
  */
 function buildTools(toolsConfig: ToolsConfig): Record<string, any> {
   const enabledTools: Record<string, any> = {};
 
-  // Journal tools
-  if (toolsConfig.journal) {
-    Object.assign(enabledTools, {
-      journal_create_entry: tools.journal_create_entry,
-      journal_get_entry: tools.journal_get_entry,
-      journal_list_by_repository: tools.journal_list_by_repository,
-      journal_list_by_branch: tools.journal_list_by_branch,
-      journal_list_repositories: tools.journal_list_repositories,
-      journal_list_branches: tools.journal_list_branches,
-      journal_edit_entry: tools.journal_edit_entry,
-      journal_regenerate_entry: tools.journal_regenerate_entry,
-      journal_get_project_summary: tools.journal_get_project_summary,
-      journal_list_project_summaries: tools.journal_list_project_summaries,
-      journal_upsert_project_summary: tools.journal_upsert_project_summary,
-      journal_list_attachments: tools.journal_list_attachments,
-      journal_backup: tools.journal_backup,
-    });
+  const configKeys: (keyof ToolsConfig)[] = [
+    "journal", "linear", "slite", "repository", "git", "media", "imageGeneration", "webSearch", "google",
+  ];
+
+  for (const key of configKeys) {
+    if (toolsConfig[key] && toolCategories[key]) {
+      for (const toolName of toolCategories[key]) {
+        const spec = toolSpecs[toolName];
+        if (spec) {
+          enabledTools[toolName] = spec;
+        }
+      }
+    }
   }
 
-  // Linear tools
-  if (toolsConfig.linear) {
-    Object.assign(enabledTools, {
-      linear_get_viewer: tools.linear_get_viewer,
-      linear_list_issues: tools.linear_list_issues,
-      linear_create_issue: tools.linear_create_issue,
-      linear_update_issue: tools.linear_update_issue,
-      linear_list_projects: tools.linear_list_projects,
-      linear_create_project: tools.linear_create_project,
-      linear_update_project: tools.linear_update_project,
-      linear_create_project_update: tools.linear_create_project_update,
-      linear_list_project_updates: tools.linear_list_project_updates,
-      // Cache tools (read from local DB)
-      linear_get_issue: tools.linear_get_issue,
-      linear_get_project: tools.linear_get_project,
-    });
+  // Skill management tools — always available
+  for (const toolName of toolCategories._alwaysOn) {
+    const spec = toolSpecs[toolName];
+    if (spec) {
+      enabledTools[toolName] = spec;
+    }
   }
-
-  // Slite tools
-  if (toolsConfig.slite) {
-    Object.assign(enabledTools, {
-      slite_search_notes: tools.slite_search_notes,
-      slite_get_note: tools.slite_get_note,
-      slite_create_note: tools.slite_create_note,
-      slite_update_note: tools.slite_update_note,
-      slite_ask: tools.slite_ask,
-    });
-  }
-
-  // Repository tools
-  if (toolsConfig.repository) {
-    Object.assign(enabledTools, {
-      // Documents (writings, prompts, notes)
-      repository_search_documents: tools.repository_search_documents,
-      repository_get_document: tools.repository_get_document,
-      repository_create_document: tools.repository_create_document,
-      repository_update_document: tools.repository_update_document,
-      // Skills
-      repository_list_skills: tools.repository_list_skills,
-      repository_update_skill: tools.repository_update_skill,
-      repository_create_skill: tools.repository_create_skill,
-      // Work Experience
-      repository_list_experience: tools.repository_list_experience,
-      repository_create_experience: tools.repository_create_experience,
-      repository_update_experience: tools.repository_update_experience,
-      // Education
-      repository_list_education: tools.repository_list_education,
-      repository_create_education: tools.repository_create_education,
-      repository_update_education: tools.repository_update_education,
-      // Portfolio Projects
-      repository_list_portfolio_projects: tools.repository_list_portfolio_projects,
-      repository_get_portfolio_project: tools.repository_get_portfolio_project,
-      repository_create_portfolio_project: tools.repository_create_portfolio_project,
-      repository_update_portfolio_project: tools.repository_update_portfolio_project,
-    });
-  }
-
-  // Git tools (GitHub/GitLab repository access)
-  if (toolsConfig.git) {
-    Object.assign(enabledTools, gitTools);
-  }
-
-  // Media tools
-  if (toolsConfig.media) {
-    Object.assign(enabledTools, {
-      save_image: tools.save_image,
-      list_media: tools.list_media,
-      get_media: tools.get_media,
-      update_media: tools.update_media,
-    });
-  }
-
-  // Image generation tools (heavy)
-  if (toolsConfig.imageGeneration) {
-    Object.assign(enabledTools, {
-      replicate_generate_image: tools.replicate_generate_image,
-    });
-  }
-
-  // Web search tools (Perplexity + Gemini Search Grounding)
-  if (toolsConfig.webSearch) {
-    Object.assign(enabledTools, geminiSearchTools, webSearchTools);
-  }
-
-  // Skill management tools — always available so Kronus can activate/deactivate via natural language
-  Object.assign(enabledTools, skillTools);
 
   return enabledTools;
 }
@@ -1010,11 +330,13 @@ export async function POST(req: Request) {
           repository: merged.tools.repository || (toolsConfig?.repository ?? false),
           linear: merged.tools.linear || (toolsConfig?.linear ?? false),
           slite: merged.tools.slite || (toolsConfig?.slite ?? false),
+          notion: merged.tools.notion || (toolsConfig?.notion ?? false),
           git: merged.tools.git || (toolsConfig?.git ?? false),
           media: merged.tools.media || (toolsConfig?.media ?? false),
           imageGeneration:
             merged.tools.imageGeneration || (toolsConfig?.imageGeneration ?? false),
           webSearch: merged.tools.webSearch || (toolsConfig?.webSearch ?? false),
+          google: merged.tools.google || (toolsConfig?.google ?? false),
         };
       } else {
         // Lean baseline tools (no skills active)
@@ -1024,12 +346,14 @@ export async function POST(req: Request) {
               repository: toolsConfig.repository ?? true,
               linear: toolsConfig.linear ?? false,
               slite: toolsConfig.slite ?? false,
+              notion: toolsConfig.notion ?? false,
               git: toolsConfig.git ?? false,
               media: toolsConfig.media ?? false,
               imageGeneration: toolsConfig.imageGeneration ?? false,
               webSearch: toolsConfig.webSearch ?? false,
+              google: toolsConfig.google ?? false,
             }
-          : { journal: true, repository: true, linear: false, slite: false, git: false, media: false, imageGeneration: false, webSearch: false };
+          : { journal: true, repository: true, linear: false, slite: false, notion: false, git: false, media: false, imageGeneration: false, webSearch: false, google: false };
       }
     } else {
       // ===== LEGACY MODE (backward compatible) =====
@@ -1045,6 +369,7 @@ export async function POST(req: Request) {
             linearIssues: soulConfig.linearIssues ?? true,
             linearIncludeCompleted: soulConfig.linearIncludeCompleted ?? false,
             sliteNotes: soulConfig.sliteNotes ?? false,
+            notionPages: soulConfig.notionPages ?? false,
           }
         : DEFAULT_SOUL_CONFIG;
 
@@ -1056,10 +381,12 @@ export async function POST(req: Request) {
             repository: toolsConfig.repository ?? true,
             linear: toolsConfig.linear ?? true,
             slite: toolsConfig.slite ?? false,
+            notion: toolsConfig.notion ?? false,
             git: toolsConfig.git ?? false,
             media: toolsConfig.media ?? true,
             imageGeneration: toolsConfig.imageGeneration ?? false,
             webSearch: toolsConfig.webSearch ?? false,
+            google: toolsConfig.google ?? false,
           }
         : DEFAULT_TOOLS_CONFIG;
     }
@@ -1070,6 +397,7 @@ export async function POST(req: Request) {
       model,
       provider: actualProvider,
       hasThinking: modelSupportsThinking,
+      modelId: activeModelId,
     } = getModel(selectedModel);
     // Reasoning is enabled if model supports it AND user hasn't disabled it
     const reasoningEnabled = modelConfig?.reasoningEnabled ?? true;
@@ -1113,6 +441,11 @@ export async function POST(req: Request) {
     // Convert UI messages to model format for proper streaming (async in AI SDK 6)
     let modelMessages = await convertToModelMessages(sanitizedMessages);
 
+    const isOpus47 = activeModelId === "claude-opus-4-7" && actualProvider === "anthropic";
+    if (isOpus47) {
+      modelMessages = stripLeadingAssistantMessages(modelMessages);
+    }
+
     // Gemini 3 Pro requires thoughtSignature for multi-turn tool calling
     // When signatures aren't preserved in message conversion, inject dummy signature
     // See: https://ai.google.dev/gemini-api/docs/thought-signatures
@@ -1148,10 +481,19 @@ export async function POST(req: Request) {
     const providerOptions: Record<string, any> = {};
     if (hasThinking) {
       if (actualProvider === "anthropic") {
-        // Enable extended thinking for Claude models (Opus 4.5, Opus 4.6)
-        providerOptions.anthropic = {
-          thinking: { type: "enabled", budgetTokens: 10000 },
-        } satisfies AnthropicProviderOptions;
+        // Opus 4.7: adaptive thinking only (budget_tokens rejected by API)
+        if (activeModelId === "claude-opus-4-7") {
+          // Opus 4.7: adaptive thinking + effort (SDK maps effort → output_config)
+          providerOptions.anthropic = {
+            thinking: { type: "adaptive", display: "summarized" },
+            effort: "xhigh",
+          } satisfies AnthropicProviderOptions;
+        } else {
+          // Sonnet 4.6 / Opus 4.6 — extended thinking with token budget
+          providerOptions.anthropic = {
+            thinking: { type: "enabled", budgetTokens: 10000 },
+          } satisfies AnthropicProviderOptions;
+        }
       } else if (actualProvider === "google") {
         // Enable thinking for Gemini models
         providerOptions.google = {
@@ -1168,12 +510,18 @@ export async function POST(req: Request) {
       }
     }
 
+    const effectiveSystemPrompt =
+      isOpus47 ? `${systemPrompt}\n${CLAUDE_OPUS_47_SYSTEM_SUFFIX}` : systemPrompt;
+
     const result = streamText({
       model,
-      system: systemPrompt,
+      system: effectiveSystemPrompt,
       messages: modelMessages,
       tools: enabledTools as any,
       providerOptions,
+      // Opus 4.7: omit non-default sampling params (handled by SDK for this model).
+      // Higher output cap recommended at xhigh effort (Anthropic migration guide).
+      ...(isOpus47 ? { maxOutputTokens: 64_000 } : {}),
       onError: (event) => {
         // Log streaming errors with full details
         console.error("[Chat Stream Error]", {
@@ -1188,8 +536,18 @@ export async function POST(req: Request) {
         const logFn = isError ? console.error : console.log;
         const label = isError ? "[Chat Finish Warning]" : "[Chat Complete]";
 
+        const raw = event.rawFinishReason;
+        if (raw === "refusal" || raw === "model_context_window_exceeded") {
+          console.warn("[Chat Finish raw]", {
+            modelId: activeModelId,
+            finishReason: event.finishReason,
+            rawFinishReason: raw,
+          });
+        }
+
         logFn(label, {
           finishReason: event.finishReason,
+          rawFinishReason: event.rawFinishReason,
           usage: event.usage,
           // Log response content for debugging empty responses
           textLength: event.text?.length || 0,
@@ -1219,7 +577,49 @@ export async function POST(req: Request) {
       },
     });
 
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+      onError: (error) => {
+        // Forward user-friendly error message to the client
+        // (by default AI SDK does NOT forward errors to prevent sensitive data leakage)
+        if (!(error instanceof Error)) {
+          return "An unexpected error occurred. Please try again.";
+        }
+
+        const msg = error.message;
+
+        // AI_RetryError wraps the actual cause — extract the last error message
+        if (msg.includes("Last error:")) {
+          return msg.split("Last error:")[1].trim();
+        }
+
+        // Provider-specific codes
+        if (msg.includes("high demand") || msg.includes("UNAVAILABLE") || msg.includes("503")) {
+          return "The model is currently overloaded. Please try again in a moment.";
+        }
+        if (msg.includes("rate limit") || msg.includes("quota") || msg.includes("429")) {
+          return "Rate limit reached. Please wait a moment before sending another message.";
+        }
+        if (msg.includes("401") || msg.includes("unauthorized") || msg.includes("api key")) {
+          return "Authentication error — check your API key configuration.";
+        }
+        if (msg.includes("context") || msg.includes("token") || msg.includes("too long")) {
+          return "The conversation is too long for this model. Try compressing the context or starting a new chat.";
+        }
+        if (
+          msg.includes("temperature") ||
+          msg.includes("top_p") ||
+          msg.includes("top_k") ||
+          msg.includes("sampling")
+        ) {
+          return "This model rejected custom sampling parameters. Remove temperature/top_p/top_k from the request (the chat API already omits them for Opus 4.7).";
+        }
+        if (msg.toLowerCase().includes("prefill")) {
+          return "Assistant prefill is not supported for this model. Continue with a user message instead.";
+        }
+
+        return msg;
+      },
+    });
   } catch (error: any) {
     // Categorize and log errors with context
     const errorType = categorizeError(error);

@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const { text, sources, providerMetadata } = await generateText({
       model: google("gemini-3-flash-preview"),
       tools: {
-        google_search: google.tools.googleSearch({}),
+        google_search: google.tools.googleSearch({}) as any,
       },
       prompt: query,
     });

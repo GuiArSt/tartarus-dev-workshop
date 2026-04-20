@@ -64,7 +64,7 @@ async function summarizeChat(
   const result = await generateText({
     model,
     output: Output.object({ schema: SummarySchema }),
-    system: `You are a conversation summarizer for the Developer Journal system.
+    system: `You are a conversation summarizer for the Tartarus system.
 Create a "living summary" - a concise description of what a Kronus conversation was about.
 
 ## Guidelines

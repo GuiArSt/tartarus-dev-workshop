@@ -97,6 +97,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   // Generate summary asynchronously (don't block response)
   generateSkillSummary(body.id, skill).catch(console.error);
 
+  try {
+    const { registerObject } = await import("@/lib/object-registry");
+    registerObject({ type: 'skill', sourceTable: 'skills', sourceId: body.id, title: body.name });
+  } catch { /* registry is non-critical */ }
+
   return NextResponse.json({
     ...skill,
     tags: JSON.parse(skill.tags || "[]"),

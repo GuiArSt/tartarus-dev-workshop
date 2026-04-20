@@ -1,11 +1,11 @@
 {
-  "name": "developer-journal-workspace",
+  "name": "tartarus-workspace",
   "version": "1.0.0",
-  "description": "Developer Journal MCP server with Kronus AI agent",
+  "description": "Tartarus MCP server with Kronus AI agent",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "developer-journal": "dist/index.js"
+    "tartarus": "dist/index.js"
   },
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/index.js --external:better-sqlite3 --external:@ai-sdk/anthropic --external:@ai-sdk/openai --external:@ai-sdk/google --external:ai --external:@modelcontextprotocol/sdk --external:@modelcontextprotocol/ext-apps --external:chalk --external:zod && chmod +x dist/index.js",
@@ -14,12 +14,14 @@
     "dev": "tsc --watch",
     "dev:apps": "vite build --config vite.config.apps.ts --watch",
     "start": "node dist/index.js",
-    "test": "jest"
+    "test": "npx tsx tests/object-registry.test.ts && npx tsx tests/mcp-integration.test.ts",
+    "test:registry": "npx tsx tests/object-registry.test.ts",
+    "test:mcp": "npx tsx tests/mcp-integration.test.ts"
   },
   "keywords": [
     "mcp",
     "model-context-protocol",
-    "developer-journal",
+    "tartarus",
     "kronus"
   ],
   "author": "",

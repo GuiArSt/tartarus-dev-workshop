@@ -31,7 +31,7 @@ function getProjectRoot(): string {
     currentDir = path.dirname(currentDir);
   }
 
-  // Fallback: return the Developer Journal Workspace parent
+  // Fallback if Laboratory is not found
   // This script must be run from within the project
   throw new Error("Could not find Laboratory directory. Run this script from within the project.");
 }

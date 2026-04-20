@@ -240,7 +240,7 @@ export const PUT = withErrorHandler<{ slug: string }>(async (request: NextReques
       try {
         const contentToSummarize = updated.content || "";
         if (contentToSummarize.length > 20) {
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3005";
           const summaryResponse = await fetch(`${baseUrl}/api/ai/summarize`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },

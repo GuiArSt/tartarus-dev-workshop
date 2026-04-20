@@ -7,6 +7,16 @@ import { getDatabase } from "./db";
 import path from "path";
 import fs from "fs";
 
+function readRootPackageName(dir: string): string | null {
+  try {
+    const raw = fs.readFileSync(path.join(dir, "package.json"), "utf8");
+    const parsed = JSON.parse(raw) as { name?: unknown };
+    return typeof parsed.name === "string" ? parsed.name : null;
+  } catch {
+    return null;
+  }
+}
+
 function getProjectRoot(): string {
   let currentDir = process.cwd();
 
@@ -22,9 +32,10 @@ export function triggerBackup() {
   try {
     const projectRoot = getProjectRoot();
     const parentDir = path.dirname(projectRoot);
+    const pkgName = readRootPackageName(projectRoot);
+    const isTartarusRoot = pkgName === "tartarus-workspace";
     const isLocalMode =
-      path.basename(parentDir) === "Laboratory" &&
-      path.basename(projectRoot) === "Developer Journal Workspace";
+      path.basename(parentDir) === "Laboratory" && isTartarusRoot;
 
     let backupPath: string;
     if (isLocalMode) {

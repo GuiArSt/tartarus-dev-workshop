@@ -166,6 +166,11 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     generatePortfolioSummary(body.id, project).catch(console.error);
   }
 
+  try {
+    const { registerObject } = await import("@/lib/object-registry");
+    registerObject({ type: 'portfolio_project', sourceTable: 'portfolio_projects', sourceId: body.id, title: body.title });
+  } catch { /* registry is non-critical */ }
+
   return NextResponse.json({
     ...project,
     technologies: JSON.parse(project?.technologies || "[]"),

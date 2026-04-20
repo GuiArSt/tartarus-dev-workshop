@@ -20,7 +20,7 @@ async function generateSummary(
 ): Promise<string | null> {
   try {
     // Get base URL from environment or use default
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3005";
 
     const response = await fetch(`${baseUrl}/api/ai/summarize`, {
       method: "POST",
@@ -138,6 +138,11 @@ export async function syncLinearProjects(
         })
         .where(eq(linearProjects.id, project.id));
       updated++;
+
+      try {
+        const { registerObject } = require("@/lib/object-registry");
+        registerObject({ type: 'linear_project', sourceTable: 'linear_projects', sourceId: project.id, title: project.name });
+      } catch { /* registry is non-critical */ }
     } else {
       // Create new - generate summary for new projects
       const contentForSummary = [project.description, project.content].filter(Boolean).join("\n\n");
@@ -153,6 +158,11 @@ export async function syncLinearProjects(
         createdAt: new Date().toISOString(),
       });
       created++;
+
+      try {
+        const { registerObject } = require("@/lib/object-registry");
+        registerObject({ type: 'linear_project', sourceTable: 'linear_projects', sourceId: project.id, title: project.name });
+      } catch { /* registry is non-critical */ }
     }
   }
 
@@ -252,6 +262,11 @@ export async function syncLinearIssues(
         })
         .where(eq(linearIssues.id, issue.id));
       updated++;
+
+      try {
+        const { registerObject } = require("@/lib/object-registry");
+        registerObject({ type: 'linear_issue', sourceTable: 'linear_issues', sourceId: issue.id, title: `${issue.identifier}: ${issue.title}` });
+      } catch { /* registry is non-critical */ }
     } else {
       // Create new - generate summary for new issues
       let summary: string | null = null;
@@ -265,6 +280,11 @@ export async function syncLinearIssues(
         createdAt: new Date().toISOString(),
       });
       created++;
+
+      try {
+        const { registerObject } = require("@/lib/object-registry");
+        registerObject({ type: 'linear_issue', sourceTable: 'linear_issues', sourceId: issue.id, title: `${issue.identifier}: ${issue.title}` });
+      } catch { /* registry is non-critical */ }
     }
   }
 

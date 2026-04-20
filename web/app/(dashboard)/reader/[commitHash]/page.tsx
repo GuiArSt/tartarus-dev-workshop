@@ -328,9 +328,9 @@ export default function EntryDetailPage() {
   if (!entry) return null;
 
   return (
-    <div className="journal-page flex h-full flex-col">
+    <div className="flex h-full flex-col bg-[var(--tartarus-void)] text-[var(--tartarus-ivory)]">
       {/* Header */}
-      <header className="journal-header flex min-h-14 flex-col gap-2 px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
+      <header className="border-b border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] flex min-h-14 flex-col gap-2 px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
         <div className="flex items-center gap-2 md:gap-4">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/reader">
@@ -397,7 +397,7 @@ export default function EntryDetailPage() {
       </header>
 
       {/* Content */}
-      <ScrollArea className="flex-1 bg-[var(--journal-paper)]">
+      <ScrollArea className="tartarus-reader flex-1">
         <div className="mx-auto max-w-4xl rounded-lg border border-[#E5E0D8] bg-[#FEFDFB] p-3 shadow-sm md:p-6">
           {/* Meta - Clean Grid Layout */}
           <div className="mb-6 space-y-4">

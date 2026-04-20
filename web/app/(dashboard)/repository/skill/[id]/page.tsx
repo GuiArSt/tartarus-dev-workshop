@@ -398,7 +398,7 @@ What would you like to change?`;
                       <button
                         key={level}
                         onClick={() => setEditedSkill({ ...editedSkill, magnitude: level })}
-                        className={`h-8 flex-1 rounded-lg border transition-all ${
+                        className={`h-8 flex-1 rounded-lg border transition-[background-color,border-color] duration-150 ${
                           level <= (editedSkill.magnitude || 0)
                             ? "border-[var(--tartarus-teal)] bg-[var(--tartarus-teal)] text-[var(--tartarus-void)]"
                             : "border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] text-[var(--tartarus-ivory-faded)] hover:border-[var(--tartarus-teal-dim)]"

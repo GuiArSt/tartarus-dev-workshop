@@ -1,6 +1,6 @@
-# Developer Journal Web App
+# Tartarus Web App
 
-A beautiful React-based web interface for viewing and editing your developer journal entries, powered by Kronus AI.
+A beautiful React-based web interface for viewing and editing your Tartarus journal entries, powered by Kronus AI.
 
 ## Features
 

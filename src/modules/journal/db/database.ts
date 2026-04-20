@@ -21,7 +21,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolveMonorepoRootFromImportMeta } from "../../../shared/project-root.js";
 
 import { logger } from "../../../shared/logger.js";
 import { normalizeRepository } from "../../../shared/types.js";
@@ -46,42 +46,7 @@ let db: Database.Database | null = null;
  * This is different from process.cwd() which returns where the agent is running from
  */
 function getMCPInstallationRoot(): string {
-  // Use import.meta.url to find where this module is located
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-
-  // Walk up from dist/modules/journal/db/database.js to find project root
-  let currentDir = __dirname;
-  for (let i = 0; i < 5; i++) {
-    // Look for Developer Journal Workspace directory with package.json or Soul.xml
-    if (
-      path.basename(currentDir) === "Developer Journal Workspace" &&
-      (fs.existsSync(path.join(currentDir, "package.json")) ||
-        fs.existsSync(path.join(currentDir, "Soul.xml")))
-    ) {
-      return currentDir;
-    }
-    const parent = path.dirname(currentDir);
-    if (parent === currentDir) break; // Reached filesystem root
-    currentDir = parent;
-  }
-
-  // Fallback: if we can't find it, use __dirname and walk up to find package.json
-  currentDir = __dirname;
-  for (let i = 0; i < 10; i++) {
-    if (
-      fs.existsSync(path.join(currentDir, "package.json")) ||
-      fs.existsSync(path.join(currentDir, "Soul.xml"))
-    ) {
-      return currentDir;
-    }
-    const parent = path.dirname(currentDir);
-    if (parent === currentDir) break;
-    currentDir = parent;
-  }
-
-  // Last resort: return __dirname (shouldn't happen)
-  return currentDir;
+  return resolveMonorepoRootFromImportMeta(import.meta.url);
 }
 
 const ensureDirectoryExists = (filePath: string) => {
@@ -327,6 +292,41 @@ const createSchema = (handle: Database.Database) => {
     logger.warn("Could not migrate Slite cache table:", error.message);
   }
 
+  // Migration: Notion cache table (007_notion_cache)
+  try {
+    handle.exec(`
+      CREATE TABLE IF NOT EXISTS notion_pages (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT,
+        parent_id TEXT,
+        parent_type TEXT,
+        url TEXT,
+        created_by TEXT,
+        created_by_name TEXT,
+        last_edited_by TEXT,
+        last_edited_by_name TEXT,
+        icon TEXT,
+        cover_url TEXT,
+        archived INTEGER DEFAULT 0,
+        summary TEXT,
+        synced_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TEXT,
+        is_deleted INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        last_edited_at TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_notion_pages_parent ON notion_pages(parent_id);
+      CREATE INDEX IF NOT EXISTS idx_notion_pages_deleted ON notion_pages(is_deleted);
+      CREATE INDEX IF NOT EXISTS idx_notion_pages_synced ON notion_pages(synced_at DESC);
+    `);
+    logger.info("Notion cache table migrated");
+  } catch (error: any) {
+    logger.warn("Could not migrate Notion cache table:", error.message);
+  }
+
   // Migration: Living Project Summary (Entry 0) - Enhanced fields for project_summaries
   const entry0Columns = [
     "file_structure TEXT", // Git-style file tree (agent-provided)
@@ -459,7 +459,73 @@ const createSchema = (handle: Database.Database) => {
   handle.exec(
     `CREATE INDEX IF NOT EXISTS idx_attachments_commit ON entry_attachments(commit_hash);`,
   );
+
+  // Tartarus Object Registry — universal index for all data objects
+  handle.exec(`
+    CREATE TABLE IF NOT EXISTS tartarus_objects (
+      uuid TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      source_table TEXT NOT NULL,
+      source_id TEXT NOT NULL,
+      title TEXT,
+      summary TEXT,
+      tags TEXT DEFAULT '[]',
+      importance INTEGER DEFAULT 0,
+      estimated_tokens INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(source_table, source_id)
+    )
+  `);
+  handle.exec(`CREATE INDEX IF NOT EXISTS idx_tartarus_objects_type ON tartarus_objects(type)`);
+  handle.exec(`CREATE INDEX IF NOT EXISTS idx_tartarus_objects_source ON tartarus_objects(source_table, source_id)`);
+
+  // Object history — append-only snapshots for version tracking
+  handle.exec(`
+    CREATE TABLE IF NOT EXISTS tartarus_object_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      object_uuid TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      snapshot TEXT NOT NULL,
+      changed_by TEXT DEFAULT 'system',
+      change_summary TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (object_uuid) REFERENCES tartarus_objects(uuid) ON DELETE CASCADE
+    )
+  `);
+  handle.exec(`CREATE INDEX IF NOT EXISTS idx_object_history_uuid ON tartarus_object_history(object_uuid)`);
 };
+
+/** Rename legacy monorepo repository labels to tartarus-workspace (matches normalizeRepository). */
+function runLegacyMonorepoRepositoryRenames(handle: Database.Database): void {
+  const renames: Array<[string, string]> = [
+    ["Developer Journal Workspace", "tartarus-workspace"],
+    ["developer journal workspace", "tartarus-workspace"],
+  ];
+  const tables = [
+    "journal_entries",
+    "project_summaries",
+    "athena_learning_items",
+    "athena_sessions",
+  ] as const;
+  for (const table of tables) {
+    const row = handle
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+      )
+      .get(table);
+    if (!row) continue;
+    for (const [from, to] of renames) {
+      try {
+        handle
+          .prepare(`UPDATE ${table} SET repository = ? WHERE repository = ?`)
+          .run(to, from);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
 
 export const initDatabase = (dbPath?: string): Database.Database => {
   if (db) {
@@ -487,6 +553,7 @@ export const initDatabase = (dbPath?: string): Database.Database => {
       db.pragma("foreign_keys = ON");
       db.pragma("busy_timeout = 5000"); // Wait 5 seconds for locks
       createSchema(db);
+      runLegacyMonorepoRepositoryRenames(db);
       logger.success(`Journal database ready at ${finalPath}`);
       return db;
     } catch (error) {
@@ -2506,4 +2573,204 @@ export const getSliteCacheStats = (): {
     },
     lastSync: stats.last_sync,
   };
+};
+
+// ============================================
+// Notion Cache - Read Operations
+// ============================================
+
+export interface NotionPage {
+  id: string;
+  title: string;
+  content: string | null;
+  parent_id: string | null;
+  parent_type: string | null;
+  url: string | null;
+  created_by: string | null;
+  created_by_name: string | null;
+  last_edited_by: string | null;
+  last_edited_by_name: string | null;
+  icon: string | null;
+  archived: boolean;
+  summary: string | null;
+  synced_at: string;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+  last_edited_at: string | null;
+}
+
+const mapNotionPageRow = (row: any): NotionPage => ({
+  id: row.id,
+  title: row.title,
+  content: row.content,
+  parent_id: row.parent_id,
+  parent_type: row.parent_type,
+  url: row.url,
+  created_by: row.created_by,
+  created_by_name: row.created_by_name,
+  last_edited_by: row.last_edited_by,
+  last_edited_by_name: row.last_edited_by_name,
+  icon: row.icon,
+  archived: Boolean(row.archived),
+  summary: row.summary,
+  synced_at: row.synced_at,
+  is_deleted: Boolean(row.is_deleted),
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+  last_edited_at: row.last_edited_at,
+});
+
+export const listNotionPages = (options?: {
+  includeDeleted?: boolean;
+}): NotionPage[] => {
+  if (!db) throw new Error("Database not initialized");
+
+  const includeDeleted = options?.includeDeleted ?? false;
+
+  return db
+    .prepare(
+      `SELECT * FROM notion_pages ${includeDeleted ? "" : "WHERE is_deleted = 0"} ORDER BY last_edited_at DESC`,
+    )
+    .all()
+    .map(mapNotionPageRow);
+};
+
+export const getNotionPage = (id: string): NotionPage | null => {
+  if (!db) throw new Error("Database not initialized");
+
+  const row = db
+    .prepare("SELECT * FROM notion_pages WHERE id = ?")
+    .get(id) as any;
+
+  return row ? mapNotionPageRow(row) : null;
+};
+
+export const getNotionCacheStats = (): {
+  pages: { active: number; deleted: number; total: number };
+  lastSync: string | null;
+} => {
+  if (!db) throw new Error("Database not initialized");
+
+  const stats = db
+    .prepare(
+      `
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN is_deleted = 0 THEN 1 ELSE 0 END) as active,
+      SUM(CASE WHEN is_deleted = 1 THEN 1 ELSE 0 END) as deleted,
+      MAX(synced_at) as last_sync
+    FROM notion_pages
+  `,
+    )
+    .get() as {
+    total: number;
+    active: number;
+    deleted: number;
+    last_sync: string | null;
+  };
+
+  return {
+    pages: {
+      active: stats.active || 0,
+      deleted: stats.deleted || 0,
+      total: stats.total || 0,
+    },
+    lastSync: stats.last_sync,
+  };
+};
+
+// ============================================================================
+// TARTARUS OBJECT REGISTRY — Read functions (MCP side)
+// ============================================================================
+
+export interface TartarusObject {
+  uuid: string;
+  type: string;
+  source_table: string;
+  source_id: string;
+  title: string | null;
+  summary: string | null;
+  tags: string[];
+  importance: number;
+  estimated_tokens: number;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapObjectRow(row: any): TartarusObject {
+  return {
+    ...row,
+    tags: JSON.parse(row.tags || "[]"),
+  };
+}
+
+export const getObjectByUUID = (uuid: string): TartarusObject | null => {
+  if (!db) throw new Error("Database not initialized");
+  const row = db
+    .prepare("SELECT * FROM tartarus_objects WHERE uuid = ?")
+    .get(uuid);
+  return row ? mapObjectRow(row) : null;
+};
+
+export const getObjectBySource = (
+  sourceTable: string,
+  sourceId: string,
+): TartarusObject | null => {
+  if (!db) throw new Error("Database not initialized");
+  const row = db
+    .prepare("SELECT * FROM tartarus_objects WHERE source_table = ? AND source_id = ?")
+    .get(sourceTable, sourceId);
+  return row ? mapObjectRow(row) : null;
+};
+
+export const searchTartarusObjects = (
+  query: string,
+  type?: string,
+  limit: number = 20,
+): TartarusObject[] => {
+  if (!db) throw new Error("Database not initialized");
+  const pattern = `%${query}%`;
+
+  let sql = `SELECT * FROM tartarus_objects WHERE (title LIKE ? OR summary LIKE ? OR tags LIKE ?)`;
+  const params: (string | number)[] = [pattern, pattern, pattern];
+
+  if (type) {
+    sql += " AND type = ?";
+    params.push(type);
+  }
+
+  sql += " ORDER BY updated_at DESC LIMIT ?";
+  params.push(limit);
+
+  const rows = db.prepare(sql).all(...params);
+  return rows.map(mapObjectRow);
+};
+
+/**
+ * Batch lookup: get UUID for source table + source IDs.
+ * Returns a Map<sourceId, uuid> for fast merging into indexes.
+ */
+export const getObjectUUIDs = (
+  sourceTable: string,
+  sourceIds: string[],
+): Map<string, string> => {
+  if (!db || sourceIds.length === 0) return new Map();
+  const placeholders = sourceIds.map(() => "?").join(",");
+  const rows = db
+    .prepare(
+      `SELECT source_id, uuid FROM tartarus_objects WHERE source_table = ? AND source_id IN (${placeholders})`,
+    )
+    .all(sourceTable, ...sourceIds) as { source_id: string; uuid: string }[];
+  return new Map(rows.map((r) => [r.source_id, r.uuid]));
+};
+
+export const getConversationById = (
+  id: number,
+): { id: number; title: string; messages: string; summary: string | null; created_at: string; updated_at: string } | null => {
+  if (!db) throw new Error("Database not initialized");
+  const row = db
+    .prepare("SELECT id, title, messages, summary, created_at, updated_at FROM chat_conversations WHERE id = ?")
+    .get(id) as any;
+  return row || null;
 };

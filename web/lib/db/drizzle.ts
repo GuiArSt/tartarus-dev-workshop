@@ -11,6 +11,7 @@ import path from "path";
 import os from "os";
 import fs from "fs";
 import * as schema from "./schema";
+import { migrateMonorepoRepositoryNames } from "../db";
 
 let db: BetterSQLite3Database<typeof schema> | null = null;
 let sqlite: Database.Database | null = null;
@@ -63,6 +64,12 @@ export function getDrizzleDb(): BetterSQLite3Database<typeof schema> {
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
   sqlite.pragma("busy_timeout = 5000");
+
+  try {
+    migrateMonorepoRepositoryNames(sqlite);
+  } catch {
+    // ignore
+  }
 
   db = drizzle(sqlite, { schema });
 

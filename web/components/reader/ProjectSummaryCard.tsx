@@ -234,7 +234,7 @@ export function ProjectSummaryCard({
                     <ChevronRight className="h-4 w-4 flex-shrink-0 text-[var(--tartarus-ivory-muted)]" />
                   )}
                   <FolderGit2 className="h-5 w-5 flex-shrink-0 text-[var(--tartarus-teal)]" />
-                  <CardTitle className="truncate text-lg text-[var(--tartarus-ivory)]">
+                  <CardTitle className="truncate text-lg capitalize text-[var(--tartarus-ivory)]">
                     {project.repository}
                   </CardTitle>
                   {hasEntry0 ? (

@@ -229,7 +229,7 @@ export default function PromptsPage() {
       <div className="border-border flex flex-col gap-3 border-b p-3 md:flex-row md:items-center md:justify-between md:p-6">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold md:text-2xl">
-            <Sparkles className="h-5 w-5 text-[var(--kronus-teal)] md:h-6 md:w-6" />
+            <Sparkles className="h-5 w-5 text-[var(--tartarus-teal)] md:h-6 md:w-6" />
             Prompt Engineering
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -330,7 +330,7 @@ export default function PromptsPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {prompts.map((prompt) => (
               <Link key={prompt.id} href={`/prompts/${prompt.slug}`}>
-                <Card className="h-full cursor-pointer transition-all hover:border-[var(--kronus-teal)] hover:shadow-md">
+                <Card className="h-full cursor-pointer transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[var(--tartarus-teal)] hover:shadow-md">
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">

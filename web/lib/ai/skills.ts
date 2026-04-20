@@ -65,6 +65,7 @@ export const LEAN_SOUL_CONFIG: SoulConfigState = {
   linearIssues: false,
   linearIncludeCompleted: false,
   sliteNotes: false,
+  notionPages: false,
 };
 
 /** Lean baseline tools config — only journal + repository for basic functionality */
@@ -77,6 +78,8 @@ export const LEAN_TOOLS_CONFIG: ToolsConfigState = {
   imageGeneration: false,
   webSearch: false,
   slite: false,
+  notion: false,
+  google: false,
 };
 
 /** All soul sections enabled */
@@ -91,6 +94,7 @@ export const ALL_SOUL_CONFIG: SoulConfigState = {
   linearIssues: true,
   linearIncludeCompleted: false,
   sliteNotes: true,
+  notionPages: true,
 };
 
 /** All tools enabled */
@@ -103,6 +107,8 @@ export const ALL_TOOLS_CONFIG: ToolsConfigState = {
   imageGeneration: true,
   webSearch: true,
   slite: true,
+  notion: true,
+  google: true,
 };
 
 // ============================================================================
@@ -171,7 +177,8 @@ export function soulConfigsEqual(a: SoulConfigState, b: SoulConfigState): boolea
     a.linearProjects === b.linearProjects &&
     a.linearIssues === b.linearIssues &&
     a.linearIncludeCompleted === b.linearIncludeCompleted &&
-    a.sliteNotes === b.sliteNotes
+    a.sliteNotes === b.sliteNotes &&
+    a.notionPages === b.notionPages
   );
 }
 
@@ -187,7 +194,9 @@ export function toolsConfigsEqual(a: ToolsConfigState, b: ToolsConfigState): boo
     a.media === b.media &&
     a.imageGeneration === b.imageGeneration &&
     a.webSearch === b.webSearch &&
-    a.slite === b.slite
+    a.slite === b.slite &&
+    a.notion === b.notion &&
+    a.google === b.google
   );
 }
 
@@ -205,7 +214,8 @@ export function isAlmightyConfig(soul: SoulConfigState, tools: ToolsConfigState)
     soul.journalEntries &&
     soul.linearProjects &&
     soul.linearIssues &&
-    soul.sliteNotes;
+    soul.sliteNotes &&
+    soul.notionPages;
 
   const allTools =
     tools.journal &&
@@ -215,7 +225,9 @@ export function isAlmightyConfig(soul: SoulConfigState, tools: ToolsConfigState)
     tools.media &&
     tools.imageGeneration &&
     tools.webSearch &&
-    tools.slite;
+    tools.slite &&
+    tools.notion &&
+    tools.google;
 
   return !!allSoul && !!allTools;
 }

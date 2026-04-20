@@ -319,6 +319,8 @@ export type ConversationQueryParams = z.infer<typeof conversationQuerySchema>;
 export const saveConversationSchema = z.object({
   title: z.string().min(1, "Title is required"),
   messages: z.array(z.any()).min(1, "Messages are required"),
+  /** Kronus UI snapshot (model, soul, tools, skills, format) — see web/lib/chat-session-snapshot.ts */
+  sessionConfig: z.any().optional(),
 });
 
 export type SaveConversation = z.infer<typeof saveConversationSchema>;

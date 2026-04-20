@@ -47,6 +47,8 @@ export interface SoulConfigState {
   linearIncludeCompleted: boolean;
   // Slite context - cached knowledge base notes
   sliteNotes: boolean;
+  // Notion context - cached workspace pages
+  notionPages: boolean;
 }
 
 // Linear breakdown stats
@@ -104,6 +106,7 @@ const DEFAULT_CONFIG: SoulConfigState = {
   linearIssues: false,
   linearIncludeCompleted: false,
   sliteNotes: false,
+  notionPages: false,
 };
 
 const FALLBACK_STATS: SectionStats = {
@@ -396,13 +399,13 @@ export function SoulConfig({
                   return (
                     <div
                       key={key}
-                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.05]"
                       onClick={() => toggleSection(key as keyof SoulConfigState)}
                     >
                       <Switch
                         checked={enabled}
                         onCheckedChange={() => toggleSection(key as keyof SoulConfigState)}
-                        className="data-[state=checked]:bg-[#00CED1] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
+                        className="data-[state=checked]:bg-[var(--tartarus-teal)] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <Icon
@@ -474,13 +477,13 @@ export function SoulConfig({
                   return (
                     <div
                       key={key}
-                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.05]"
                       onClick={() => toggleSection(key as keyof SoulConfigState)}
                     >
                       <Switch
                         checked={enabled}
                         onCheckedChange={() => toggleSection(key as keyof SoulConfigState)}
-                        className="data-[state=checked]:bg-[#4285F4] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
+                        className="data-[state=checked]:bg-[var(--tartarus-google)] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <Icon
@@ -524,7 +527,7 @@ export function SoulConfig({
 
                 {/* Include Completed toggle */}
                 <div
-                  className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
+                  className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.05]"
                   onClick={() => toggleSection("linearIncludeCompleted")}
                 >
                   <Switch
@@ -583,7 +586,7 @@ export function SoulConfig({
               style={{ backgroundColor: TARTARUS.border }}
             >
               <div
-                className="h-full rounded-full transition-all duration-300"
+                className="h-full rounded-full transition-[width,background-color,box-shadow] duration-200"
                 style={{
                   width: `${Math.min(contextPercentage, 100)}%`,
                   backgroundColor: isHighContext ? TARTARUS.gold : TARTARUS.teal,

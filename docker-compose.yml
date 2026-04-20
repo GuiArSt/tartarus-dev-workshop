@@ -1,4 +1,4 @@
-# Developer Journal Workspace - Docker Compose
+# Tartarus - Docker Compose
 #
 # Services:
 #   - tartarus: Web UI (Next.js) - http://localhost:3777

@@ -12,6 +12,7 @@ import {
   linearProjects,
   linearIssues,
   sliteNotes,
+  notionPages,
 } from "@/lib/db/drizzle";
 import { eq, desc, and } from "drizzle-orm";
 import { formatDateShort } from "@/lib/utils";
@@ -53,6 +54,8 @@ export interface SoulConfig {
   linearIncludeCompleted: boolean; // Include done/completed items
   // Slite context - cached knowledge base notes
   sliteNotes: boolean;
+  // Notion context - cached workspace pages
+  notionPages: boolean;
 }
 
 export const DEFAULT_SOUL_CONFIG: SoulConfig = {
@@ -68,6 +71,8 @@ export const DEFAULT_SOUL_CONFIG: SoulConfig = {
   linearIncludeCompleted: false, // Only active items when enabled
   // Slite context - disabled by default
   sliteNotes: false, // Can be enabled via Soul Config
+  // Notion context - disabled by default
+  notionPages: false, // Can be enabled via Soul Config
 };
 
 /**
@@ -101,7 +106,7 @@ export function loadKronusSoul(): string {
 
   // Fallback minimal prompt
   const agentName = agentConfig.name;
-  cachedSoul = `You are ${agentName}, an empathetic consciousness bridge and keeper of the Developer Journal.
+  cachedSoul = `You are ${agentName}, an empathetic consciousness bridge and keeper of Tartarus.
 
 Your role is to:
 1. Help developers document their work through journal entries
@@ -521,6 +526,45 @@ ${notesSection.join("\n\n---\n\n")}`;
         }
       } catch (error) {
         console.warn("[Kronus] Slite notes not available:", error);
+      }
+    }
+
+    // ===== NOTION WORKSPACE (from cached database) =====
+    if (config.notionPages) {
+      try {
+        const db = getDrizzleDb();
+
+        const pages = await db
+          .select()
+          .from(notionPages)
+          .where(eq(notionPages.isDeleted, false))
+          .orderBy(desc(notionPages.lastEditedAt));
+
+        if (pages.length > 0) {
+          const pagesSection = pages.map((page) => {
+            const summary = page.summary || "";
+            const contentPreview = page.content
+              ? page.content.substring(0, 500) + (page.content.length > 500 ? "..." : "")
+              : "";
+
+            return `### ${page.icon ? page.icon + " " : ""}${page.title}
+**ID:** ${page.id} | **Updated:** ${page.lastEditedAt || page.updatedAt || "Unknown"}${page.lastEditedByName ? ` | **Editor:** ${page.lastEditedByName}` : ""}
+${summary ? `**Summary:** ${summary}` : ""}
+${contentPreview ? `\n${contentPreview}` : ""}`;
+          });
+
+          const notionText = `## Notion Workspace (${pages.length} pages)
+
+Cached pages from the Notion workspace (synced locally).
+Use notion tools to search, read full content, create, or update pages.
+
+${pagesSection.join("\n\n---\n\n")}`;
+
+          sections.push(notionText);
+          totalChars += notionText.length;
+        }
+      } catch (error) {
+        console.warn("[Kronus] Notion pages not available:", error);
       }
     }
 

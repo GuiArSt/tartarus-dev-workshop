@@ -97,6 +97,7 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   "claude-haiku-4-5-20250514": { input: 0.8, output: 4.0 },
   "claude-opus-4-5-20251101": { input: 15.0, output: 75.0 },
   "claude-opus-4-6": { input: 5.0, output: 25.0 },
+  "claude-opus-4-7": { input: 5.0, output: 25.0 },
   // AI SDK model aliases
   "claude-haiku-4-5": { input: 0.8, output: 4.0 },
   "claude-sonnet-4-5": { input: 3.0, output: 15.0 },

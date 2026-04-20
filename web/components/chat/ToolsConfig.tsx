@@ -13,6 +13,7 @@ import {
   Image,
   Search,
   Sparkles,
+  Cloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,10 +30,12 @@ export interface ToolsConfigState {
   repository: boolean;
   linear: boolean;
   slite: boolean;
+  notion: boolean;
   git: boolean;
   media: boolean;
   imageGeneration: boolean;
   webSearch: boolean;
+  google: boolean;
 }
 
 interface ToolsConfigProps {
@@ -45,10 +48,12 @@ const DEFAULT_CONFIG: ToolsConfigState = {
   repository: true,
   linear: false,
   slite: false,
+  notion: false,
   git: false,
   media: false,
   imageGeneration: false,
   webSearch: false,
+  google: false,
 };
 
 // Tool category metadata
@@ -69,8 +74,10 @@ const CORE_TOOLS = [
   },
   { key: "linear", name: "Linear", icon: Briefcase, description: "Issues & projects", count: 7 },
   { key: "slite", name: "Slite", icon: BookOpen, description: "Knowledge base", count: 5 },
+  { key: "notion", name: "Notion", icon: BookOpen, description: "Workspace pages", count: 4 },
   { key: "git", name: "Git", icon: Github, description: "GitHub/GitLab repos", count: 3 },
   { key: "media", name: "Media", icon: Image, description: "Asset management", count: 3 },
+  { key: "google", name: "Google", icon: Cloud, description: "Drive, Gmail, Calendar", count: 11 },
 ] as const;
 
 const MULTIMODAL_TOOLS = [
@@ -97,10 +104,12 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
       repository: true,
       linear: true,
       slite: true,
+      notion: true,
       git: true,
       media: true,
       imageGeneration: true,
       webSearch: true,
+      google: true,
     });
   };
 
@@ -110,10 +119,12 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
       repository: true,
       linear: true,
       slite: true,
+      notion: true,
       git: false,
       media: true,
       imageGeneration: false,
       webSearch: false,
+      google: true,
     });
   };
 
@@ -123,10 +134,12 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
     ...(config.repository ? [11] : []),
     ...(config.linear ? [7] : []),
     ...(config.slite ? [5] : []),
+    ...(config.notion ? [4] : []),
     ...(config.git ? [3] : []),
     ...(config.media ? [3] : []),
     ...(config.imageGeneration ? [1] : []),
     ...(config.webSearch ? [5] : []),
+    ...(config.google ? [11] : []),
   ].reduce((a, b) => a + b, 0);
 
   const hasMultimodal = config.imageGeneration || config.webSearch;
@@ -139,7 +152,7 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
           size="sm"
           className={cn(
             "gap-1.5 transition-colors",
-            hasMultimodal ? "text-[#9B59B6]" : "text-[#888899]"
+            hasMultimodal ? "text-[var(--tartarus-purple)]" : "text-[#888899]"
           )}
         >
           <Wrench className="h-4 w-4" />
@@ -200,13 +213,13 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                   return (
                     <div
                       key={key}
-                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.05]"
                       onClick={() => toggleCategory(key as keyof ToolsConfigState)}
                     >
                       <Switch
                         checked={enabled}
                         onCheckedChange={() => toggleCategory(key as keyof ToolsConfigState)}
-                        className="data-[state=checked]:bg-[#00CED1] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
+                        className="data-[state=checked]:bg-[var(--tartarus-teal)] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <Icon
@@ -248,13 +261,13 @@ export function ToolsConfig({ config, onChange }: ToolsConfigProps) {
                   return (
                     <div
                       key={key}
-                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.05]"
                       onClick={() => toggleCategory(key as keyof ToolsConfigState)}
                     >
                       <Switch
                         checked={enabled}
                         onCheckedChange={() => toggleCategory(key as keyof ToolsConfigState)}
-                        className="data-[state=checked]:bg-[#9B59B6] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
+                        className="data-[state=checked]:bg-[var(--tartarus-purple)] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <Icon

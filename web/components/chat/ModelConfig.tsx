@@ -11,12 +11,12 @@ import { TARTARUS, popoverStyles, headerStyles } from "./config-styles";
 // Model selection type - matches route.ts ModelSelection
 export type ModelSelection =
   | "gemini-3.1-pro"
-  | "gemini-3-flash"
-  | "gemini-3-pro"
+  | "gemini-3.1-flash-lite"
   | "claude-sonnet-4.6"
   | "claude-opus-4.6"
-  | "claude-haiku-4.5"
-  | "gpt-5.2";
+  | "claude-opus-4.7"
+  | "gpt-5.4"
+  | "gpt-5.3-instant";
 
 // ModelConfigState - controls which model is used
 export interface ModelConfigState {
@@ -37,12 +37,12 @@ const DEFAULT_CONFIG: ModelConfigState = {
 // Context limits per model
 export const MODEL_CONTEXT_LIMITS: Record<ModelSelection, number> = {
   "gemini-3.1-pro": 1000000,
-  "gemini-3-flash": 1000000,
-  "gemini-3-pro": 1000000,
+  "gemini-3.1-flash-lite": 1000000,
   "claude-sonnet-4.6": 1000000,
   "claude-opus-4.6": 1000000,
-  "claude-haiku-4.5": 200000,
-  "gpt-5.2": 400000,
+  "claude-opus-4.7": 1000000,
+  "gpt-5.4": 1000000,
+  "gpt-5.3-instant": 200000,
 };
 
 // Model metadata with provider grouping
@@ -67,22 +67,13 @@ const MODELS: Record<
     hasThinking: true,
     provider: "Google",
   },
-  "gemini-3-flash": {
-    name: "Gemini 3 Flash",
-    shortName: "Gemini 3 Flash",
-    description: "Fast with thinking",
+  "gemini-3.1-flash-lite": {
+    name: "Gemini 3.1 Flash-Lite",
+    shortName: "Flash-Lite",
+    description: "Ultra-fast, cheapest",
     context: "1M",
     color: TARTARUS.google,
-    hasThinking: true,
-    provider: "Google",
-  },
-  "gemini-3-pro": {
-    name: "Gemini 3 Pro",
-    shortName: "Gemini 3 Pro",
-    description: "Deep reasoning",
-    context: "1M",
-    color: TARTARUS.google,
-    hasThinking: true,
+    hasThinking: false,
     provider: "Google",
   },
   "claude-sonnet-4.6": {
@@ -97,28 +88,37 @@ const MODELS: Record<
   "claude-opus-4.6": {
     name: "Claude Opus 4.6",
     shortName: "Opus 4.6",
-    description: "Latest, most capable",
+    description: "Stable flagship",
     context: "1M",
     color: TARTARUS.anthropic,
     hasThinking: true,
     provider: "Anthropic",
   },
-  "claude-haiku-4.5": {
-    name: "Claude Haiku 4.5",
-    shortName: "Haiku 4.5",
-    description: "Fastest response",
-    context: "200K",
+  "claude-opus-4.7": {
+    name: "Claude Opus 4.7",
+    shortName: "Opus 4.7",
+    description: "Latest Opus, adaptive thinking",
+    context: "1M",
     color: TARTARUS.anthropic,
-    hasThinking: false,
+    hasThinking: true,
     provider: "Anthropic",
   },
-  "gpt-5.2": {
-    name: "GPT-5.2",
-    shortName: "GPT-5.2",
-    description: "Reasoning model",
-    context: "400K",
+  "gpt-5.4": {
+    name: "GPT-5.4",
+    shortName: "GPT-5.4",
+    description: "Flagship, extreme reasoning",
+    context: "1M",
     color: TARTARUS.openai,
     hasThinking: true,
+    provider: "OpenAI",
+  },
+  "gpt-5.3-instant": {
+    name: "GPT-5.3 Instant",
+    shortName: "5.3 Instant",
+    description: "Fast chat, low hallucination",
+    context: "200K",
+    color: TARTARUS.openai,
+    hasThinking: false,
     provider: "OpenAI",
   },
 };
@@ -178,8 +178,8 @@ export function ModelConfig({ config, onChange }: ModelConfigProps) {
                   key={key}
                   onClick={() => selectModel(key)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all",
-                    "hover:bg-white/[0.03]"
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-[background-color,border-color] duration-150",
+                    "hover:bg-white/[0.05]"
                   )}
                   style={{
                     backgroundColor: isSelected ? `${model.color}10` : "transparent",
@@ -243,13 +243,13 @@ export function ModelConfig({ config, onChange }: ModelConfigProps) {
           {supportsReasoning && (
             <div className="px-4 py-3" style={{ borderTop: `1px solid ${TARTARUS.borderSubtle}` }}>
               <div
-                className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.03]"
+                className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.05]"
                 onClick={toggleReasoning}
               >
                 <Switch
                   checked={config.reasoningEnabled}
                   onCheckedChange={toggleReasoning}
-                  className="data-[state=checked]:bg-[#9B59B6] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
+                  className="data-[state=checked]:bg-[var(--tartarus-purple)] data-[state=unchecked]:bg-[var(--tartarus-surface)]"
                   onClick={(e) => e.stopPropagation()}
                 />
                 <Brain

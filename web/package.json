@@ -18,7 +18,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.7",
+    "@ai-sdk/anthropic": "^3.0.71",
     "@ai-sdk/google": "^3.0.6",
     "@ai-sdk/openai": "^3.0.7",
     "@ai-sdk/react": "^3.0.14",
@@ -42,7 +42,7 @@
     "@supabase/supabase-js": "^2.87.1",
     "@tailwindcss/typography": "^0.5.19",
     "@types/diff": "^7.0.2",
-    "ai": "^6.0.14",
+    "ai": "^6.0.168",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.5.0",
     "class-variance-authority": "^0.7.1",

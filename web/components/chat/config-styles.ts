@@ -10,42 +10,42 @@
 // ============================================================================
 
 export const TARTARUS = {
-  // Backgrounds
-  void: "#050508", // Deepest black - the void
-  abyss: "#0a0a0f", // Primary background
-  surface: "#12121a", // Elevated surface
-  elevated: "#1a1a24", // Cards, items
+  // Backgrounds - aligned to globals.css CSS variables
+  void: "var(--tartarus-void)",
+  abyss: "var(--tartarus-void)", // alias for void
+  surface: "var(--tartarus-surface)",
+  elevated: "var(--tartarus-elevated)",
 
   // Borders & Lines
-  border: "#2a2a3a", // Standard border
-  borderSubtle: "#1f1f2a", // Subtle dividers
-  borderAccent: "#3a3a4a", // Hover borders
+  border: "var(--tartarus-border)",
+  borderSubtle: "var(--tartarus-border)",
+  borderAccent: "var(--tartarus-border-light)",
 
   // Text
-  text: "#e8e6e3", // Primary text
-  textMuted: "#888899", // Secondary text
-  textDim: "#666677", // Tertiary text
+  text: "var(--tartarus-ivory-dim)",
+  textMuted: "var(--tartarus-ivory-muted)",
+  textDim: "var(--tartarus-ivory-faded)",
 
   // Accent Colors
-  teal: "#00CED1", // Primary accent - cyan glow
-  tealDim: "#008B8B", // Muted teal
-  tealGlow: "rgba(0, 206, 209, 0.15)", // Teal background glow
+  teal: "var(--tartarus-teal)",
+  tealDim: "var(--tartarus-teal-dim)",
+  tealGlow: "var(--tartarus-teal-soft)",
 
-  gold: "#D4AF37", // Warning, premium
-  goldGlow: "rgba(212, 175, 55, 0.15)",
+  gold: "var(--tartarus-gold)",
+  goldGlow: "var(--tartarus-gold-soft)",
 
-  purple: "#9B59B6", // Special features
-  purpleGlow: "rgba(155, 89, 182, 0.15)",
+  purple: "var(--tartarus-purple)",
+  purpleGlow: "var(--tartarus-purple-soft)",
 
   // Provider Colors
-  google: "#4285F4",
-  anthropic: "#D97706",
-  openai: "#10A37F",
+  google: "var(--tartarus-google)",
+  anthropic: "var(--tartarus-anthropic)",
+  openai: "var(--tartarus-openai)",
 
   // Status
-  success: "#22c55e",
-  warning: "#eab308",
-  error: "#E74C3C",
+  success: "var(--tartarus-success)",
+  warning: "var(--tartarus-warning)",
+  error: "var(--tartarus-error)",
 } as const;
 
 // ============================================================================

@@ -22,52 +22,59 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Kronus chat fonts
+// Kronus chat fonts - lazy loaded (only downloaded when chat font selector activates them)
 const crimsonPro = Crimson_Pro({
   variable: "--font-crimson-pro",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  preload: false,
 });
 
 const cormorantGaramond = Cormorant_Garamond({
   variable: "--font-cormorant",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  preload: false,
 });
 
 const cinzel = Cinzel({
   variable: "--font-cinzel",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  preload: false,
 });
 
 const ibmPlexSans = IBM_Plex_Sans({
   variable: "--font-ibm-plex",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  preload: false,
 });
 
 const sourceSerif4 = Source_Serif_4({
   variable: "--font-source-serif",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  preload: false,
 });
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  preload: false,
 });
 
 const spectral = Spectral({
   variable: "--font-spectral",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
-  title: "Tartarus | Developer Journal",
-  description: "AI-powered developer journal - Chronicle your code with Kronus",
+  title: "Tartarus",
+  description: "Tartarus — AI-powered journal and knowledge base with Kronus",
 };
 
 export const viewport: Viewport = {

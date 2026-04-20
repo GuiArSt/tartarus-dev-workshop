@@ -2,11 +2,11 @@
  * AI Summarize Endpoint - Generate dense 3-sentence summaries for Kronus indexing
  *
  * Uses AI SDK 6.0 generateText with Output.object() for structured outputs
- * Model: Claude Haiku 4.5 (fast, cheap)
+ * Model: Gemini 3.1 Flash Lite (fast, cheap)
  */
 
 import { generateText, Output } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 
@@ -55,8 +55,8 @@ export async function POST(req: Request) {
     // Validate input
     const input = SummarizeInputSchema.parse(body);
 
-    // Use Claude Haiku 4.5 for fast, cost-effective summarization
-    const model = anthropic("claude-haiku-4-5-20251001");
+    // Use Gemini 3.1 Flash Lite for fast, cost-effective summarization
+    const model = google("gemini-3.1-flash-lite-preview");
 
     // Build context string from metadata if available
     let metadataContext = "";
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     const result = await generateText({
       model,
       output: Output.object({ schema: SummaryOutputSchema }),
-      system: `You are a precise summarization engine for the Developer Journal system.
+      system: `You are a precise summarization engine for the Tartarus system.
 Your task is to generate dense, information-rich 3-sentence summaries for AI retrieval indexing.
 
 ## Summary Structure

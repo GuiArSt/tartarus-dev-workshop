@@ -147,7 +147,7 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
                     <button
                       key={fontKey}
                       onClick={() => setFont(fontKey)}
-                      className="rounded-lg px-3 py-2.5 text-left transition-all hover:bg-white/[0.03]"
+                      className="rounded-lg px-3 py-2.5 text-left transition-[background-color,border-color] duration-150 hover:bg-white/[0.05]"
                       style={{
                         border: isSelected
                           ? `1px solid ${TARTARUS.teal}40`
@@ -196,7 +196,7 @@ export function FormatConfig({ config, onChange }: FormatConfigProps) {
                     <button
                       key={sizeKey}
                       onClick={() => setFontSize(sizeKey)}
-                      className="flex-1 rounded-lg py-2 transition-all hover:bg-white/[0.03]"
+                      className="flex-1 rounded-lg py-2 transition-[background-color,border-color] duration-150 hover:bg-white/[0.05]"
                       style={{
                         border: isSelected
                           ? `1px solid ${TARTARUS.teal}40`

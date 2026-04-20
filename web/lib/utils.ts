@@ -21,6 +21,7 @@ export function parseEuropeanDate(
   input: string | null | undefined
 ): { day?: number; month?: number; year: number } | null {
   if (!input) return null;
+  if (typeof input !== "string") return null;
   const s = input.trim();
 
   // Just a year: "2024"

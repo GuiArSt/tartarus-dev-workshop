@@ -22,13 +22,14 @@ export function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/media")
   );
 
-  // Cron-accessible endpoints (localhost only, no auth needed)
+  // Cron-accessible endpoints and MCP-callable integration endpoints (localhost only, no auth needed)
   const isCronEndpoint = request.nextUrl.pathname === "/api/integrations/linear/sync"
     || request.nextUrl.pathname === "/api/integrations/slite/sync";
+  const isIntegrationApi = request.nextUrl.pathname.startsWith("/api/integrations/linear/sync/");
   const isLocalhost = request.headers.get("host")?.startsWith("localhost");
 
   // Allow auth API, health check, AI endpoints, MCP resources, attachment downloads, MCP repository access, and local cron
-  if (isApiAuth || isHealthCheck || isAiSummarize || isMcpResources || isAttachmentDownload || isMcpRepositoryAccess || (isCronEndpoint && isLocalhost)) {
+  if (isApiAuth || isHealthCheck || isAiSummarize || isMcpResources || isAttachmentDownload || isMcpRepositoryAccess || ((isCronEndpoint || isIntegrationApi) && isLocalhost)) {
     return NextResponse.next();
   }
 

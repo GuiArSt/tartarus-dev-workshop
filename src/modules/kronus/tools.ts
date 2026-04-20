@@ -8,7 +8,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import { logger } from "../../shared/logger.js";
-import type { JournalConfig } from "../../shared/types.js";
+import {
+  type JournalConfig,
+  journalConfigHasAi,
+} from "../../shared/types.js";
 import { KronusAskInputSchema } from "./types.js";
 import { askKronus } from "./agent.js";
 import {
@@ -25,10 +28,13 @@ import {
 export function registerKronusTools(server: McpServer, config: JournalConfig) {
   logger.info("Registering Kronus tools...");
 
-  // Tool: Ask Kronus
-  server.registerTool(
-    "kronus_ask",
-    {
+  const askEnabled = journalConfigHasAi(config);
+
+  // Tool: Ask Kronus (requires AI keys in MCP process — same as journal write tools)
+  if (askEnabled) {
+    server.registerTool(
+      "kronus_ask",
+      {
       title: "Ask Kronus",
       description: `Ask Kronus, the knowledge oracle, about projects, work history, or repository data.
 
@@ -54,55 +60,65 @@ Kronus has access to:
 Returns a concise answer with source citations (commit hashes, issue identifiers, project names).
 
 ## Examples
-- "What's the current status of Developer Journal Workspace?"
+- "What's the current status of tartarus-workspace?"
 - "Show me recent work on the MCP server"
 - "What Linear issues are in progress?"
 - "What technologies does the AI Eval project use?"`,
-      inputSchema: KronusAskInputSchema,
-    },
-    async ({ question, repository, depth, serious }) => {
-      try {
-        const response = await askKronus(
-          { question, repository, depth: depth || "quick", serious: serious || false },
-          config,
-        );
+        inputSchema: KronusAskInputSchema,
+      },
+      async ({ question, repository, depth, serious }) => {
+        try {
+          const response = await askKronus(
+            {
+              question,
+              repository,
+              depth: depth || "quick",
+              serious: serious || false,
+            },
+            config,
+          );
 
-        // Format response with sources
-        let text = response.answer;
+          // Format response with sources
+          let text = response.answer;
 
-        if (response.sources.length > 0) {
-          text += "\n\n---\n**Sources:**\n";
-          for (const source of response.sources) {
-            text += `- ${source.type}: ${source.identifier}`;
-            if (source.title) text += ` (${source.title})`;
-            text += "\n";
+          if (response.sources.length > 0) {
+            text += "\n\n---\n**Sources:**\n";
+            for (const source of response.sources) {
+              text += `- ${source.type}: ${source.identifier}`;
+              if (source.title) text += ` (${source.title})`;
+              text += "\n";
+            }
           }
+
+          text += `\n_Depth: ${response.depth_used}_`;
+
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text,
+              },
+            ],
+          };
+        } catch (error) {
+          logger.error("kronus_ask error:", error);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Kronus encountered an error: ${error instanceof Error ? error.message : "Unknown error"}`,
+              },
+            ],
+            isError: true,
+          };
         }
-
-        text += `\n_Depth: ${response.depth_used}_`;
-
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text,
-            },
-          ],
-        };
-      } catch (error) {
-        logger.error("kronus_ask error:", error);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Kronus encountered an error: ${error instanceof Error ? error.message : "Unknown error"}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
-  );
+      },
+    );
+  } else {
+    logger.warn(
+      "kronus_ask not registered: set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY in the MCP server environment.",
+    );
+  }
 
   // Tool: Get Kronus chat history
   server.registerTool(
@@ -269,5 +285,8 @@ Returns a concise answer with source citations (commit hashes, issue identifiers
     },
   );
 
-  logger.success("Kronus tools registered (3 tools, 3 resources)");
+  const toolCount = askEnabled ? 3 : 2;
+  logger.success(
+    `Kronus tools registered (${toolCount} tools, 3 resources)`,
+  );
 }

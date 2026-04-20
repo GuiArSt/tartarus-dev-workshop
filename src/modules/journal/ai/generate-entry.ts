@@ -146,7 +146,7 @@ async function generateJournalEntryWithContext(
 
 ## Your Current Task
 
-You are analyzing a git commit and its context to create a structured developer journal entry.`;
+You are analyzing a git commit and its context to create a structured Tartarus journal entry.`;
 
   if (editMode && existingEntry) {
     systemPrompt += `

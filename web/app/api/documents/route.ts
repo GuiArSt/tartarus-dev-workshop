@@ -183,6 +183,12 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       throw new DatabaseError("Failed to retrieve created document");
     }
 
+    // Register in object registry
+    try {
+      const { registerObject } = await import("@/lib/object-registry");
+      registerObject({ type, sourceTable: "documents", sourceId: slug, title });
+    } catch { /* registry is non-critical */ }
+
     return NextResponse.json(toApiDocument(parseDocumentMetadata(document)));
   } catch (error) {
     if (error instanceof Error && error.message?.includes("UNIQUE constraint")) {

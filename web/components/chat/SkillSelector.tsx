@@ -63,6 +63,7 @@ const TOOL_SECTIONS: { key: keyof ToolsConfigState; label: string }[] = [
   { key: "media", label: "Media" },
   { key: "imageGeneration", label: "Image Gen" },
   { key: "webSearch", label: "Web Search" },
+  { key: "google", label: "Google" },
 ];
 
 // ============================================================================
@@ -270,7 +271,7 @@ export function SkillSelector({
                     key={skill.slug}
                     onClick={() => toggleSkill(skill.slug)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-[background-color,border-color] duration-150",
                       "hover:bg-white/[0.04]"
                     )}
                     style={{
@@ -331,7 +332,7 @@ export function SkillSelector({
               >
                 <button
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-white/[0.03]"
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-white/[0.05]"
                 >
                   <Settings2
                     className="h-3.5 w-3.5"

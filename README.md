@@ -1,6 +1,6 @@
-# Developer Journal Workspace
+# Tartarus
 
-A dual-interface platform (MCP server + web app) for structured, AI-powered developer journals, project documentation, and personal knowledge management.
+A dual-interface platform (MCP server + web app) for structured, AI-powered journaling, project documentation, and personal knowledge management.
 
 ## What This Is
 
@@ -83,7 +83,7 @@ The MCP server is **read-only** for cached data, with write tools that go throug
 
 ### Tools (22)
 
-**Journal (8):**
+**Journal (10):**
 
 | Tool | Description |
 |------|-------------|
@@ -95,6 +95,8 @@ The MCP server is **read-only** for cached data, with write tools that go throug
 | `journal_submit_summary_report` | Update narrative sections (AI-assisted or direct) |
 | `journal_list_project_summaries` | List all Entry 0 summaries |
 | `journal_list_media_library` | Query unified media assets |
+| `registry_search_objects` | Search the unified Tartarus object registry |
+| `registry_fetch_object` | Fetch a registry object by UUID or source reference |
 
 **Repository (9):**
 
@@ -118,14 +120,7 @@ The MCP server is **read-only** for cached data, with write tools that go throug
 | `kronus_history` | Get recent Kronus conversations |
 | `kronus_stats` | AI observability stats (traces, tokens, costs) |
 
-**Linear (2):**
-
-| Tool | Description |
-|------|-------------|
-| `linear_preview_sync` | Preview Linear changes before syncing |
-| `linear_apply_sync` | Apply approved sync changes |
-
-### Resources (24)
+### Resources
 
 **Journal (7):**
 
@@ -139,7 +134,14 @@ The MCP server is **read-only** for cached data, with write tools that go throug
 | `journal://attachments/{commit_hash}` | List entry attachments |
 | `journal://attachment/{id}` | Get attachment metadata |
 
-**Repository (4):**
+**Registry (2):**
+
+| URI | Description |
+|-----|-------------|
+| `registry://object/{uuid}` | Fetch any registry object by UUID |
+| `registry://source/{source_table}/{source_id}` | Fetch any registry object by source reference |
+
+**Repository (7):**
 
 | URI | Description |
 |-----|-------------|
@@ -147,6 +149,9 @@ The MCP server is **read-only** for cached data, with write tools that go throug
 | `repository://tags` | List all document tags |
 | `repository://documents/{type}` | List documents by type (writing/prompt/note) |
 | `repository://portfolio-project/{id}` | Get portfolio project |
+| `repository://cv/skills` | Technical skills |
+| `repository://cv/experience` | Work history |
+| `repository://cv/education` | Education history |
 
 **Linear Cache (7):**
 
@@ -159,14 +164,6 @@ The MCP server is **read-only** for cached data, with write tools that go throug
 | `linear://issue/{identifier}` | Get issue details |
 | `linear://project/{projectId}/updates` | Project status updates |
 | `linear://project-updates` | All project updates |
-
-**CV (3):**
-
-| URI | Description |
-|-----|-------------|
-| `repository://cv/skills` | Technical skills |
-| `repository://cv/experience` | Work history |
-| `repository://cv/education` | Education history |
 
 **Observability (3):**
 
@@ -220,6 +217,7 @@ New skills can be added to the database — Kronus discovers them dynamically at
 | Gemini 3 Pro | 1M tokens | Google |
 | Gemini 3 Flash | 1M tokens | Google |
 | Claude Opus 4.6 | 1M tokens | Anthropic |
+| Claude Opus 4.7 | 1M tokens | Anthropic |
 | Claude Opus 4.5 | 200K tokens | Anthropic |
 | Claude Haiku 4.5 | 200K tokens | Anthropic |
 | GPT-5.2 | 400K tokens | OpenAI |
@@ -295,13 +293,15 @@ AGENT_SOUL_PATH=Soul.xml                 # Path to agent personality file
 
 ### MCP Client Setup
 
+**Migrating from Developer Journal:** Update MCP client configs to the key `tartarus`, point `args` at this repo's `dist/index.js` (after `npm run build`), and use the `tartarus` npm binary if you link globally. Ensure root [`package.json`](package.json) **`name`** is `tartarus-workspace` — the MCP server resolves the monorepo root from that field; the legacy name `developer-journal-workspace` is no longer recognized in code.
+
 **Claude Desktop / Cursor / VS Code / Claude Code:**
 ```json
 {
   "mcpServers": {
-    "developer-journal": {
+    "tartarus": {
       "command": "node",
-      "args": ["/path/to/Developer Journal Workspace/dist/index.js"]
+      "args": ["/absolute/path/to/your-clone/dist/index.js"]
     }
   }
 }

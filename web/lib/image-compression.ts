@@ -133,8 +133,8 @@ export async function compressImage(
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const originalSize = file.size;
 
-  // If already under limit, return as-is
-  if (originalSize <= opts.maxSizeBytes) {
+  // Non-images: passthrough (callers should only pass images here)
+  if (!file.type.startsWith("image/")) {
     return {
       blob: file,
       originalSize,
@@ -146,10 +146,29 @@ export async function compressImage(
     };
   }
 
-  // Load the image
   const img = await loadImage(file);
   const originalWidth = img.naturalWidth;
   const originalHeight = img.naturalHeight;
+
+  // Small files can still be huge resolution (vision APIs bill by image tokens).
+  // Only skip processing when both byte budget and max edge length are satisfied.
+  const fitsBytes = originalSize <= opts.maxSizeBytes;
+  const fitsDimensions =
+    originalWidth <= opts.maxDimension && originalHeight <= opts.maxDimension;
+
+  if (fitsBytes && fitsDimensions) {
+    return {
+      blob: file,
+      originalSize,
+      compressedSize: originalSize,
+      compressionRatio: 1,
+      wasCompressed: false,
+      method: "none",
+      format: file.type,
+      width: originalWidth,
+      height: originalHeight,
+    };
+  }
 
   // Calculate initial dimensions (respecting maxDimension)
   let { width, height } = calculateDimensions(originalWidth, originalHeight, opts.maxDimension);

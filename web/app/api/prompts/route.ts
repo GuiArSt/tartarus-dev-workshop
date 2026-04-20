@@ -167,5 +167,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     })
     .returning();
 
+  try {
+    const { registerObject } = await import("@/lib/object-registry");
+    registerObject({ type: 'prompt', sourceTable: 'prompts', sourceId: slug, title: body.name });
+  } catch { /* registry is non-critical */ }
+
   return NextResponse.json(toApiPrompt(inserted), { status: 201 });
 });

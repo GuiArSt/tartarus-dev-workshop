@@ -210,11 +210,11 @@ export default function LinearPage() {
   });
 
   return (
-    <div className="journal-page flex h-full flex-col">
+    <div className="flex h-full flex-col bg-[var(--tartarus-void)] text-[var(--tartarus-ivory)]">
       {/* Header */}
-      <header className="journal-header flex min-h-14 flex-col gap-2 px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
+      <header className="border-b border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] flex min-h-14 flex-col gap-2 px-3 py-2 md:flex-row md:items-center md:justify-between md:px-6 md:py-0">
         <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          <h1 className="journal-title text-lg">Linear Integration</h1>
+          <h1 className="font-semibold text-[var(--tartarus-ivory)] text-lg">Linear Integration</h1>
           {viewer && (
             <Badge
               variant="outline"
@@ -291,7 +291,7 @@ export default function LinearPage() {
 
       {/* Content */}
       <Tabs defaultValue="issues" className="flex flex-1 flex-col">
-        <div className="journal-tabs px-3 md:px-6">
+        <div className="border-b border-[var(--tartarus-border)] bg-[var(--tartarus-deep)] px-3 md:px-6">
           <TabsList className="h-auto flex-wrap gap-1 bg-[var(--tartarus-deep)] md:h-12">
             <TabsTrigger
               value="issues"
@@ -326,7 +326,7 @@ export default function LinearPage() {
           </TabsList>
         </div>
 
-        <ScrollArea className="flex-1 bg-[var(--journal-paper)]">
+        <ScrollArea className="flex-1 bg-[var(--tartarus-void)]">
           <TabsContent value="issues" className="mt-0 p-6">
             {/* Filters */}
             <div className="mb-6 flex flex-wrap items-center gap-4">
@@ -425,7 +425,7 @@ export default function LinearPage() {
                 {filteredIssues.map((issue) => (
                   <Card
                     key={issue.id}
-                    className="border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] transition-all hover:border-[var(--tartarus-teal-dim)]"
+                    className="border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[var(--tartarus-teal-dim)]"
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
@@ -567,7 +567,7 @@ export default function LinearPage() {
                 {projects.map((project) => (
                   <Card
                     key={project.id}
-                    className="border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] transition-all hover:border-[var(--tartarus-teal-dim)]"
+                    className="border-[var(--tartarus-border)] bg-[var(--tartarus-elevated)] transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[var(--tartarus-teal-dim)]"
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
@@ -625,7 +625,7 @@ export default function LinearPage() {
                       </div>
                       <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--tartarus-deep)]">
                         <div
-                          className="h-full bg-[var(--tartarus-teal)] transition-all"
+                          className="h-full bg-[var(--tartarus-teal)] transition-[width] duration-200"
                           style={{ width: `${project.progress * 100}%` }}
                         />
                       </div>
@@ -806,7 +806,7 @@ export default function LinearPage() {
                   <h4 className="mb-2 font-medium text-[var(--tartarus-ivory)]">Progress</h4>
                   <div className="h-4 overflow-hidden rounded-full bg-[var(--tartarus-deep)]">
                     <div
-                      className="h-full bg-[var(--tartarus-teal)] transition-all"
+                      className="h-full bg-[var(--tartarus-teal)] transition-[width] duration-200"
                       style={{ width: `${selectedProject.progress * 100}%` }}
                     />
                   </div>

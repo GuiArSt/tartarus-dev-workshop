@@ -1,62 +1,24 @@
 import { z } from "zod";
 import path from "node:path";
 import os from "node:os";
-import fs from "node:fs";
-import { fileURLToPath } from "node:url";
-import { ConfigurationError } from "../shared/errors.js";
 import { UnifiedConfig } from "../shared/types.js";
 import { logger } from "../shared/logger.js";
+import { resolveMonorepoRootFromImportMeta } from "../shared/project-root.js";
 
-// Calculate MCP server installation directory
-// Use import.meta.url to find where the code is located, not where it's executed from
-// This ensures database/backups are always in the MCP server's directory, not the agent's working directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Walk up from dist/config/env.js or dist/index.js to find project root (where package.json is)
-let PROJECT_ROOT = __dirname;
-for (let i = 0; i < 5; i++) {
-  if (
-    path.basename(PROJECT_ROOT) === "Developer Journal Workspace" &&
-    (fs.existsSync(path.join(PROJECT_ROOT, "package.json")) ||
-      fs.existsSync(path.join(PROJECT_ROOT, "Soul.xml")))
-  ) {
-    break;
-  }
-  const parent = path.dirname(PROJECT_ROOT);
-  if (parent === PROJECT_ROOT) break; // Reached filesystem root
-  PROJECT_ROOT = parent;
-}
-
-// Fallback: if we can't find Developer Journal Workspace, look for package.json
-if (
-  !fs.existsSync(path.join(PROJECT_ROOT, "package.json")) &&
-  !fs.existsSync(path.join(PROJECT_ROOT, "Soul.xml"))
-) {
-  let currentDir = __dirname;
-  for (let i = 0; i < 10; i++) {
-    if (
-      fs.existsSync(path.join(currentDir, "package.json")) ||
-      fs.existsSync(path.join(currentDir, "Soul.xml"))
-    ) {
-      PROJECT_ROOT = currentDir;
-      break;
-    }
-    const parent = path.dirname(currentDir);
-    if (parent === currentDir) break;
-    currentDir = parent;
-  }
-}
+// MCP server install root: where package.json / data/ live (not process.cwd()).
+const PROJECT_ROOT = resolveMonorepoRootFromImportMeta(import.meta.url);
 
 /**
  * Environment variable schema
  */
 const envSchema = z.object({
-  // AI Providers (at least one required for journal)
+  // AI Providers (optional for MCP startup; required for AI write tools and kronus_ask)
   // Priority: Anthropic (preferred) → OpenAI → Google (first one found)
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),
+
+  JOURNAL_DB_PATH: z.string().optional(),
 
   // Optional settings
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
@@ -74,16 +36,21 @@ export function loadConfig(): UnifiedConfig {
   const env = envSchema.parse(process.env);
   const config: UnifiedConfig = {
     logLevel: env.LOG_LEVEL || "info",
+    journal: {
+      dbPath: env.JOURNAL_DB_PATH
+        ? path.resolve(env.JOURNAL_DB_PATH.replace(/^~/, os.homedir()))
+        : path.join(PROJECT_ROOT, "data", "journal.db"),
+      tartarusUrl: env.TARTARUS_URL,
+      mcpApiKey: env.MCP_API_KEY,
+    },
   };
 
-  // Configure Journal if AI provider available
-  // Priority: Anthropic (preferred) → OpenAI → Google (first one found)
-  // Models are hardcoded: claude-opus-4-6 (latest), claude-opus-4-5, gpt-5.1, gemini-3.0
+  // AI keys optional: MCP must stay up for read tools/resources even when Claude Code
+  // does not inject provider keys into the MCP subprocess (otherwise stdio closes with -32000).
   if (env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY || env.GOOGLE_API_KEY) {
     let aiProvider: "anthropic" | "openai" | "google";
     let aiApiKey: string;
 
-    // Prefer Anthropic if available, otherwise use first found
     if (env.ANTHROPIC_API_KEY) {
       aiProvider = "anthropic";
       aiApiKey = env.ANTHROPIC_API_KEY;
@@ -95,27 +62,14 @@ export function loadConfig(): UnifiedConfig {
       aiApiKey = env.GOOGLE_API_KEY!;
     }
 
-    // Database path: data directory (data/journal.db)
-    // Allows JOURNAL_DB_PATH override for Docker/custom deployments
-    const defaultDbPath =
-      env.JOURNAL_DB_PATH || path.join(PROJECT_ROOT, "data", "journal.db");
-
-    config.journal = {
-      dbPath: defaultDbPath,
-      aiProvider,
-      aiApiKey,
-      tartarusUrl: env.TARTARUS_URL,
-      mcpApiKey: env.MCP_API_KEY,
-    };
+    config.journal.aiProvider = aiProvider;
+    config.journal.aiApiKey = aiApiKey;
     logger.info(
       `Journal module enabled (AI provider: ${aiProvider})${env.TARTARUS_URL ? `, Tartarus: ${env.TARTARUS_URL}` : ""}`,
     );
-  }
-
-  // Validate journal module is configured
-  if (!config.journal) {
-    throw new ConfigurationError(
-      "Journal module not configured. Please set ANTHROPIC_API_KEY (or OPENAI_API_KEY / GOOGLE_API_KEY).",
+  } else {
+    logger.warn(
+      "No AI API keys in MCP process env. Read tools/resources work; add ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY for journal_create_entry, kronus_ask, and AI-assisted updates.",
     );
   }
 

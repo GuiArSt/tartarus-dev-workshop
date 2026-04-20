@@ -80,7 +80,7 @@ docker-restart:
 
 help:
 	@echo ""
-	@echo "📚 Developer Journal Workspace"
+	@echo "📚 Tartarus"
 	@echo "==============================="
 	@echo ""
 	@echo "Development:"

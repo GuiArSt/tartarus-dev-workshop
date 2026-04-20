@@ -119,16 +119,16 @@ function SidebarContent({
         )}
       >
         <Link href="/chat" className="flex items-center gap-3" onClick={onNavigate}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--tartarus-gold)] bg-[var(--tartarus-surface)] shadow-[0_0_12px_var(--tartarus-teal-glow),_0_0_4px_var(--tartarus-gold-glow)]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--tartarus-gold-dim)] bg-[var(--tartarus-surface)] shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
             <img
               src="/chronus-logo.png"
               alt="Tartarus"
               className="h-full w-full object-cover"
-              style={{ filter: "brightness(1.4) contrast(1.1)" }}
+              style={{ filter: "brightness(1.2) contrast(1.05) sepia(0.15)" }}
             />
           </div>
           {expanded && (
-            <span className="text-gradient-teal-gold text-lg font-semibold tracking-tight">
+            <span className="text-lg font-semibold tracking-tight text-[var(--tartarus-gold)]">
               Tartarus
             </span>
           )}
@@ -147,7 +147,7 @@ function SidebarContent({
                   <Link
                     href={item.href}
                     className={cn(
-                      "tartarus-sidebar-item flex items-center justify-center rounded-md p-2.5 transition-colors",
+                      "tartarus-sidebar-item relative flex items-center justify-center rounded-md p-2.5 transition-colors hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)]",
                       isActive && "active"
                     )}
                     onClick={onNavigate}
@@ -170,7 +170,7 @@ function SidebarContent({
               key={item.href}
               href={item.href}
               className={cn(
-                "tartarus-sidebar-item flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
+                "tartarus-sidebar-item flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-[var(--tartarus-surface)] hover:text-[var(--tartarus-ivory)]",
                 isActive && "active"
               )}
               onClick={onNavigate}
@@ -375,12 +375,12 @@ export function Sidebar() {
             <Menu className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--tartarus-gold)] bg-[var(--tartarus-surface)]">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--tartarus-gold-dim)] bg-[var(--tartarus-surface)]">
               <img
                 src="/chronus-logo.png"
                 alt="Tartarus"
                 className="h-full w-full object-cover"
-                style={{ filter: "brightness(1.4) contrast(1.1)" }}
+                style={{ filter: "brightness(1.2) contrast(1.05) sepia(0.15)" }}
               />
             </div>
             <span className="text-sm font-medium text-[var(--tartarus-ivory)]">
@@ -419,8 +419,8 @@ export function Sidebar() {
   return (
     <div
       className={cn(
-        "tartarus-sidebar flex h-full flex-col bg-[var(--tartarus-deep)] transition-all duration-200",
-        showExpanded ? "w-64" : "w-16"
+        "tartarus-sidebar flex h-full flex-col bg-[var(--tartarus-deep)] transition-[width] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
+        showExpanded ? "w-64" : "sidebar-collapsed w-16"
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

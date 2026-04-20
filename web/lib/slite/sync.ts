@@ -18,7 +18,7 @@ async function generateSummary(
   title: string
 ): Promise<string | null> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3005";
 
     const response = await fetch(`${baseUrl}/api/ai/summarize`, {
       method: "POST",
@@ -116,6 +116,11 @@ export async function syncSliteNotes(): Promise<SliteSyncResult["notes"]> {
         })
         .where(eq(sliteNotes.id, note.id));
       updated++;
+
+      try {
+        const { registerObject } = require("@/lib/object-registry");
+        registerObject({ type: 'slite_note', sourceTable: 'slite_notes', sourceId: note.id, title: note.title });
+      } catch { /* registry is non-critical */ }
     } else {
       // Create new — generate summary
       let summary: string | null = null;
@@ -129,6 +134,11 @@ export async function syncSliteNotes(): Promise<SliteSyncResult["notes"]> {
         createdAt: new Date().toISOString(),
       });
       created++;
+
+      try {
+        const { registerObject } = require("@/lib/object-registry");
+        registerObject({ type: 'slite_note', sourceTable: 'slite_notes', sourceId: note.id, title: note.title });
+      } catch { /* registry is non-critical */ }
     }
   }
 

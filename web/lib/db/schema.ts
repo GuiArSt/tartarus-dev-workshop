@@ -1,7 +1,7 @@
 /**
  * Drizzle ORM Schema Definitions
  *
- * Type-safe database schema for the Developer Journal system.
+ * Type-safe database schema for the Tartarus system.
  * Replaces raw SQL queries with typed queries.
  */
 
@@ -248,6 +248,8 @@ export const conversations = sqliteTable("chat_conversations", {
   messages: text("messages").notNull().default("[]"),
   // Soul config snapshot - what repo sections were included
   soulConfig: text("soul_config").default("{}"),
+  /** JSON: Kronus UI snapshot (model, tools, skills, format) restored when opening the chat */
+  sessionConfig: text("session_config"),
   // Compression fields
   isCompressed: integer("is_compressed", { mode: "boolean" }).default(false),
   compressionSummary: text("compression_summary"), // JSON: CompressionSummary
@@ -561,6 +563,38 @@ export const sliteNotes = sqliteTable("slite_notes", {
 });
 
 // ============================================================================
+// NOTION INTEGRATION - Cached Pages
+// ============================================================================
+
+/**
+ * Notion Pages - cached locally for knowledge base context
+ * Synced from Notion API, preserved even if deleted/archived in Notion
+ */
+export const notionPages = sqliteTable("notion_pages", {
+  id: text("id").primaryKey(), // Notion page ID
+  title: text("title").notNull(),
+  content: text("content"), // Markdown content (converted from blocks)
+  parentId: text("parent_id"), // Parent page or database ID
+  parentType: text("parent_type"), // "page_id" | "database_id" | "workspace"
+  url: text("url"), // Notion page URL
+  createdBy: text("created_by"), // Author user ID
+  createdByName: text("created_by_name"), // Author display name (cached)
+  lastEditedBy: text("last_edited_by"), // Last editor user ID
+  lastEditedByName: text("last_edited_by_name"), // Last editor display name (cached)
+  icon: text("icon"), // Emoji or icon URL
+  coverUrl: text("cover_url"), // Cover image URL
+  archived: integer("archived", { mode: "boolean" }).default(false),
+  summary: text("summary"), // AI-generated 3-sentence summary
+  // Metadata
+  syncedAt: text("synced_at").default("CURRENT_TIMESTAMP"),
+  deletedAt: text("deleted_at"),
+  isDeleted: integer("is_deleted", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"), // From Notion API
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
+  lastEditedAt: text("last_edited_at"), // From Notion API
+});
+
+// ============================================================================
 // PROMPT MANAGEMENT SYSTEM
 // ============================================================================
 
@@ -744,3 +778,44 @@ export type NewPromptEntryLink = typeof promptEntryLinks.$inferInsert;
 
 export type PromptTraceLink = typeof promptTraceLinks.$inferSelect;
 export type NewPromptTraceLink = typeof promptTraceLinks.$inferInsert;
+
+// ============================================================================
+// TARTARUS OBJECT REGISTRY
+// ============================================================================
+
+/**
+ * Universal object index — every entity in the system gets a UUID here.
+ * Powers the generic search + fetch tools for Kronus.
+ */
+export const tartarusObjects = sqliteTable("tartarus_objects", {
+  uuid: text("uuid").primaryKey(),
+  type: text("type").notNull(),
+  sourceTable: text("source_table").notNull(),
+  sourceId: text("source_id").notNull(),
+  title: text("title"),
+  summary: text("summary"),
+  tags: text("tags").default("[]"),
+  importance: integer("importance").default(0),
+  estimatedTokens: integer("estimated_tokens").default(0),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP"),
+});
+
+/**
+ * Object version history — append-only snapshots for tracking changes.
+ */
+export const tartarusObjectHistory = sqliteTable("tartarus_object_history", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  objectUuid: text("object_uuid").notNull().references(() => tartarusObjects.uuid, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  snapshot: text("snapshot").notNull(),
+  changedBy: text("changed_by").default("system"),
+  changeSummary: text("change_summary"),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
+});
+
+export type TartarusObject = typeof tartarusObjects.$inferSelect;
+export type NewTartarusObject = typeof tartarusObjects.$inferInsert;
+
+export type TartarusObjectHistoryEntry = typeof tartarusObjectHistory.$inferSelect;
+export type NewTartarusObjectHistoryEntry = typeof tartarusObjectHistory.$inferInsert;

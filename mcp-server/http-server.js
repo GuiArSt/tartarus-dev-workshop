@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HTTP Wrapper for Developer Journal MCP Server
+ * HTTP Wrapper for Tartarus MCP Server
  *
  * STANDALONE implementation - uses better-sqlite3 directly.
  * Does NOT import from the bundled MCP server (esbuild creates single bundle).
@@ -272,7 +272,7 @@ async function handleRequest(req, res) {
 const server = http.createServer(handleRequest);
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Developer Journal HTTP API listening on port ${PORT}`);
+  console.log(`Tartarus HTTP API listening on port ${PORT}`);
   console.log(`Database: ${DB_PATH}`);
   console.log(`Endpoints:`);
   console.log(`  GET  /api/journal/entries/:hash - Get entry`);
