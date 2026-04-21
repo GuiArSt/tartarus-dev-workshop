@@ -22,6 +22,7 @@ import {
   getEntriesByRepositoryPaginated,
   getEntryByCommit,
   insertJournalEntry,
+  registerObjectMCP,
   listBranches,
   listRepositories,
   getProjectSummary,
@@ -472,6 +473,15 @@ Example file mentions in report:
           kronus_wisdom: aiOutput.kronus_wisdom ?? null,
           raw_agent_report,
           files_changed: aiOutput.files_changed ?? null,
+        });
+
+        // Register in object registry
+        registerObjectMCP({
+          type: "journal_entry",
+          sourceTable: "journal_entries",
+          sourceId: commit_hash,
+          title: aiOutput.why,
+          summary: aiOutput.summary,
         });
 
         // Auto-backup to SQL

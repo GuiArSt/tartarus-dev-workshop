@@ -2774,3 +2774,41 @@ export const getConversationById = (
     .get(id) as any;
   return row || null;
 };
+
+/**
+ * Register an object in the tartarus_objects registry (MCP side).
+ * Upserts: if source_table+source_id exists, updates; otherwise inserts with new UUID.
+ */
+export const registerObjectMCP = (opts: {
+  type: string;
+  sourceTable: string;
+  sourceId: string;
+  title?: string;
+  summary?: string;
+}): string | null => {
+  if (!db) return null;
+  try {
+    const existing = db
+      .prepare("SELECT uuid FROM tartarus_objects WHERE source_table = ? AND source_id = ?")
+      .get(opts.sourceTable, opts.sourceId) as { uuid: string } | undefined;
+
+    if (existing) {
+      db.prepare(`
+        UPDATE tartarus_objects
+        SET title = COALESCE(?, title), summary = COALESCE(?, summary), updated_at = CURRENT_TIMESTAMP
+        WHERE uuid = ?
+      `).run(opts.title ?? null, opts.summary ?? null, existing.uuid);
+      return existing.uuid;
+    }
+
+    const { randomUUID } = require("node:crypto");
+    const uuid = randomUUID();
+    db.prepare(`
+      INSERT INTO tartarus_objects (uuid, type, source_table, source_id, title, summary)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(uuid, opts.type, opts.sourceTable, opts.sourceId, opts.title ?? null, opts.summary ?? null);
+    return uuid;
+  } catch {
+    return null; // Registry is non-critical
+  }
+};
