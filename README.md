@@ -4,22 +4,29 @@ A dual-interface platform (MCP server + web app) for structured, AI-powered jour
 
 ## What This Is
 
-1. **MCP Server** (`src/`) - 22 tools, 24 resources, and 3 prompts for AI agents (Claude Code, Cursor, etc.) to create journal entries, manage project summaries, query documents, and interact with Linear
+1. **MCP Server** (`src/`) - 22 tools, 26 resources, and 3 prompts for AI agents (Claude Code, Cursor, etc.) to create journal entries, manage project summaries, query documents, and interact with Linear
 2. **Tartarus Web App** (`web/`) - Dark-themed dashboard with AI chat (Kronus), journal reader, text correction, translation, and a unified knowledge repository
 
 ### Key Features
 
+- **Object Registry** - Universal UUID-based index for every data object. Two generic tools (`search` + `fetch`) give Kronus uniform access to all 1400+ objects across 14 types
+- **Agentic Kronus** - Knowledge oracle with tool-calling (AI SDK 6.0 `stepCountIs`). Uses `search`/`fetch` to drill into data instead of static prompts
 - **Structured journal entries** linked to git commits with AI-generated summaries
 - **Entry 0 v2 (Living Project Summary)** - Schema-driven project documentation with section history tracking and shallow/deep views
-- **Kronus Chat** - Multi-model AI conversations (Gemini 3 Pro/Flash, Claude Opus 4.5/4.6, Claude Haiku 4.5, GPT-5.2) with 35 integrated tools
+- **Kronus Chat** - Multi-model AI conversations (Gemini 3.1 Pro, Claude Opus 4.6/4.7, GPT-5.4) with 85+ integrated tools
 - **Kronus Skills** - On-demand context loading (Developer, Writer, Job Hunter, Almighty) — starts lean, loads context when needed
+- **Daimon** - Inline polish-before-send writing assistant (Cmd+Enter). Word-level diff, correction history, translation support
 - **Atropos** - AI spellchecker and text correction with inline diff view
 - **Hermes** - AI translation tool
 - **Repository** - Unified knowledge base for writings, prompts, notes, CV (skills, experience, education), and portfolio projects
 - **Linear integration** - Synced Linear projects and issues with manual + automated hourly sync
+- **Slite integration** - Synced knowledge base notes
+- **Notion integration** - Synced workspace pages
+- **Google Workspace** - Drive, Gmail, Calendar integration (read + write)
 - **Media library** - Images, diagrams, PDFs linked to entries or standalone
 - **Git integration** - Read-only GitHub/GitLab repo browsing (file tree, file contents)
 - **Observability** - AI usage tracking (traces, tokens, costs, latency)
+- **Snapshot History** - Append-only version tracking for all registry objects
 
 ## Architecture
 
@@ -32,24 +39,58 @@ A dual-interface platform (MCP server + web app) for structured, AI-powered jour
          ▼                         ▼
 ┌─────────────────┐     ┌──────────────────────┐
 │   MCP Server    │     │   Tartarus Web App   │
-│   (read-only)   │     │                      │
-│                 │     │ • Kronus Chat (AI)    │
-│ • 22 tools      │     │ • Journal Reader      │
-│ • 24 resources  │     │ • Atropos / Hermes    │
-│ • 3 prompts     │     │ • Repository Browser  │
-│ • Kronus oracle │     │ • Linear Integration  │
-│                 │     │ • Prompt Management   │
+│                 │     │                      │
+│ • 22 tools      │     │ • Kronus Chat (AI)    │
+│ • 26 resources  │     │ • Journal Reader      │
+│ • 3 prompts     │     │ • Daimon / Atropos    │
+│ • Kronus oracle │     │ • Repository Browser  │
+│   (agentic,     │     │ • Linear/Slite/Notion │
+│    search+fetch)│     │ • Google Workspace    │
 └────────┬────────┘     └──────────┬───────────┘
          │                         │
          └───────────┬─────────────┘
                      ▼
-            ┌─────────────────┐
-            │   SQLite DB     │
-            │  (journal.db)   │
-            └─────────────────┘
+       ┌──────────────────────────┐
+       │       SQLite DB          │
+       │      (journal.db)        │
+       │                          │
+       │  tartarus_objects (UUID) │
+       │  tartarus_object_history │
+       │  journal_entries         │
+       │  chat_conversations      │
+       │  documents / prompts     │
+       │  linear / slite / notion │
+       │  skills / experience     │
+       └──────────────────────────┘
 ```
 
-**Data flow:** Linear API → Tartarus sync → SQLite cache → MCP resources (read-only). Tartarus is the single source of truth for all mutations.
+**Data flow:** External APIs → Tartarus sync → SQLite → Object Registry (UUID) → MCP resources. Every data object gets a UUID on ingestion and is searchable/fetchable by Kronus.
+
+## Object Registry
+
+Every data object in Tartarus gets a UUID via the `tartarus_objects` table — a universal index that sits alongside existing tables without modifying them.
+
+```
+tartarus_objects
+  uuid          TEXT PRIMARY KEY
+  type          TEXT    (journal_entry, document, conversation, linear_issue, ...)
+  source_table  TEXT    (the actual SQLite table)
+  source_id     TEXT    (the original ID — commit hash, slug, integer, external ID)
+  title         TEXT
+  summary       TEXT
+  tags          TEXT    (JSON array)
+  importance    INTEGER (1-5)
+```
+
+**Two generic tools** replace 7+ specific lookup tools:
+- **`search(query, type?)`** — Full-text search across title, summary, tags
+- **`fetch(uuid)`** — Resolves type → reads from source table → returns full content
+
+**Snapshot history** (`tartarus_object_history`) tracks changes with append-only versioning — each update saves the previous state with `changed_by` and `change_summary`.
+
+**Ingestion hooks** on all pathways: documents, conversations, Linear/Slite/Notion sync, CV data, media, prompts, journal entries. Backfill script for existing data: `npx tsx web/scripts/backfill-object-registry.ts`.
+
+**Batch summarization:** `POST /api/conversations/summarize-batch` — dynamic token budget (24K ceiling), flash-lite model, writes tags + importance back to registry.
 
 ## Quick Start
 
@@ -187,13 +228,14 @@ The MCP server is **read-only** for cached data, with write tools that go throug
 
 | Page | Description |
 |------|-------------|
-| **Chat** | AI conversations with Kronus — 6 model options, 35 tools, configurable soul context |
+| **Chat** | AI conversations with Kronus — 7 model options, 85+ tools, skills-driven context, Daimon polish (Cmd+Enter) |
 | **Reader** | Browse journal entries with filtering, search, attachment viewer, mermaid diagrams |
 | **Atropos** | AI text correction with inline diff view and change navigation |
 | **Hermes** | AI translation tool |
-| **Repository** | Unified knowledge base — documents, CV, portfolio, media |
+| **Repository** | Unified knowledge base — documents, CV, portfolio, media (tabbed layout) |
 | **Prompts** | Prompt management with versioning and project organization |
-| **Integrations** | Linear sync with preview/approve workflow |
+| **Integrations** | Linear, Slite, Notion sync with preview/approve workflow |
+| **Multimedia** | Media library with Mermaid diagram editor |
 
 ### Kronus Skills (On-Demand Context)
 
@@ -212,15 +254,27 @@ New skills can be added to the database — Kronus discovers them dynamically at
 
 ### Chat Models
 
-| Model | Context | Provider |
-|-------|---------|----------|
-| Gemini 3 Pro | 1M tokens | Google |
-| Gemini 3 Flash | 1M tokens | Google |
-| Claude Opus 4.6 | 1M tokens | Anthropic |
-| Claude Opus 4.7 | 1M tokens | Anthropic |
-| Claude Opus 4.5 | 200K tokens | Anthropic |
-| Claude Haiku 4.5 | 200K tokens | Anthropic |
-| GPT-5.2 | 400K tokens | OpenAI |
+| Model | Context | Provider | Notes |
+|-------|---------|----------|-------|
+| Gemini 3.1 Pro | 1M tokens | Google | Default |
+| Gemini 3.1 Flash Lite | 1M tokens | Google | Ultra-fast, cheapest |
+| Claude Sonnet 4.6 | 1M tokens | Anthropic | Best value |
+| Claude Opus 4.6 | 1M tokens | Anthropic | Stable flagship |
+| Claude Opus 4.7 | 1M tokens | Anthropic | Latest Opus |
+| GPT-5.4 | 400K tokens | OpenAI | Extreme reasoning |
+| GPT-5.3 Instant | 400K tokens | OpenAI | Fast chat |
+
+**Kronus MCP (askKronus)** uses flash-lite 3.1 (quick), flash (deep), Opus 4.6 (serious) — optimized for speed and cost.
+
+### Daimon (Writing Assistant)
+
+Inline polish-before-send plugin for the chat input. Merges Atropos (grammar) + Hermes (translation) into one flow:
+
+- **Cmd+Enter** triggers Daimon when enabled (toggle in header bar)
+- Shows word-level diff panel with corrections highlighted
+- Three actions: **Accept** (edit in place), **Send as-is**, **Send polished**
+- Correction history viewer with date and status
+- Clean text → no interruption when text has no errors
 
 ## Key Concepts
 
@@ -281,6 +335,13 @@ MCP_API_KEY=your-mcp-key                  # Authenticated MCP requests
 GITHUB_TOKEN=ghp_...                      # GitHub repo browsing
 GITLAB_TOKEN=glpat-...                    # GitLab repo browsing
 GITLAB_HOST=https://gitlab.com            # GitLab instance URL
+
+# Optional integrations (continued)
+SLITE_API_KEY=your-slite-key             # Slite knowledge base
+NOTION_API_KEY=your-notion-key           # Notion workspace pages
+GOOGLE_CLIENT_ID=...                      # Google Workspace (Drive, Gmail, Calendar)
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REFRESH_TOKEN=...
 
 # Optional AI features
 REPLICATE_API_TOKEN=r8_...                # Image generation (FLUX, Imagen)
@@ -343,12 +404,25 @@ Logs: `/tmp/tartarus-linear-sync.log`
 
 > **Note**: The automated sync requires Tartarus to be running on port 3005. If the server is down, the curl silently fails — no harm done. If you fork this repo, the launchd plist is not installed automatically; use the manual sync button instead.
 
+## Testing
+
+```bash
+npm test                    # All tests (43 total)
+npm run test:registry       # Object registry unit tests (23)
+npm run test:mcp            # MCP integration tests (20)
+```
+
+**Registry tests** (`tests/object-registry.test.ts`): register, lookup, search, snapshot/history, constraints, cascading deletes — runs against in-memory SQLite.
+
+**MCP integration tests** (`tests/mcp-integration.test.ts`): build verification, DB health, all table existence, UUID integrity (format + uniqueness), registry population, environment validation.
+
 ## Development
 
 ```bash
 # MCP server
 npm run build      # Build (esbuild → dist/index.js)
 npm run dev        # Watch mode
+npm test           # Run test suite
 
 # Web app
 cd web
@@ -362,6 +436,9 @@ make build         # Build MCP server
 # Docker
 docker compose up -d --build
 docker compose logs -f tartarus
+
+# Object registry backfill (run once after fresh setup)
+JOURNAL_DB_PATH=./data/journal.db npx tsx web/scripts/backfill-object-registry.ts
 ```
 
 ## Tech Stack
@@ -370,10 +447,11 @@ docker compose logs -f tartarus
 |-----------|-----------|
 | MCP Server | TypeScript, MCP SDK, better-sqlite3, esbuild |
 | Web App | Next.js 16, React, Tailwind CSS, shadcn/ui |
-| AI | Vercel AI SDK, Google Gemini, Anthropic Claude, OpenAI GPT |
-| Database | SQLite (shared between MCP and web) |
+| AI | Vercel AI SDK 6.0, Google Gemini, Anthropic Claude, OpenAI GPT |
+| Database | SQLite (shared between MCP and web), UUID object registry |
 | ORM | Drizzle (web), raw SQL (MCP) |
-| Integrations | Linear, GitHub (Octokit), GitLab (Gitbeaker), Replicate, Perplexity |
+| Integrations | Linear, Slite, Notion, Google Workspace, GitHub, GitLab, Replicate, Perplexity |
+| Testing | Node.js assert + tsx (43 tests) |
 
 ## License
 
