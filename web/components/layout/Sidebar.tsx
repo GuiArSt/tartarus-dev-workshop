@@ -10,8 +10,6 @@ import {
   LogOut,
   Settings,
   Archive,
-  Scissors,
-  Languages,
   PanelLeftClose,
   PanelLeft,
   Menu,
@@ -46,18 +44,6 @@ const navItems = [
     description: "Browse journal entries",
   },
   {
-    title: "Atropos",
-    href: "/atropos",
-    icon: Scissors,
-    description: "The fate that corrects",
-  },
-  {
-    title: "Hermes",
-    href: "/hermes",
-    icon: Languages,
-    description: "The messenger translates",
-  },
-  {
     title: "Repository",
     href: "/repository",
     icon: Archive,
@@ -69,8 +55,6 @@ const navItems = [
 const pageTitles: Record<string, string> = {
   "/chat": "Kronus",
   "/reader": "Reader",
-  "/atropos": "Atropos",
-  "/hermes": "Hermes",
   "/repository": "Repository",
   "/kronus": "Kronus History",
   "/multimedia": "Multimedia",

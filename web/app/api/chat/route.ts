@@ -446,35 +446,40 @@ export async function POST(req: Request) {
       modelMessages = stripLeadingAssistantMessages(modelMessages);
     }
 
-    // Gemini 3 Pro requires thoughtSignature for multi-turn tool calling
-    // When signatures aren't preserved in message conversion, inject dummy signature
-    // See: https://ai.google.dev/gemini-api/docs/thought-signatures
-    const isGemini3 =
-      actualProvider === "google" &&
-      (process.env.GOOGLE_MODEL?.includes("gemini-3") || !process.env.GOOGLE_MODEL);
-    if (isGemini3) {
-      modelMessages = modelMessages.map((msg: any) => {
-        if (msg.role === "assistant" && msg.content) {
-          // Add thoughtSignature to tool-call parts that don't have one
-          const updatedContent = msg.content.map((part: any) => {
-            if (part.type === "tool-call" && !part.providerMetadata?.google?.thoughtSignature) {
-              return {
-                ...part,
-                providerMetadata: {
-                  ...part.providerMetadata,
-                  google: {
-                    ...part.providerMetadata?.google,
-                    thoughtSignature: "skip_thought_signature_validator",
-                  },
-                },
-              };
-            }
-            return part;
-          });
-          return { ...msg, content: updatedContent };
+    // Gemini 3 requires a thoughtSignature on every historical tool-call it sees.
+    // If one is missing (stale conversation, metadata lost in transport, pre-SDK-6 data),
+    // the API 400s on the whole request. Drop unsigned tool-calls and their paired
+    // tool-result parts so the conversation can continue. The current turn's fresh
+    // tool-calls still carry their own signatures and are unaffected.
+    if (actualProvider === "google") {
+      const droppedToolCallIds = new Set<string>();
+      for (const msg of modelMessages as any[]) {
+        if (msg.role !== "assistant" || !Array.isArray(msg.content)) continue;
+        msg.content = msg.content.filter((part: any) => {
+          if (part.type !== "tool-call") return true;
+          const hasSig = !!part.providerOptions?.google?.thoughtSignature;
+          if (!hasSig) {
+            droppedToolCallIds.add(part.toolCallId);
+            console.warn("[Gemini] dropping unsigned tool-call", {
+              toolName: part.toolName,
+              toolCallId: part.toolCallId,
+            });
+            return false;
+          }
+          return true;
+        });
+      }
+      if (droppedToolCallIds.size > 0) {
+        for (const msg of modelMessages as any[]) {
+          if (msg.role !== "tool" || !Array.isArray(msg.content)) continue;
+          msg.content = msg.content.filter(
+            (part: any) => part.type !== "tool-result" || !droppedToolCallIds.has(part.toolCallId)
+          );
         }
-        return msg;
-      });
+        modelMessages = (modelMessages as any[]).filter(
+          (msg: any) => !Array.isArray(msg.content) || msg.content.length > 0
+        );
+      }
     }
 
     // Build provider options for thinking/reasoning based on provider and model capability
